@@ -54,6 +54,59 @@ public class ProfilesCaptureTests
     }
 
     [Fact]
+    public async Task A_save_refused_for_room_says_in_its_details_what_it_tried_and_which_folders_failed()
+    {
+        const long floor = 1_000;
+        using var workspace = new BackendWorkspace(options => options with { Engine = new GitEngineOptions { MinFreeBytesForStorageWrites = floor } });
+        var game = await workspace.AddGameAsync();
+        var (profile, _) = await workspace.CreateProfileAsync(game);
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "data", "patch.pak"), new string('a', 300_000));
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "slot2.sav"), new string('b', 200_000));
+        workspace.Disk.FreePerPath = path => path.StartsWith(workspace.DefaultStorageRoot, StringComparison.OrdinalIgnoreCase) ? floor + 400_000 : null;
+
+        var started = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "Too much together");
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        var steps = job.RecentLines.OfType<JobLine.Step>().ToList();
+        Assert.Contains(steps, step => step.MessageId == JobSteps.CaptureStart);
+        foreach (var role in new[] { "install", "external" })
+        {
+            Assert.Contains(steps, step => step.MessageId == JobSteps.CaptureFolder && Equals(step.Args["folder"], role));
+            Assert.Contains(steps, step => step.MessageId == JobSteps.CaptureFolderFailed && Equals(step.Args["folder"], role));
+        }
+    }
+
+    [Fact]
+    public async Task A_folder_that_cannot_fit_alone_is_refused_with_its_own_figures_while_the_other_is_saved_and_a_retry_joins_the_same_snapshot()
+    {
+        const long floor = 1_000;
+        using var workspace = new BackendWorkspace(options => options with { Engine = new GitEngineOptions { MinFreeBytesForStorageWrites = floor } });
+        var game = await workspace.AddGameAsync();
+        var (profile, _) = await workspace.CreateProfileAsync(game);
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "data", "patch.pak"), new string('a', 600_000));
+        BackendWorkspace.WriteFile(Path.Combine(game.External!.Path, "slot2.sav"), new string('b', 200_000));
+        workspace.Disk.FreePerPath = path => path.StartsWith(workspace.DefaultStorageRoot, StringComparison.OrdinalIgnoreCase) ? floor + 400_000 : null;
+
+        var started = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "Progress");
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        var result = Assert.IsType<CaptureResult>(job.Result);
+        var install = result.Folders.Single(folder => folder.Role == RepoRole.Install);
+        Assert.Equal("error.diskSpace.low", install.Error?.MessageId);
+        Assert.Equal(floor + 600_000, install.Error!.Args["requiredBytes"]);
+        Assert.True(result.Folders.Single(folder => folder.Role == RepoRole.External).Ok);
+        Assert.Single(await CommitsAsync(workspace, game, RepoRole.Install, profile));
+        var saved = (await CommitsAsync(workspace, game, RepoRole.External, profile)).First();
+        Assert.Equal("Progress", saved.Subject);
+
+        // The saves are remembered as saved, so the retry for the install folder joins their snapshot.
+        workspace.Disk.FreePerPath = null;
+        var retried = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "Progress", [RepoRole.Install]);
+        await workspace.WaitForJobAsync(retried.Value!.JobId);
+        Assert.Equal(saved.CaptureId, (await CommitsAsync(workspace, game, RepoRole.Install, profile)).First().CaptureId);
+    }
+
+    [Fact]
     public async Task Folders_saved_side_by_side_that_fit_together_are_both_saved()
     {
         const long floor = 1_000;

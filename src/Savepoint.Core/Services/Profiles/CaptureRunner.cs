@@ -201,12 +201,6 @@ internal sealed class CaptureRunner
         var repos = GameFolders.Repos(_services, storage, game).Where(repo => roles.Contains(repo.Role)).ToList();
         plans = await RefuseUnsafeReplaceAsync(storage, game, profile, repos, plans, capture.Id, context.CancellationToken).ConfigureAwait(false);
 
-        // Reported as every folder failing, as when each folder is refused on its own, so the save ends with its usual result.
-        if (await RoomRefusalAsync(storage, game, repos, plans, context.CancellationToken).ConfigureAwait(false) is { } refusal)
-        {
-            return new CaptureResult(profile.Id, null, [.. repos.Select(repo => new FolderOutcome(repo.Role, refusal))]);
-        }
-
         var progress = new CaptureProgressCombiner(context.Progress, context.AddLine);
         // A new profile's first snapshot carries the profile's name, so saying both would repeat it.
         if (creating && pointName == profile.Name)
@@ -219,8 +213,10 @@ internal sealed class CaptureRunner
         }
 
 
-        // The folders are separate repositories, so they are saved side by side; one failing never stops the others.
-        var saved = await Task.WhenAll(repos.Select(repo => SaveFolderAsync(context, storage, game, repo, profile.BranchName, pointName, capture, forksNewBranches, plans?.GetValueOrDefault(repo.Role), progress.For(repo.Role)))).ConfigureAwait(false);
+        // The folders are separate repositories, so they are saved side by side; one failing never stops the others. They write into one
+        // storage volume, so each capture judges its own room first and then the volume is asked about the folders that fit alone, together.
+        var room = repos.Count > 1 ? new CaptureRoomGate(storage.Engine, repos) : null;
+        var saved = await Task.WhenAll(repos.Select(repo => SaveFolderAsync(context, storage, game, repo, profile.BranchName, pointName, capture, forksNewBranches, plans?.GetValueOrDefault(repo.Role), room, progress.For(repo.Role)))).ConfigureAwait(false);
 
         var outcomes = saved.Select(folder => folder.Outcome).ToList();
         if (creating)
@@ -230,46 +226,6 @@ internal sealed class CaptureRunner
 
         var recorded = saved.Any(folder => folder.Recorded);
         return new CaptureResult(profile.Id, recorded ? new HistoryPointId(capture.Id) : null, outcomes);
-    }
-
-    // The folders are saved side by side into one storage volume and each capture checks only its own files, so the whole save is judged
-    // here, before any folder is written. A folder left as it was at launch may not be written at all, so it is not counted.
-    private static async Task<ErrorInfo?> RoomRefusalAsync(
-        StorageSnapshot storage,
-        GameDefinition game,
-        IReadOnlyList<RepoRef> repos,
-        IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans,
-        CancellationToken cancellationToken)
-    {
-        var writing = repos.Where(repo => plans?.GetValueOrDefault(repo.Role) is not { LeftAtLaunch: true }).ToList();
-        if (writing.Count < 2)
-        {
-            return null;
-        }
-
-        var estimates = await Task.WhenAll(writing.Select(repo => EstimateAsync(storage, game, repo, cancellationToken))).ConfigureAwait(false);
-        try
-        {
-            storage.Engine.RequireCaptureRoom(writing, estimates.Sum());
-            return null;
-        }
-        catch (DiskSpaceException e)
-        {
-            return ErrorInfo.From(e);
-        }
-    }
-
-    // A folder that cannot be read for its estimate gets the same error from its own capture, which reports it for that folder alone.
-    private static async Task<long> EstimateAsync(StorageSnapshot storage, GameDefinition game, RepoRef repo, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await storage.Engine.EstimateCaptureBytesAsync(repo, game.IgnorePathsFor(repo.Role), cancellationToken).ConfigureAwait(false);
-        }
-        catch (SavepointException)
-        {
-            return 0;
-        }
     }
 
     // A replacement is judged again now, with the game's lock held and the folders as they are: what was true when the session ended may
@@ -342,10 +298,12 @@ internal sealed class CaptureRunner
         CaptureEvent capture,
         bool forksNewBranches,
         FolderCapturePlan? plan,
+        CaptureRoomGate? room,
         CaptureProgressCombiner.Part progress)
     {
         if (context.CancellationToken.IsCancellationRequested)
         {
+            room?.DropOut(repo.Role);
             return new SavedFolder(repo, new FolderOutcome(repo.Role, ErrorInfo.From(new OperationCancelledByUserException(CancelledOperation.Capture, game.Id))), false, false);
         }
 
@@ -355,7 +313,7 @@ internal sealed class CaptureRunner
         {
             var existed = await storage.Engine.BranchExistsAsync(repo, branch, context.CancellationToken).ConfigureAwait(false);
             startedBranch = !existed;
-            var saved = await CaptureFolderAsync(storage, game, repo, branch, existed, pointName, capture, forksNewBranches, plan, progress, context.CancellationToken).ConfigureAwait(false);
+            var saved = await CaptureFolderAsync(storage, game, repo, branch, existed, pointName, capture, forksNewBranches, plan, room, progress, context.CancellationToken).ConfigureAwait(false);
             LogSkipped(game.Id, repo, branch, saved);
             if (saved.LeftAlone)
             {
@@ -389,6 +347,9 @@ internal sealed class CaptureRunner
         }
         finally
         {
+            // A folder that ends without reporting must not keep the others waiting for it.
+            room?.DropOut(repo.Role);
+
             // A folder with nothing to store never reports, and would otherwise hold the other folder's total back until the job ends.
             progress.Finish();
         }
@@ -421,6 +382,7 @@ internal sealed class CaptureRunner
         CaptureEvent capture,
         bool forksNewBranch,
         FolderCapturePlan? plan,
+        CaptureRoomGate? room,
         IProgress<FileProgress> progress,
         CancellationToken cancellationToken)
     {
@@ -455,6 +417,7 @@ internal sealed class CaptureRunner
             IgnorePatterns = game.IgnorePathsFor(repo.Role),
             ExpectedStartCommit = plan?.ExpectedStartCommit,
             SkipAmendWhenUnchanged = plan?.SkipWhenClean ?? false,
+            BeforeWriting = room is null ? null : (newBytes, token) => room.ReportAsync(repo.Role, newBytes, token),
         };
         var outcome = await storage.Engine.CaptureAsync(repo, request, progress, cancellationToken).ConfigureAwait(false);
         if (outcome.Changed || outcome.TipCommitId is not null)

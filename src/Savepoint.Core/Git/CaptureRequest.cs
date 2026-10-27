@@ -86,4 +86,13 @@ public sealed record CaptureRequest
     /// modes do not look at it.
     /// </summary>
     public string? ExpectedStartCommit { get; init; }
+
+    /// <summary>
+    /// Called once the capture knows how many bytes it would add (0 when nothing needs storing) and has found room for them on the storage
+    /// volume by itself, before any object is stored. A save of several folders uses it to judge them together without listing any folder
+    /// twice: the call may wait for the other folders, and an exception from it (a <see cref="Savepoint.Core.Errors.DiskSpaceException"/>)
+    /// ends the capture with nothing written. It is not called when the capture ends before it stages, as when the branch already holds the
+    /// point. Null by default.
+    /// </summary>
+    public Func<long, CancellationToken, Task>? BeforeWriting { get; init; }
 }

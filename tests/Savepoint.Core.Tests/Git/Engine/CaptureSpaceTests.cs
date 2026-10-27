@@ -45,19 +45,63 @@ public sealed class CaptureSpaceTests : IDisposable
         Assert.Null(await _ws.ResolveAsync(repo, "HEAD"));
     }
 
+    // What the capture tells the hook it is about to add, with nothing stored yet.
+    private async Task<long?> ReportedBytesAsync(RepoRef repo, string branch)
+    {
+        long? reported = null;
+        var objectsBefore = ObjectFiles(repo);
+        var request = new CaptureRequest(branch, "A point", Guid.NewGuid().ToString())
+        {
+            BeforeWriting = (bytes, _) =>
+            {
+                reported = bytes;
+                Assert.Equal(objectsBefore, ObjectFiles(repo));
+                return Task.CompletedTask;
+            },
+        };
+        await _ws.Engine.CaptureAsync(repo, request, null, Ct);
+        return reported;
+    }
+
     [Fact]
-    public async Task The_estimate_counts_the_new_and_changed_files_the_capture_would_check_and_not_the_ones_already_recorded()
+    public async Task A_capture_reports_the_new_and_changed_files_it_would_add_before_it_stores_any_and_not_the_ones_already_recorded()
     {
         var repo = await _ws.InitializedRepoAsync();
         _ws.Write(repo, "big.bin", new byte[300_000]);
-        Assert.Equal(300_000, await _ws.Engine.EstimateCaptureBytesAsync(repo, [], Ct));
-        await _ws.CaptureAsync(repo, "profile-1", "First");
+        Assert.Equal(300_000, await ReportedBytesAsync(repo, "profile-1"));
         _ws.Write(repo, "small.txt", "xyz");
         _ws.Write(repo, "big.bin", new byte[300_005]);
 
-        var estimate = await _ws.Engine.EstimateCaptureBytesAsync(repo, [], Ct);
+        var reported = await ReportedBytesAsync(repo, "profile-1");
 
-        Assert.Equal(300_008, estimate);
+        Assert.Equal(300_008, reported);
+    }
+
+    [Fact]
+    public async Task A_capture_with_nothing_to_store_still_reports_nothing_to_add()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "a.txt", "a");
+        await _ws.CaptureAsync(repo, "profile-1", "First");
+
+        Assert.Equal(0, await ReportedBytesAsync(repo, "profile-1"));
+    }
+
+    [Fact]
+    public async Task A_capture_the_hook_refuses_stores_nothing()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "a.txt", "a");
+        var objectsBefore = ObjectFiles(repo);
+        var request = new CaptureRequest("profile-1", "A point", Guid.NewGuid().ToString())
+        {
+            BeforeWriting = (_, _) => throw new DiskSpaceException(repo.GitDir, 10, 5),
+        };
+
+        await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.Engine.CaptureAsync(repo, request, null, Ct));
+
+        Assert.Equal(objectsBefore, ObjectFiles(repo));
+        Assert.Null(await _ws.ResolveAsync(repo, "HEAD"));
     }
 
     [Fact]

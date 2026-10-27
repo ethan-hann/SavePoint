@@ -85,6 +85,26 @@ public sealed class SwitchCheckTests : IDisposable
     }
 
     [Fact]
+    public async Task The_growth_of_a_switch_is_read_from_the_saved_points_alone_so_unsaved_changes_do_not_stop_it()
+    {
+        var repo = await TwoProfilesAsync();
+        _ws.Write(repo, "small.txt", "edited and never saved");
+
+        var growth = await _ws.Engine.SwitchGrowthAsync(repo, "profile-b", isBranch: true, Ct);
+
+        Assert.Equal(300_000, growth);
+    }
+
+    [Fact]
+    public async Task The_growth_of_a_switch_that_frees_more_than_it_writes_is_nothing()
+    {
+        var repo = await TwoProfilesAsync();
+        await _ws.GitWriteAsync(repo, "checkout", "--quiet", "profile-b");
+
+        Assert.Equal(0, await _ws.Engine.SwitchGrowthAsync(repo, "profile-a", isBranch: true, Ct));
+    }
+
+    [Fact]
     public async Task Room_for_the_growth_of_several_folders_is_refused_with_the_figures_for_the_volume()
     {
         var repo = await TwoProfilesAsync();

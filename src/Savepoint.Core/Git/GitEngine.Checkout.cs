@@ -360,8 +360,8 @@ public sealed partial class GitEngine
     /// share a path, unsaved changes and a half-switched folder. The folder, the repository's index and config, its refs and the note of an
     /// unfinished switch are only read. When the game's patterns name files, git is also given a throwaway <c>savepoint-classify-*</c> index
     /// in the git directory, which is deleted when the question is answered. A launch that switches several folders asks the later ones
-    /// first, so a refusal in a later folder leaves the earlier ones as they were; it asks the first one too when another folder is on its
-    /// volume, to add up what they need together (see <see cref="RequireSwitchRoom"/>).
+    /// first, so a refusal in a later folder leaves the earlier ones as they were; the first one's growth is read too, with
+    /// <see cref="SwitchGrowthAsync"/>, when another folder is on its volume (see <see cref="RequireSwitchRoom"/>).
     /// </summary>
     /// <param name="repo">The folder that would be switched.</param>
     /// <param name="target">The branch name, or the full id of an older point.</param>
@@ -409,6 +409,46 @@ public sealed partial class GitEngine
 
         var (from, to, note) = await ReadSwitchEndsAsync(repo, target, isBranch, ct).ConfigureAwait(false);
         var (plan, sizes, _) = await RequireSwitchPossibleAsync(repo, from, to, force: false, note, readFiles: false, ct).ConfigureAwait(false);
+        return GrowthOf(plan.Changes, sizes);
+    }
+
+    /// <summary>
+    /// The bytes a switch of the folder to a branch or an older point would add, read from the two saved points and the sizes of their files
+    /// alone: the work tree is not looked at and nothing is refused, so it costs the same however large the folder is. A launch uses it to add up
+    /// what folders on one volume need together (see <see cref="RequireSwitchRoom"/>); the switch of each folder still refuses for itself before it writes.
+    /// </summary>
+    /// <param name="repo">The folder that would be switched.</param>
+    /// <param name="target">The branch name, or the full id of an older point.</param>
+    /// <param name="isBranch">Whether <paramref name="target"/> is a branch.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <returns>The bytes the switch adds to the folder, never negative; the same figure <see cref="CheckSwitchAsync"/> reports for a switch it lets through.</returns>
+    /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left a note that does not say where it was heading.</exception>
+    /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>
+    /// <exception cref="ArgumentException"><paramref name="target"/> is not a valid branch name, or not a full commit id.</exception>
+    /// <exception cref="Savepoint.Core.Errors.GitOperationException">The repository does not exist, the point is not in it, or git failed.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public async Task<long> SwitchGrowthAsync(RepoRef repo, string target, bool isBranch, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(target);
+        if (isBranch)
+        {
+            BranchNames.Require(target);
+        }
+        else
+        {
+            RequireCommitId(target);
+        }
+
+        repo = Normalize(repo);
+        ct.ThrowIfCancellationRequested();
+        if (!IsInitialized(repo.GitDir))
+        {
+            throw new GitOperationException($"The repository at '{repo.GitDir}' does not exist.");
+        }
+
+        var (from, to, note) = await ReadSwitchEndsAsync(repo, target, isBranch, ct).ConfigureAwait(false);
+        var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
+        var sizes = await ObjectSizesAsync(repo, plan.Changes.SelectMany(change => new[] { change.OldId, change.NewId }), ct).ConfigureAwait(false);
         return GrowthOf(plan.Changes, sizes);
     }
 

@@ -106,6 +106,27 @@ public class LaunchLeftFolderTests
     }
 
     [Fact(Timeout = 150_000)]
+    public async Task A_left_folder_that_the_save_writes_as_a_first_history_counts_with_the_other_folders_for_the_room()
+    {
+        const long floor = 1_000;
+        var (rig, vanilla, first) = await WithInstallOnlyPointAsync(savesSaved: true, options => options with { Engine = new GitEngineOptions { MinFreeBytesForStorageWrites = floor } });
+        using var _ = rig;
+        await PlayAsync(rig, new LaunchTarget.Point(first));
+        rig.WriteInstall("data/patch.pak", new string('a', 300_000));
+        rig.WriteSave("played.sav", new string('b', 200_000));
+
+        // Either folder fits on its own; both do not.
+        rig.Workspace.Disk.FreePerPath = path => path.StartsWith(rig.Workspace.DefaultStorageRoot, StringComparison.OrdinalIgnoreCase) ? floor + 400_000 : null;
+        var done = await CompleteAsync(rig, new SessionCompletion.ForkNewProfile("Kept", "Kept point"));
+
+        var result = Assert.IsType<CaptureResult>(done.Result);
+        Assert.All(result.Folders, folder => Assert.Equal("error.diskSpace.low", folder.Error?.MessageId));
+        Assert.Equal(floor + 500_000, result.Folders[0].Error!.Args["requiredBytes"]);
+        Assert.DoesNotContain((await rig.Profiles.ListAsync(rig.Game.Id, rig.Token)).Value!, profile => profile.Name == "Kept");
+        Assert.Equal(2, (await rig.CommitsAsync(RepoRole.External, vanilla)).Count);
+    }
+
+    [Fact(Timeout = 150_000)]
     public async Task A_left_folder_that_moved_after_the_game_started_is_still_saved_as_the_new_profiles_own_first_point()
     {
         var (rig, vanilla, first) = await WithInstallOnlyPointAsync(savesSaved: true);
@@ -198,6 +219,32 @@ public class LaunchLeftFolderTests
         // The saves folder sits on Other's branch, which the save cannot write to, so its new file is not part of what the dialog offers.
         Assert.Equal(0, exited.NewFileCount);
         Assert.Equal(1, exited.ChangedInstallFileCount);
+    }
+
+    [Fact(Timeout = 150_000)]
+    public async Task A_left_folder_the_save_skips_does_not_count_toward_the_room_the_other_folders_need()
+    {
+        const long floor = 1_000;
+        using var rig = await LaunchRig.CreateAsync(options => options with { Engine = new GitEngineOptions { MinFreeBytesForStorageWrites = floor } }, withSaves: false, gameArguments: ["--exit-after", "800"]);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        rig.WriteInstall("mods/update.txt", "a mod update");
+        await rig.CaptureAsync(vanilla, "Mod update", RepoRole.Install);
+        await rig.AddSavesFolderAsync();
+        await rig.CaptureAsync(vanilla, "First saves", RepoRole.External);
+        await rig.ProfileAsync("Other");
+        var modUpdate = (await rig.History.GetAsync(rig.Game.Id, null, rig.Token)).Value!.Points.Single(point => point.Name == "Mod update");
+        await PlayAsync(rig, new LaunchTarget.Point(modUpdate.Id));
+        rig.WriteInstall("data/patch.pak", new string('a', 300_000));
+        rig.WriteSave("played.sav", new string('b', 600_000));
+
+        // The install folder fits; the saves folder is on Other's branch, so it is skipped and its files are no part of what the save writes.
+        rig.Workspace.Disk.FreePerPath = path => path.StartsWith(rig.Workspace.DefaultStorageRoot, StringComparison.OrdinalIgnoreCase) ? floor + 400_000 : null;
+        var done = await CompleteAsync(rig, new SessionCompletion.CaptureNew("Played"));
+
+        var result = Assert.IsType<CaptureResult>(done.Result);
+        Assert.All(result.Folders, folder => Assert.True(folder.Ok, folder.Error?.Detail));
+        Assert.True(result.Folders.Single(folder => folder.Role == RepoRole.External).LeftAlone);
+        Assert.Equal(3, (await rig.CommitsAsync(RepoRole.Install, vanilla)).Count);
     }
 
     // The first profile sees the point; the second was made from the same state, so the saves folder sits on the second one's branch.

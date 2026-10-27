@@ -1,3 +1,5 @@
+using Savepoint.Core.Paths;
+
 namespace Savepoint.Core.Services.Storage;
 
 /// <summary>Reports free space on the volume that holds a path, so a write can be refused before it starts (D13.16).</summary>
@@ -25,8 +27,8 @@ public interface IDiskSpace
 /// <summary>The real <see cref="IDiskSpace"/>, backed by <see cref="DriveInfo"/>.</summary>
 /// <remarks>
 /// The figure is what the volume offers the current user (quotas and reserved blocks excluded), read at the time of the
-/// call and stale a moment later. On Windows a volume mounted into a folder reads as the drive letter that holds the
-/// folder; UNC paths read as unknown.
+/// call and stale a moment later. A folder reached through a link (a symbolic link or a junction) is measured where the link
+/// leads. On Windows a volume mounted into a folder reads as the drive letter that holds the folder; UNC paths read as unknown.
 /// </remarks>
 public sealed class DiskSpace : IDiskSpace
 {
@@ -69,17 +71,15 @@ public sealed class DiskSpace : IDiskSpace
 
     private static string? ExistingFolderOf(string path)
     {
-        string full;
         try
         {
-            full = Path.GetFullPath(path);
+            // A folder reached through a link takes up room on the volume the link leads to, so that is the one asked about.
+            return NearestExistingFolder(Path.GetFullPath(path)) is { } existing ? RealPath.Resolve(existing) : null;
         }
-        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException)
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException or IOException or UnauthorizedAccessException)
         {
             return null;
         }
-
-        return NearestExistingFolder(full);
     }
 
     private static long? Measure(string path, Func<DriveInfo, long> read)
