@@ -102,14 +102,19 @@ public sealed class FileSystemFolderWatcherTests : IDisposable
         var signals = new Signals();
         signals.Attach(watch);
 
-        for (var i = 0; i < 300; i++)
+        const int writes = 300;
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        for (var i = 0; i < writes; i++)
         {
             await File.WriteAllTextAsync(Path.Combine(folder, $"f{i}.bin"), "x", TestContext.Current.CancellationToken);
         }
 
         await UntilAsync(() => signals.Changed > 0);
         await Task.Delay(_quietLook, TestContext.Current.CancellationToken);
-        Assert.InRange(signals.Changed, 1, 30);
+
+        // At most one signal per gap while the writes go on, however slow the disk or a virus scanner makes them.
+        var perGap = (int)(timer.Elapsed / FileSystemFolderWatch.SignalGap) + 3;
+        Assert.InRange(signals.Changed, 1, Math.Min(perGap, writes - 1));
     }
 
     [Fact]

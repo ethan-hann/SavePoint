@@ -43,7 +43,7 @@ public sealed class FileSystemFolderWatcher : IFolderWatcher
 internal sealed class FileSystemFolderWatch : IFolderWatch
 {
     // A program writing thousands of files raises thousands of events; the listener only needs to hear that something changed.
-    private static readonly TimeSpan _signalGap = TimeSpan.FromMilliseconds(100);
+    internal static readonly TimeSpan SignalGap = TimeSpan.FromMilliseconds(100);
 
     // The default buffer (8 KB) holds a few dozen events and overflows under a mod install.
     private const int _bufferBytes = 64 * 1024;
@@ -166,7 +166,7 @@ internal sealed class FileSystemFolderWatch : IFolderWatch
         {
             try
             {
-                _gapTimer.Change(_signalGap, Timeout.InfiniteTimeSpan);
+                _gapTimer.Change(SignalGap, Timeout.InfiniteTimeSpan);
             }
             catch (ObjectDisposedException)
             {
