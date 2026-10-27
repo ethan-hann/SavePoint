@@ -360,7 +360,7 @@ The App's log is `Hosting/SerilogDiagnosticLog`. It writes `savepoint-<date>.log
 
 ### Artwork (D30)
 
-`IArtworkApi` answers at once with what is on disk. A missing image starts a background lookup, and the `ArtworkChanged` event (keyed by game id) delivers the result.
+`IArtworkApi` answers at once with what is on disk. A missing image starts a background lookup, and the `ArtworkChanged` event (keyed by game id) delivers the result. The event fires only when the kept images change, so a lookup that finds the same bytes again raises nothing.
 - **Images** live in `<catalog dir>/artwork/<gameId>/`: `custom.<ext>`, `steam-wide.jpg`, `steam-square.jpg`, and `lookup.json`, which records the app id used and a miss.
 - **Online lookup** runs only when `BackendOptions.ArtworkHttp` is set, and only `AppBootstrap` supplies the real handler. `BackendOptions.SteamFolder` lets tests point at a fake Steam folder.
 - **Retries:** a lookup that comes to an answer runs at most once per run for each game, app id, and online setting. A lookup that fails for want of a connection is not remembered, and is tried again at the next read.
