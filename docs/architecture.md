@@ -159,13 +159,14 @@ public interface IGamesApi
     Task<OperationResult<LibraryAddResult>> AddLibraryGameAsync(LibraryGame game);                            // one scanned game through AddAsync's checks: Added | AlreadyAdded | HasOlderHistory | Refused
     Task<OperationResult<GameDefinition>> ImportDefinitionAsync(string filePath, CancellationToken cancellationToken = default);  // never saves
     Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath);
+    Task<OperationResult<bool>> FolderExistsAsync(string rawPath, CancellationToken cancellationToken = default);  // after tokens resolve; the editor leaves a template's missing mods folder out
 }
 
 public interface IProfilesApi
 {
     Task<OperationResult<IReadOnlyList<Profile>>> ListAsync(string? gameId = null, CancellationToken cancellationToken = default);
     Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default);
-    Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName);  // wizard and keep-as-new
+    Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName, IReadOnlyCollection<RepoRole>? startEmpty = null);  // wizard and keep-as-new; startEmpty: saves or mods start with an empty snapshot (D65)
     Task<OperationResult<Profile>> UpdateAsync(string gameId, string profileId, ProfileChanges changes);
     Task<OperationResult<Profile>> DuplicateAsync(string gameId, string sourceProfileId, string name);
     Task<OperationResult<ProfileDeletePreview>> GetDeletePreviewAsync(string gameId, string profileId, CancellationToken cancellationToken = default);
