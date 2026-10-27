@@ -10,7 +10,8 @@
              x:Class="Savepoint.App.Features.Games.GamesScreenView"
              x:DataType="games:GamesScreenViewModel">
   <!--
-    The Games screen (sidebar and library layouts): the game's header, the Profiles / History chips, the profile table, the launch flow's banner or
+    The Games screen (sidebar and library layouts): the game's header, the Profiles / History chips, the profile search (pinned above the table
+    when the profiles' area has room, first in the scrolling profiles when it has not), the profile table, the launch flow's banner or
     running card and the storage footer. The banner or card and the footer are pinned to the bottom of the pane, outside the
     table's scroll area, so a launch's progress is in view however many profiles there are. A failure card is taller, so it
     stays below the table in the scroll area, and so does any card while the pane is too short to pin it. The library layout has no art tile, path, chips or toggle (the shell's shelf

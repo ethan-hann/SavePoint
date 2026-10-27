@@ -7,7 +7,7 @@
              x:DataType="search:SearchBoxViewModel">
   <!--
     The shared search box: the standard text field with a search icon, a Clear button that shows while there is text, and a hidden
-    live region that says how many entries are left once typing pauses. Escape clears it, and the screens focus it on Ctrl+F.
+    live region that says how many entries are left once typing pauses. Escape clears it, and a keyboard shortcut (Ctrl+F, or Ctrl+Shift+F for the games) focuses it; its tooltip names the key.
   -->
   <Panel>
     <TextBox x:Name="Field"
