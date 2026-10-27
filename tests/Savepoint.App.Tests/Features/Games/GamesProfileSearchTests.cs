@@ -1,5 +1,7 @@
 using Savepoint.App.Features.Common.Search;
+using Savepoint.App.Features.Games;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Games;
@@ -106,6 +108,47 @@ public class GamesProfileSearchTests
     }
 
     [Fact]
+    public async Task While_a_search_narrows_the_table_a_line_says_how_many_profiles_it_shows()
+    {
+        var rig = await StartAsync();
+        Assert.False(rig.Screen.ShowProfileCount);
+
+        rig.Screen.ProfileSearch.Text = "mod";
+
+        Assert.True(rig.Screen.ShowProfileCount);
+        Assert.Equal("2 of 5 profiles", rig.Screen.ProfileCountText);
+
+        rig.Screen.ProfileSearch.Text = "vanilla";
+        Assert.Equal("1 of 5 profiles", rig.Screen.ProfileCountText);
+
+        rig.Screen.ProfileSearch.ClearCommand.Execute(null);
+        Assert.False(rig.Screen.ShowProfileCount);
+    }
+
+    [Fact]
+    public async Task The_count_line_gives_way_to_the_no_match_line_when_nothing_matches()
+    {
+        var rig = await StartAsync();
+
+        rig.Screen.ProfileSearch.Text = "zzz";
+
+        Assert.False(rig.Screen.ShowProfileCount);
+    }
+
+    [Fact]
+    public async Task The_count_line_follows_the_search_as_it_changes()
+    {
+        var rig = await StartAsync();
+
+        List<string?> changes = [];
+        rig.Screen.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+        rig.Screen.ProfileSearch.Text = "mod";
+
+        Assert.Contains(nameof(GamesScreenViewModel.ProfileCountText), changes);
+        Assert.Contains(nameof(GamesScreenViewModel.ShowProfileCount), changes);
+    }
+
+    [Fact]
     public async Task A_game_with_no_profiles_has_no_search_box()
     {
         var scenario = ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(SampleScenario.Caretaker);
@@ -127,6 +170,68 @@ public class GamesProfileSearchTests
 
         Assert.Equal("vanilla", rig.Screen.ProfileSearch.Text);
         Assert.Same(before, rig.Screen.VisibleProfiles.Single());
+    }
+
+    [Fact]
+    public async Task A_duplicate_the_search_would_hide_clears_the_search_so_it_shows()
+    {
+        var rig = await StartAsync();
+        rig.Screen.ProfileSearch.Text = "modded";
+
+        var shown = rig.Screen.VisibleProfiles.Single().DuplicateCommand.ExecuteAsync(null);
+        var dialog = Assert.IsType<DuplicateProfileDialogViewModel>(Assert.Single(rig.Dialogs.Shown));
+        dialog.Name = "Tidy copy";
+        await dialog.SaveCommand.ExecuteAsync(null);
+        await shown.Soon();
+
+        Assert.Equal(string.Empty, rig.Screen.ProfileSearch.Text);
+        Assert.Contains("Tidy copy", Shown(rig));
+        Assert.Equal(6, rig.Screen.VisibleProfiles.Count);
+    }
+
+    [Fact]
+    public async Task A_profile_made_with_the_wizard_that_the_search_would_hide_clears_the_search_so_it_shows()
+    {
+        var rig = await StartAsync();
+        rig.Screen.ProfileSearch.Text = "modded";
+
+        var shown = rig.Screen.NewProfileCommand.ExecuteAsync(null);
+        var wizard = Assert.IsType<NewProfileWizardViewModel>(Assert.Single(rig.Dialogs.Shown));
+        wizard.Name = "Vanilla";
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        await wizard.ContinueCommand.ExecuteAsync(null);
+        rig.Backend.Jobs.Complete(rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId);
+        wizard.CloseCommand.Execute(null);
+        await shown.Soon();
+
+        Assert.Equal(string.Empty, rig.Screen.ProfileSearch.Text);
+        Assert.Contains("Vanilla", Shown(rig));
+    }
+
+    [Fact]
+    public async Task A_profile_brought_back_from_history_that_the_search_would_hide_clears_the_search_so_it_shows()
+    {
+        var scenario = ScenarioBuilder.Sample().WithRemovedSnapshot(SampleScenario.SkyrimId, RemovedSnapshotSamples.Continued);
+        var rig = await GamesRig.StartAsync(new FakeBackend(scenario), clock: _clock);
+        rig.Screen.ProfileSearch.Text = "modded";
+
+        await rig.Backend.Profiles.BringBackAsync(SampleScenario.SkyrimId, RemovedSnapshotSamples.Continued.Id, "Boss fight again");
+        await rig.Screen.ReloadAsync();
+
+        Assert.Equal(string.Empty, rig.Screen.ProfileSearch.Text);
+        Assert.Contains("Boss fight again", Shown(rig));
+    }
+
+    [Fact]
+    public async Task A_reload_that_adds_nothing_keeps_the_search()
+    {
+        var rig = await StartAsync();
+        rig.Screen.ProfileSearch.Text = "modded";
+
+        await rig.Screen.ReloadAsync();
+
+        Assert.Equal("modded", rig.Screen.ProfileSearch.Text);
+        Assert.Equal([_modded], Shown(rig));
     }
 
     [Fact]

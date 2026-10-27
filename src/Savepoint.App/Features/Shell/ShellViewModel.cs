@@ -711,7 +711,8 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
         // History is about one game's points, so it has nothing to show in an empty library.
         Nav.First(item => item.Destination == NavDestination.History).IsEnabled = rows.Count > 0;
 
-        var selected = rows.FirstOrDefault(row => row.Id == previous?.Id) ?? rows.FirstOrDefault();
+        // When the selected game is gone, the next one is the first the search lists, so the list shows what is selected.
+        var selected = rows.FirstOrDefault(row => row.Id == previous?.Id) ?? ListedBySearch(rows).FirstOrDefault() ?? rows.FirstOrDefault();
         Select(selected, force: !Equals(previousGame, selected?.Game));
         RefilterGames();
         RaiseShellState();

@@ -194,7 +194,11 @@
                   <ColumnDefinition Width="Auto" />
                   <ColumnDefinition Width="Auto" SharedSizeGroup="ProfileActions" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Classes="overline-small" Text="{theme:Upper {loc:Loc games.profileTable.column.profile}}" />
+                <!-- While a search narrows the table, the count sits beside the heading so a player scrolled down still sees a filter is on. -->
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Classes="overline-small" Text="{theme:Upper {loc:Loc games.profileTable.column.profile}}" />
+                  <TextBlock x:Name="ProfileCountLine" Classes="caption" FontSize="11.5" VerticalAlignment="Center" IsVisible="{Binding ShowProfileCount}" Text="{Binding ProfileCountText}" />
+                </StackPanel>
                 <TextBlock x:Name="VersionHeader" Grid.Column="1" Classes="overline-small" Width="84" Margin="14,0,0,0" IsVisible="{Binding Columns.ShowVersion}" Text="{theme:Upper {loc:Loc games.profileTable.column.version}}" />
                 <TextBlock x:Name="ModFilesHeader" Grid.Column="2" Classes="overline-small" Width="76" Margin="14,0,0,0" IsVisible="{Binding Columns.ShowModFiles}" Text="{theme:Upper {loc:Loc games.profileTable.column.modFiles}}" />
                 <TextBlock x:Name="LastPlayedHeader" Grid.Column="3" Classes="overline-small" Width="86" Margin="14,0,0,0" Text="{theme:Upper {loc:Loc games.profileTable.column.lastPlayed}}" />

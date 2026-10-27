@@ -537,6 +537,12 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             }
         }
 
+        // A profile that just arrived (made, duplicated, brought back) must show, and a search that hides it would make it look lost.
+        if (ProfileSearch.HasText && rows.Any(row => !existing.ContainsKey(row.Id)))
+        {
+            ClearProfileSearch();
+        }
+
         RefilterProfiles();
         RefreshSnapshotHeader();
     }
