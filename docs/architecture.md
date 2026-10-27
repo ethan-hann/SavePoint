@@ -93,6 +93,7 @@ public interface IPlatform
     PathDenylist Denylist(IEnumerable<string> extraBlockedRoots); // tier 1 (subtree) + tier 2 (exact) absolute paths
     IProcessInspector Processes { get; }              // list running processes (pid, name, executable path, parent pid and start time where the OS gives them)
     IGameLauncher Launcher { get; }                   // start an executable or app bundle; open a URI
+    ISteamClient Steam { get; }                       // whether Steam runs and is signed in; start the client alone (D67)
 }
 ```
 
@@ -375,6 +376,6 @@ The App's log is `Hosting/SerilogDiagnosticLog`. It writes `savepoint-<date>.log
 - `ExitGuard` asks before quitting while a job runs that should not stop (D31.11, D45.3).
 - `Localization/` holds `LocalizationCatalog` (ICU formatting through MessageFormat), the `{loc:Loc}` markup extension, and `L.Format(key, args)` for view models. Message ids from `ErrorInfo` are catalog keys.
 - `Theme/` holds the Material color port (`Theme/Material/`), `ThemeService` (seed + mode -> resource dictionary of MD3 roles, live switching), styles and control themes keyed to role names, and fonts under `Assets/Fonts`.
-- `Platform/` holds OS integration that needs the UI stack (notifications, folder reveal, single instance).
+- `Platform/` holds OS integration that needs the UI stack (notifications, folder reveal, single instance, and `FolderWatching/`: `IFolderWatcher`, which the Games screen uses to follow the shown game's folders, D68; `AppServices.FolderWatcher` carries it). A screen hears it is left through `IScreen.OnHidden`.
 
 `SingleInstance` lets one copy run per user. It holds a named mutex and an exclusive lock on a file beside its socket, and listens on a named pipe so a second copy can bring its window forward and exit (D26, D39).
