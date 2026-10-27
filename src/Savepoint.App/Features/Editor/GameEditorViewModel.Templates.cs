@@ -175,6 +175,11 @@ public sealed partial class GameEditorViewModel
             SavesPath = draft.External?.Path ?? string.Empty;
         }
 
+        if (IsEmpty(ModsPath, last?.Mods?.Path))
+        {
+            ModsPath = draft.Mods?.Path ?? string.Empty;
+        }
+
         var exeEmpty = IsEmpty(ExePath, last?.Launch.ExePath);
         var uriEmpty = IsEmpty(Uri, last?.Launch.Uri);
 

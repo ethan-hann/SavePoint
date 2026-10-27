@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
+using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Help;
 using Savepoint.Core.Api;
@@ -76,7 +77,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         IsOlderPoint = preview.TargetIsOlderPoint;
         OlderPointText = IsOlderPoint ? text.Message(switchOnly ? "launch.dialog.olderPointSwitch" : "launch.dialog.olderPoint", ("profileName", profileName)) : string.Empty;
 
-        HasVersionSection = !preview.Install.MatchesTarget;
+        HasVersionSection = !preview.Install.MatchesTarget || preview.Mods is { MatchesTarget: false };
         (VersionBefore, VersionTarget, VersionAfter) = HasVersionSection ? VersionSentence() : (string.Empty, string.Empty, string.Empty);
 
         SaveOptions = SaveOptionsFor(preview);
@@ -87,14 +88,14 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         SaveCaption = text.Message("launch.dialog.saveCaption");
         SaveSnapshotHelp = ContextualHelp.SaveSnapshot(text);
 
-        foreach (var folder in new[] { preview.Install, preview.External }.OfType<FolderLaunchState>().Where(state => state.Dirty))
+        foreach (var folder in LaunchPreviewFolders.Of(preview).Where(state => state.Dirty))
         {
             AddBlock(folder);
         }
 
         // A switch the launch finishes writes the snapshot's copy over the files it was changing, whatever they hold now; the player is told
         // before it starts. A folder the finish is refused for (its block says why) is not finished, so it has nothing to say here.
-        ReplacedNote = string.Join('\n', new[] { preview.Install, preview.External }.OfType<FolderLaunchState>().Where(folder => folder.UnfinishedSwitch && !folder.Dirty && folder.ReplacedFileCount > 0).Select(ReplacedLine));
+        ReplacedNote = string.Join('\n', LaunchPreviewFolders.Of(preview).Where(folder => folder.UnfinishedSwitch && !folder.Dirty && folder.ReplacedFileCount > 0).Select(ReplacedLine));
 
         UnsavedBlocks.CollectionChanged += (_, _) => OnBlocksChanged();
         ShowKeepCallout = KeepOffered();
@@ -254,7 +255,8 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         var parts = sentence.Split(_targetMarker, 2);
         var after = parts.Length > 1 ? parts[1] : string.Empty;
 
-        if (_preview.Install.Switch is { } summary && (summary.BytesChanged > 0 || summary.BytesRemoved > 0))
+        // The game folder and the mods folder are switched one after the other, so what the player waits for is both.
+        if (SwitchTotal() is { } summary && (summary.BytesChanged > 0 || summary.BytesRemoved > 0))
         {
             var estimate = summary.EstimatedDuration ?? LaunchTiming.Estimate(summary.BytesChanged);
             var time = estimate < _quickSwitch
@@ -276,6 +278,23 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         return (parts[0], target, after);
     }
 
+    // The game folder's switch and the mods folder's added together; the time is a sum only when both have an estimate of their own.
+    private SwitchSummary? SwitchTotal()
+    {
+        var summaries = new[] { _preview.Install.Switch, _preview.Mods?.Switch }.OfType<SwitchSummary>().ToList();
+        if (summaries.Count == 0)
+        {
+            return null;
+        }
+
+        return new SwitchSummary(
+            summaries.Sum(s => s.FilesChanged),
+            summaries.Sum(s => s.ModFilesChanged),
+            summaries.Sum(s => s.BytesChanged),
+            summaries.All(s => s.EstimatedDuration is not null) ? summaries.Aggregate(TimeSpan.Zero, (total, s) => total + s.EstimatedDuration!.Value) : null,
+            summaries.Sum(s => s.BytesRemoved));
+    }
+
     private List<SaveOptionViewModel> SaveOptionsFor(LaunchPreview preview)
     {
         var text = _deps.Text;
@@ -293,7 +312,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     private string ReplacedLine(FolderLaunchState folder)
     {
         var text = _deps.Text;
-        var role = folder.Role == RepoRole.Install ? "install" : "external";
+        var role = FolderRoles.Name(folder.Role);
         if (folder.ReplacedFileNames is not { Count: > 0 } names)
         {
             return text.Message("launch.dialog.replacedNote", ("count", folder.ReplacedFileCount), ("role", role));
@@ -327,7 +346,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     private void AddBlock(FolderLaunchState folder)
     {
         var text = _deps.Text;
-        var role = folder.Role == RepoRole.Install ? "install" : "external";
+        var role = FolderRoles.Name(folder.Role);
 
         // A folder an earlier switch left half done is finished or discarded, never saved: what it holds is a mixture of two saves.
         var unfinished = folder.UnfinishedSwitch;
@@ -389,8 +408,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         IsBusy = UnsavedBlocks.Any(other => other.IsBusy);
     }
 
-    private FolderLaunchState FolderState(RepoRole role) =>
-        role == RepoRole.Install ? _preview.Install : _preview.External!;
+    private FolderLaunchState FolderState(RepoRole role) => LaunchPreviewFolders.State(_preview, role);
 
     private async Task SaveFirstAsync(UnsavedChangesBlockViewModel block)
     {
@@ -453,7 +471,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     private string DiscardMessage(UnsavedChangesBlockViewModel block)
     {
         var text = _deps.Text;
-        List<string> sentences = [text.Message("launch.dialog.discardMessage", ("role", block.Role == RepoRole.Install ? "install" : "external"), ("path", block.Path))];
+        List<string> sentences = [text.Message("launch.dialog.discardMessage", ("role", FolderRoles.Name(block.Role)), ("path", block.Path))];
         if (block.RemovedFileCount > 0)
         {
             sentences.Add(text.Message("launch.dialog.discardRemoves", ("count", block.RemovedFileCount)));

@@ -92,7 +92,7 @@ public class GameEditorErrorTests
 
         await Save(rig, editor);
 
-        Assert.Equal("The game folder and the saves folder can't be inside each other.", editor.SavesError);
+        Assert.Equal("The game folder, the mods folder and the saves folder can't be inside each other.", editor.SavesError);
         Assert.Empty(rig.Calls("AddAsync"));
     }
 

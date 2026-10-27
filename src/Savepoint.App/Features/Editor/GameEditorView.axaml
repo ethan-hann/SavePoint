@@ -144,6 +144,57 @@
             </StackPanel>
 
             <StackPanel Spacing="9">
+              <TextBlock Classes="overline" Text="{theme:Upper {loc:Loc gameEditor.mods.label}}" />
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBox x:Name="ModsField"
+                         Classes="field mono"
+                         Classes.error="{Binding ModsError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                         Text="{Binding ModsPath, Mode=TwoWay}"
+                         AutomationProperties.Name="{loc:Loc gameEditor.mods.label}"
+                         AutomationProperties.HelpText="{Binding ModsError}" />
+                <Button x:Name="BrowseModsButton"
+                        Grid.Column="1"
+                        VerticalAlignment="Stretch"
+                        Padding="18,0"
+                        Command="{Binding BrowseModsCommand}"
+                        Content="{loc:Loc gameEditor.browse}"
+                        AutomationProperties.Name="{loc:Loc gameEditor.mods.browseAutomation}" />
+              </Grid>
+              <StackPanel x:Name="ModsConfirmedLine" Orientation="Horizontal" Spacing="8" IsVisible="{Binding ModsConfirmation, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Classes="icon s18 accent" Text="{x:Static theme:Icons.VerifiedUser}" />
+                <TextBlock Classes="body accent" VerticalAlignment="Center" Text="{Binding ModsConfirmation}" />
+              </StackPanel>
+              <Grid x:Name="ModsResolvesLine" ColumnDefinitions="Auto,*" IsVisible="{Binding ModsResolves, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Classes="icon s18 muted" Margin="0,0,8,0" Text="{x:Static theme:Icons.Info}" />
+                <TextBlock Grid.Column="1" Classes="body muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding ModsResolves}" ToolTip.Tip="{Binding ModsResolves}" />
+              </Grid>
+              <TextBlock x:Name="ModsErrorText" Classes="body error" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" IsVisible="{Binding ModsError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding ModsError}" />
+              <ContentControl x:Name="ModsCardHost" Content="{Binding ModsCard}" IsVisible="{Binding ModsCard, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <Border x:Name="ModsEmptyNote" Classes="strip" IsVisible="{Binding HasNoModsFolder}">
+                <!-- A star column, not a horizontal stack, so the text wraps at the column's edge. -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                  <TextBlock Classes="icon accent" VerticalAlignment="Top" Text="{x:Static theme:Icons.Info}" />
+                  <TextBlock Grid.Column="1" Classes="caption" FontSize="13" MaxWidth="470" HorizontalAlignment="Left" TextWrapping="Wrap" VerticalAlignment="Center" Text="{loc:Loc gameEditor.mods.emptyNote}" />
+                </Grid>
+              </Border>
+              <Grid x:Name="ModsLocationRow" ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                <TextBlock Classes="caption" VerticalAlignment="Top" Margin="0,4,0,0" Text="{loc:Loc gameEditor.external.commonLocations}" />
+                <ItemsControl Grid.Column="1" ItemsSource="{Binding ModsLocationChoices}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="editor:SuggestionItem">
+                      <Button Classes="pill" Margin="0,0,6,6" Padding="10,3" FontFamily="{DynamicResource RobotoMonoFont}" FontSize="11.5" FontWeight="Normal" Content="{Binding Display}" ToolTip.Tip="{Binding Text}" Command="{Binding Use}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Grid>
+            </StackPanel>
+
+            <StackPanel Spacing="9">
               <WrapPanel Orientation="Horizontal">
                 <TextBlock Classes="overline" VerticalAlignment="Center" Margin="0,0,12,0" Text="{theme:Upper {loc:Loc gameEditor.external.label}}" />
                 <Panel VerticalAlignment="Center" IsVisible="{Binding HasCloudSavesUnknown}">

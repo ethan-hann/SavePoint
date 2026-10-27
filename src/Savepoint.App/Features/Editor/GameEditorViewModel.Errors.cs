@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Errors;
+using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Theme;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
@@ -12,6 +13,7 @@ public sealed partial class GameEditorViewModel
     {
         Name,
         Install,
+        Mods,
         Saves,
         Launch,
         ExePath,
@@ -37,12 +39,14 @@ public sealed partial class GameEditorViewModel
     {
         NameError = null;
         InstallError = null;
+        ModsError = null;
         SavesError = null;
         LaunchError = null;
         ExePathError = null;
         UriError = null;
         SteamAppIdError = null;
         InstallCard = null;
+        ModsCard = null;
         SavesCard = null;
         FormError = null;
     }
@@ -80,6 +84,7 @@ public sealed partial class GameEditorViewModel
     {
         "name" => Field.Name,
         "install.path" => Field.Install,
+        "mods.path" => Field.Mods,
         "external.path" or "external.role" => Field.Saves,
         "launch.method" => Field.Launch,
         "launch.exePath" => Field.ExePath,
@@ -98,6 +103,9 @@ public sealed partial class GameEditorViewModel
                 break;
             case Field.Install:
                 InstallError ??= message;
+                break;
+            case Field.Mods:
+                ModsError ??= message;
                 break;
             case Field.Saves:
                 SavesError ??= message;
@@ -121,7 +129,12 @@ public sealed partial class GameEditorViewModel
     {
         if (IssuesOf(error) is { } issues)
         {
-            ShowIssues(issues, role == RepoRole.Install ? Field.Install : Field.Saves);
+            ShowIssues(issues, role switch
+            {
+                RepoRole.Install => Field.Install,
+                RepoRole.Mods => Field.Mods,
+                _ => Field.Saves,
+            });
         }
         else
         {
@@ -143,15 +156,7 @@ public sealed partial class GameEditorViewModel
             }
 
             // A folder that is gone can be replaced right from the card.
-            var card = new ErrorCardViewModel(error, _text, error.MessageId == "error.path.missing" ? [ChooseFolderAction(role)] : null);
-            if (role == RepoRole.Install)
-            {
-                InstallCard = card;
-            }
-            else
-            {
-                SavesCard = card;
-            }
+            ShowCard(role, new ErrorCardViewModel(error, _text, error.MessageId == "error.path.missing" ? [ChooseFolderAction(role)] : null));
         }
         else
         {
@@ -172,7 +177,7 @@ public sealed partial class GameEditorViewModel
     // The Api names the folder by role or by the path it refused; an error naming neither goes above the form, not under a field it may not be about.
     private static RepoRole? FolderRoleOf(ErrorInfo error, IReadOnlyDictionary<RepoRole, string> resolved)
     {
-        if (error.Args.TryGetValue("role", out var role) && RoleOf(role) is { } named)
+        if (error.Args.TryGetValue("role", out var role) && FolderRoles.Parse(role) is { } named)
         {
             return named;
         }
@@ -190,12 +195,4 @@ public sealed partial class GameEditorViewModel
 
         return null;
     }
-
-    private static RepoRole? RoleOf(object? value) => value switch
-    {
-        RepoRole role => role,
-        "install" => RepoRole.Install,
-        "external" => RepoRole.External,
-        _ => null,
-    };
 }

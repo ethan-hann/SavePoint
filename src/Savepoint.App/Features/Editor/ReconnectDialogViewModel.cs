@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Features.Editor;
 
@@ -30,6 +31,14 @@ public sealed partial class ReconnectDialogViewModel : DialogViewModel<Reconnect
         Recovered = [.. history.Profiles.Select(profile => new RecoveredProfile(profile.BranchName, profile.SuggestedName ?? fallback))];
         Lines = [.. history.Profiles.Select(profile => profile.SuggestedName is { } name ? text.Message("gameEditor.reconnect.recoveredProfileName", ("name", name)) : fallback)];
         Message = text.Message("gameEditor.reconnect.message");
+        FoundIn = text.Message(
+            "gameEditor.reconnect.foundIn",
+            ("folders", string.Join(text.Message("common.listSeparator"), history.Roles.OrderBy(FolderRoles.Order).Select(role => text.Message(role switch
+            {
+                RepoRole.Install => "gameEditor.reconnect.folder.install",
+                RepoRole.Mods => "gameEditor.reconnect.folder.mods",
+                _ => "gameEditor.reconnect.folder.saves",
+            })))));
         ReconnectLabel = text.Message("gameEditor.reconnect.reconnect");
         StartFreshLabel = text.Message("gameEditor.reconnect.startFresh");
         CancelLabel = text.Message("common.cancel");
@@ -43,6 +52,9 @@ public sealed partial class ReconnectDialogViewModel : DialogViewModel<Reconnect
 
     /// <summary>What was found and what the two choices do.</summary>
     public string Message { get; }
+
+    /// <summary>Which of the game's folders the old snapshots cover, in words.</summary>
+    public string FoundIn { get; }
 
     /// <summary>The reconnect button's text.</summary>
     public string ReconnectLabel { get; }

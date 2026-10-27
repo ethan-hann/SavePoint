@@ -88,6 +88,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
             var count when _leaveOutRules is not null => _text.Message("launch.postPlay.runTimeOnly", ("count", count)),
             var count => _text.Message("launch.postPlay.installChanged", ("count", count)),
         };
+        ModsNote = exited.ChangedModsFileCount > 0 ? _text.Message("launch.postPlay.modsChanged", ("count", exited.ChangedModsFileCount)) : string.Empty;
         var older = _options.Choices.Contains(CompletionChoice.ForkNewProfile) || _options.Choices.Contains(CompletionChoice.MoveForward);
         OlderNote = older ? _text.Message("launch.postPlay.olderNote", ("profileName", profileName)) : string.Empty;
         OlderChoiceHelp = older ? ContextualHelp.OlderChoice(_text, profileName) : null;
@@ -111,6 +112,12 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
 
     /// <summary>A line about the game's own files having changed while it ran; empty when they did not.</summary>
     public string InstallNote { get; }
+
+    /// <summary>A line about files in the mods folder having changed while the game ran; empty when they did not or the game has no mods folder.</summary>
+    public string ModsNote { get; }
+
+    /// <summary>True when <see cref="ModsNote"/> has text.</summary>
+    public bool HasModsNote => ModsNote.Length > 0;
 
     /// <summary>Why the end of the session is uncertain (the game was not seen, its name never matched, or the programs could not be checked); empty when it was seen running.</summary>
     public string NotSeenHint { get; }

@@ -152,8 +152,13 @@ internal sealed class FakeState
         return new ProfileRowStats(profile.Id, false, [], snapshots, null, null, profile.VersionOverride, profile.LastLaunchedAt, false, snapshots == 0 ? SnapshotNowAvailability.FirstSnapshot : SnapshotNowAvailability.NotLoaded);
     }
 
+    // In the order the real backend lists them: install, mods, saves.
     public static IReadOnlyList<RepoRole> FoldersOf(GameDefinition game) =>
-        game.External is null ? [RepoRole.Install] : [RepoRole.Install, RepoRole.External];
+    [
+        RepoRole.Install,
+        .. game.Mods is null ? Array.Empty<RepoRole>() : [RepoRole.Mods],
+        .. game.External is null ? Array.Empty<RepoRole>() : [RepoRole.External],
+    ];
 
     public HistoryPointId NewPointId() => new($"point-{++_pointSequence}");
 

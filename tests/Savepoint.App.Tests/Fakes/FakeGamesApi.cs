@@ -120,9 +120,20 @@ public sealed class FakeGamesApi : IGamesApi
                 return OperationResult.Success(new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.HasOlderHistory));
             }
 
-            var (draft, leftOff) = WithoutRulesThatHideSaves(game.SavesFolder is not null && !game.SavesFolderExists ? game.Draft with { External = null } : game.Draft, game.Draft.IgnorePaths);
+            // Like the service, a folder the template names that is not there yet is left out of the game.
+            var offered = game.Draft;
+            offered = game.SavesFolder is not null && !game.SavesFolderExists ? offered with { External = null } : offered;
+            offered = game.ModsFolder is not null && !game.ModsFolderExists ? offered with { Mods = null } : offered;
+            var (draft, leftOff) = WithoutRulesThatHideSaves(offered, game.Draft.IgnorePaths);
             Add(draft);
-            return OperationResult.Success(new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Added, draft.Id, SavesFolderLeftOut: draft.External is null ? game.SavesFolder : null, RulesLeftOff: leftOff));
+            return OperationResult.Success(new LibraryAddResult(
+                game.Key,
+                game.Name,
+                LibraryAddStatus.Added,
+                draft.Id,
+                SavesFolderLeftOut: draft.External is null ? game.SavesFolder : null,
+                RulesLeftOff: leftOff,
+                ModsFolderLeftOut: draft.Mods is null ? game.ModsFolder : null));
         });
 
     private static bool SameFolder(string a, string b) =>
@@ -167,7 +178,7 @@ public sealed class FakeGamesApi : IGamesApi
             }
 
             var previous = State.Games[index];
-            var foldersChanged = previous.Install != definition.Install || previous.External != definition.External;
+            var foldersChanged = previous.Install != definition.Install || previous.External != definition.External || previous.Mods != definition.Mods;
             if (foldersChanged && State.IsOpen(definition.Id))
             {
                 return OperationResult.Failure<GameDefinition>(new GameRunningException(previous.Id, previous.Name));
@@ -368,8 +379,12 @@ public sealed class FakeGamesApi : IGamesApi
             return OperationResult.Success();
         });
 
-    internal static string PathOf(GameDefinition game, RepoRole role) =>
-        role == RepoRole.Install ? game.Install.Path : game.External?.Path ?? "";
+    internal static string PathOf(GameDefinition game, RepoRole role) => role switch
+    {
+        RepoRole.Install => game.Install.Path,
+        RepoRole.Mods => game.Mods?.Path ?? "",
+        _ => game.External?.Path ?? "",
+    };
 
     private void Add(GameDefinition game)
     {

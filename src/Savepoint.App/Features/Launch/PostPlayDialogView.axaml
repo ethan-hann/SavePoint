@@ -39,6 +39,7 @@
                   Command="{Binding EditGameCommand}"
                   Content="{Binding EditGameLabel}" />
         </StackPanel>
+        <TextBlock x:Name="ModsNoteText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasModsNote}" Text="{Binding ModsNote}" />
         <TextBlock x:Name="InstallNoteText" Classes="caption" TextWrapping="Wrap" IsVisible="{Binding HasInstallNote}" Text="{Binding InstallNote}" />
         <Button x:Name="LeaveOutButton"
                 Classes="pill"

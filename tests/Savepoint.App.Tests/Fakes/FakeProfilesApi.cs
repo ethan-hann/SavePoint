@@ -129,6 +129,12 @@ public sealed class FakeProfilesApi : IProfilesApi
 
             var points = State.PointsOf(gameId).Where(p => p.ProfileId == profileId).ToList();
             var folders = new List<FolderPointLoss> { new(RepoRole.Install, points.Count(p => p.Kind != HistoryPointKind.SaveOnly), null) };
+            if (game.Mods is not null)
+            {
+                // A point that holds the version and mods holds the mods folder too; a save-only point does not.
+                folders.Add(new FolderPointLoss(RepoRole.Mods, points.Count(p => p.Kind != HistoryPointKind.SaveOnly), null));
+            }
+
             if (game.External is not null)
             {
                 folders.Add(new FolderPointLoss(RepoRole.External, points.Count(p => p.Kind != HistoryPointKind.VersionAndMods), null));

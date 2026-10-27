@@ -18,6 +18,12 @@ public sealed class LibraryRowViewModel : ObservableObject
         StoreLabel = text.Message(game.Source == LibrarySource.Steam ? "library.row.store.steam" : "library.row.store.gog");
         InstallLine = text.Message("library.row.install", ("path", game.InstallPath));
         SavesLine = SavesLineFor(game, text);
+        ModsLine = game.ModsFolder switch
+        {
+            null => string.Empty,
+            { } path when game.ModsFolderExists => text.Message("library.row.mods", ("path", path)),
+            { } path => text.Message("library.row.modsNotYet", ("path", path)),
+        };
         StatusText = game.AlreadyAdded ? text.Message("library.row.added") : string.Empty;
         AutomationName = StatusText.Length == 0
             ? text.Message("library.row.automation", ("name", Name), ("store", StoreLabel), ("path", game.InstallPath))
@@ -38,6 +44,12 @@ public sealed class LibraryRowViewModel : ObservableObject
 
     /// <summary>What SavePoint knows about the game's saves folder, in plain words.</summary>
     public string SavesLine { get; }
+
+    /// <summary>What SavePoint knows about the game's mods folder, in plain words; empty when the game's template names none.</summary>
+    public string ModsLine { get; }
+
+    /// <summary>True when <see cref="ModsLine"/> has text.</summary>
+    public bool HasModsLine => ModsLine.Length > 0;
 
     /// <summary>"Already added" for a game in the library; empty otherwise.</summary>
     public string StatusText { get; }

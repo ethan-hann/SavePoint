@@ -1,13 +1,16 @@
 namespace Savepoint.Core.Api;
 
 /// <summary>
-/// Turns the engine's own folder names into the plain parts a player reads: <c>install</c> for a game's files, <c>saves</c> for its
-/// save folders, <c>other</c> for anything else. Job lines carry these words and never the engine's folder names.
+/// Turns the engine's own folder names into the plain parts a player reads: <c>install</c> for a game's files, <c>mods</c> for its
+/// mods folder, <c>saves</c> for its save folders, <c>other</c> for anything else. Job lines carry these words and never the engine's folder names.
 /// </summary>
 public static class SnapshotFolderNames
 {
     /// <summary>The part for a game's files.</summary>
     public const string Install = "install";
+
+    /// <summary>The part for a game's mods folder, when it keeps its mods outside the game's own folder.</summary>
+    public const string Mods = "mods";
 
     /// <summary>The part for a game's save folders.</summary>
     public const string Saves = "saves";
@@ -20,6 +23,7 @@ public static class SnapshotFolderNames
     public static string PartOf(string name) => name switch
     {
         _ when string.Equals(name, "install.git", StringComparison.OrdinalIgnoreCase) => Install,
+        _ when string.Equals(name, "mods.git", StringComparison.OrdinalIgnoreCase) => Mods,
         _ when string.Equals(name, "external.git", StringComparison.OrdinalIgnoreCase) => Saves,
         _ => Other,
     };

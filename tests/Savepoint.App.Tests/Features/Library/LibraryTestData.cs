@@ -16,7 +16,9 @@ internal static class LibraryTestData
         string? id = null,
         string? saves = null,
         bool savesExist = true,
-        string? addedGameId = null)
+        string? addedGameId = null,
+        string? mods = null,
+        bool modsExist = true)
     {
         var storeId = id ?? (Math.Abs(name.GetHashCode(StringComparison.Ordinal)) % 100000).ToString(System.Globalization.CultureInfo.InvariantCulture);
         var install = $@"C:\Games\{name}";
@@ -26,8 +28,9 @@ internal static class LibraryTestData
             Name: name,
             Install: new InstallLocation(install),
             External: saves is null ? null : new ExternalLocation(saves),
-            Launch: new LaunchConfig(LaunchMethod.Uri, Uri: "steam://rungameid/" + storeId));
-        return new LibraryGame(key, source, storeId, name, install, saves is null ? null : "template", saves, saves is not null && savesExist, draft, addedGameId);
+            Launch: new LaunchConfig(LaunchMethod.Uri, Uri: "steam://rungameid/" + storeId),
+            Mods: mods is null ? null : new ModsLocation(mods));
+        return new LibraryGame(key, source, storeId, name, install, saves is null && mods is null ? null : "template", saves, saves is not null && savesExist, draft, addedGameId, mods, mods is not null && modsExist);
     }
 
     public static LibraryScan Scan(params LibraryGame[] games) => new(games, true, true);

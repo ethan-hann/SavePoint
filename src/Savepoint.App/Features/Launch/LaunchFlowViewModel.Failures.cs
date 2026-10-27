@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Errors;
+using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
@@ -106,7 +107,7 @@ public sealed partial class LaunchFlowViewModel
     {
         var preview = await _deps.Launch.GetPreviewAsync(flow.GameId, flow.Target!);
         var recorded = preview.Ok
-            ? new[] { preview.Value.Install, preview.Value.External }.OfType<FolderLaunchState>().Select(folder => folder.UnfinishedSwitchTarget).FirstOrDefault(target => target is not null)
+            ? LaunchPreviewFolders.Of(preview.Value).Select(folder => folder.UnfinishedSwitchTarget).FirstOrDefault(target => target is not null)
             : null;
         await ReenterAsync(flow, recorded);
     }
@@ -152,7 +153,7 @@ public sealed partial class LaunchFlowViewModel
     private void ShowLeftAlone(GameFlow flow, CaptureResult result)
     {
         var left = result.Folders.Where(folder => folder.LeftAlone).ToList();
-        var which = left.Count == 1 ? RoleName(left[0].Role) : "other";
+        var which = left.Count == 1 ? FolderRoles.Name(left[0].Role) : "other";
         var body = _deps.Text.Message("launch.leftAlone.body", ("folder", which));
         SetInline(flow, ErrorCardViewModel.Custom(
             _deps.Text,
@@ -166,7 +167,7 @@ public sealed partial class LaunchFlowViewModel
     private string KeptAsNewSentence(CaptureResult result)
     {
         var kept = result.Folders.Where(folder => folder.KeptAsNew).ToList();
-        return _deps.Text.Message("launch.keptAsNew.body", ("folder", kept.Count == 1 ? RoleName(kept[0].Role) : "other"));
+        return _deps.Text.Message("launch.keptAsNew.body", ("folder", kept.Count == 1 ? FolderRoles.Name(kept[0].Role) : "other"));
     }
 
     // Every folder failed, which the service may report as a result alone.
@@ -198,30 +199,36 @@ public sealed partial class LaunchFlowViewModel
         var left = result.Folders.Where(folder => folder.LeftAlone).ToList();
 
         // A skipped folder's latest snapshot is already current, so for the sentence about what is in the snapshot it counts with the saved ones.
-        var inSnapshot = result.Folders.Where(folder => folder.Saved || folder.Skipped).ToList();
-        var savedRole = inSnapshot.Count == 1 ? RoleName(inSnapshot[0].Role) : "other";
+        var inSnapshot = result.Folders.Where(folder => folder.Saved || folder.Skipped).OrderBy(folder => FolderRoles.Order(folder.Role)).ToList();
+        failed = [.. failed.OrderBy(folder => FolderRoles.Order(folder.Role))];
         var reason = LaunchText.Reason(text, failed[0].Error, ErrorOperation.Snapshot);
 
         // A folder the save left alone is neither saved nor failed; when nothing was saved at all, the card must not say half was.
         var nothingSaved = inSnapshot.Count == 0 && left.Count > 0;
         var title = text.Message(nothingSaved ? "launch.partial.titleNothingSaved" : "launch.partial.title");
+        var state = PartialSnapshotText.State(text, inSnapshot.Select(folder => folder.Role), failed.Select(folder => folder.Role));
         var body = nothingSaved
-            ? text.Message("launch.partial.bodyLeftAlone", ("failed", RoleName(failed[0].Role)), ("reason", reason), ("left", left.Count == 1 ? RoleName(left[0].Role) : "other"))
-            : text.Message("launch.partial.body", ("saved", savedRole), ("reason", reason));
+            ? text.Message("launch.partial.bodyLeftAlone", ("state", state), ("reason", reason), ("left", left.Count == 1 ? FolderRoles.Name(left[0].Role) : "other"))
+            : text.Message("launch.partial.body", ("state", state), ("reason", reason));
 
         var rows = result.Folders
-            .OrderBy(folder => folder.Role)
+            .OrderBy(folder => FolderRoles.Order(folder.Role))
             .Select(folder => new FolderOutcomeRow(
                 folder.Saved ? Icons.CheckCircle : folder.LeftAlone || folder.Skipped ? Icons.Info : Icons.Cancel,
                 text.Message(
                     folder.Saved ? "launch.partial.rowSaved" : folder.Skipped ? "launch.partial.rowSkipped" : folder.LeftAlone ? "launch.partial.rowLeftAlone" : "launch.partial.rowFailed",
-                    ("folder", text.Message(folder.Role == RepoRole.Install ? "launch.partial.folder.install" : "launch.partial.folder.external"))),
+                    ("folder", text.Message(folder.Role switch
+                    {
+                        RepoRole.Install => "launch.partial.folder.install",
+                        RepoRole.Mods => "launch.partial.folder.mods",
+                        _ => "launch.partial.folder.external",
+                    }))),
                 folder.Saved,
                 folder.LeftAlone || folder.Skipped))
             .ToList();
 
         var retry = new ErrorCardAction(
-            text.Message("launch.partial.retry", ("role", RoleName(failed[0].Role))),
+            PartialSnapshotText.RetryLabel(text, [.. failed.Select(folder => folder.Role)]),
             new AsyncRelayCommand(() => RetryCompletionAsync(flow)),
             IsPrimary: true);
 
@@ -236,7 +243,6 @@ public sealed partial class LaunchFlowViewModel
             supplement: new FolderOutcomeListViewModel(rows)));
     }
 
-    private static string RoleName(RepoRole role) => role == RepoRole.Install ? "install" : "external";
 
     // Asks the launch side to repeat the player's choice for the folders that did not save. The session's own events carry the rest:
     // it goes back to saving and ends again, and the outcome is shown the same way the first try's was.

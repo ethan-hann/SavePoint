@@ -13,7 +13,7 @@ public class ErrorCopyTests
 
     private static IEnumerable<ErrorInfo> Samples()
     {
-        IReadOnlyList<string> roles = ["install", "external"];
+        IReadOnlyList<string> roles = ["install", "mods", "external"];
         IReadOnlyList<string> branches = ["main"];
         IReadOnlyList<ValidationIssue> issues = [new ValidationIssue("name", ValidationMessageIds.GameNameRequired)];
 
@@ -100,7 +100,41 @@ public class ErrorCopyTests
             new RemovedSnapshotNotRestorableException("snapshot-1"),
         ];
 
-        return errors.Select(ErrorInfo.From).Append(ErrorInfo.From(new InvalidOperationException("boom")));
+        return errors.Select(ErrorInfo.From).Concat(ModsSamples()).Append(ErrorInfo.From(new InvalidOperationException("boom")));
+    }
+
+    // Errors the Api can raise for the mods folder, which the copy has to name as such.
+    private static IEnumerable<ErrorInfo> ModsSamples() =>
+        new SavepointException[]
+        {
+            new FolderMismatchException(RepoRole.Mods, "/mods", 3, 212),
+            new NamesDifferOnlyInCaseException(RepoRole.Mods, "/mods/Foo", "/mods/foo"),
+            new FileFolderClashException(RepoRole.Mods, FileFolderClashKind.FolderHoldsFiles, "/mods/Foo", "/mods/Foo/data.bin"),
+            new FileFolderClashException(RepoRole.Mods, FileFolderClashKind.FileInTheWay, "/mods/Slots", "/mods/Slots"),
+            new InterruptedSwitchException(RepoRole.Mods, "0123456789abcdef0123456789abcdef01234567"),
+            new InterruptedSwitchException(RepoRole.Mods),
+            new SwitchNoteStuckException(RepoRole.Mods, "/storage/alpha.git/savepoint-switch.json"),
+            new FolderChangedException("/mods", RepoRole.Mods),
+            new PathMissingException("/mods", RepoRole.Mods),
+            new ProfileNotLoadedException("profile-1", RepoRole.Mods),
+        }.Select(ErrorInfo.From);
+
+    [Fact]
+    public void Every_error_about_the_mods_folder_calls_it_the_mods_folder()
+    {
+        var catalog = LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true);
+        var problems = new List<string>();
+
+        foreach (var info in ModsSamples())
+        {
+            var text = new UiFormatter(catalog, os: "windows").Message(info);
+            if (!text.Contains("mods folder", StringComparison.Ordinal))
+            {
+                problems.Add($"{info.MessageId} does not say \"mods folder\": {text}");
+            }
+        }
+
+        LintAssert.NoProblems(problems);
     }
 
     [Fact]

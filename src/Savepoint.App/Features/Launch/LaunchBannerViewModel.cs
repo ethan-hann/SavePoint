@@ -58,6 +58,11 @@ public sealed partial class LaunchBannerViewModel
             : _text.Message("launch.checks.install", ("state", LaunchText.InstallState(_text, preview.TargetInstall)));
         var checks = new List<LaunchCheckLine> { new(Icons.CheckCircle, install, preview.Install.Path) };
 
+        if (preview.Mods is { } mods)
+        {
+            checks.Add(new LaunchCheckLine(Icons.CheckCircle, _text.Message("launch.checks.mods"), mods.Path));
+        }
+
         if (preview.External is { } external)
         {
             var saves = saveName is null
@@ -66,7 +71,13 @@ public sealed partial class LaunchBannerViewModel
             checks.Add(new LaunchCheckLine(Icons.CheckCircle, saves, external.Path));
         }
 
-        var clean = _text.Message(preview.External is null ? "launch.checks.cleanInstall" : "launch.checks.clean");
+        var clean = _text.Message((preview.Mods is not null, preview.External is not null) switch
+        {
+            (true, true) => "launch.checks.cleanAll",
+            (true, false) => "launch.checks.cleanMods",
+            (false, true) => "launch.checks.clean",
+            _ => "launch.checks.cleanInstall",
+        });
         checks.Add(new LaunchCheckLine(Icons.CheckCircle, clean, null));
         return checks;
     }
