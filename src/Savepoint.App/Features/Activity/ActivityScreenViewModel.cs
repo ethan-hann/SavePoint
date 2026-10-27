@@ -109,11 +109,18 @@ public sealed partial class ActivityScreenViewModel : ObservableObject, IScreen,
             OnPropertyChanged(nameof(Details));
             OnPropertyChanged(nameof(ShowDetails));
 
-            // A job that was only kept for the reader to finish reading goes now that another is chosen.
+            // A job that was only kept for the reader to finish reading goes now that another is chosen. The list is still committing this
+            // choice and reads its rows again when it finishes, so the row leaves once the list is idle, not while it is counting them.
             if (left is not null && value is not null && Forgotten(left))
             {
                 Forget();
-                RefreshRows();
+                _deps.Dispatcher.PostWhenIdle(() =>
+                {
+                    if (!_disposed)
+                    {
+                        RefreshRows();
+                    }
+                });
             }
         }
     }

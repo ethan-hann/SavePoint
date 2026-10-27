@@ -3,9 +3,11 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Activity;
+using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Common.Errors;
 using Savepoint.App.Features.Shell;
@@ -20,7 +22,7 @@ namespace Savepoint.App.Tests.Features.Activity;
 
 public class ActivityScreenViewTests
 {
-    private static Task<ScreenHarness> StartAsync(FakeBackend? backend = null, ThemePreference theme = ThemePreference.Dark, double width = 1040, double height = 660)
+    private static Task<ScreenHarness> StartAsync(FakeBackend? backend = null, ThemePreference theme = ThemePreference.Dark, double width = 1040, double height = 660, IUiDispatcher? dispatcher = null)
     {
         backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         var clock = backend.Clock;
@@ -31,7 +33,8 @@ public class ActivityScreenViewTests
             backend,
             theme,
             width,
-            height);
+            height,
+            dispatcher: dispatcher);
     }
 
     private static ActivityScreenViewModel Screen(ScreenHarness harness) => (ActivityScreenViewModel)harness.Shell.CurrentScreen!;
@@ -525,6 +528,45 @@ public class ActivityScreenViewTests
         var path = harness.Render("all-games-dark");
 
         Assert.True(File.Exists(path));
+    }
+
+    // Choosing a task commits the list's selection, and the screen drops the old open task from the list while that commit is still running.
+    [AvaloniaFact]
+    public async Task Clicking_a_task_while_the_open_one_has_been_let_go_by_the_registry_selects_it_and_drops_the_old_one()
+    {
+        var backend = new FakeBackend(ScenarioBuilder.Sample());
+        var first = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
+        backend.Jobs.Complete(first);
+        backend.Clock.Advance(TimeSpan.FromMinutes(1));
+        using var harness = await StartAsync(backend, dispatcher: new AvaloniaUiDispatcher());
+        var screen = Screen(harness);
+        screen.SelectedRow = screen.Rows.Single(row => row.JobId == first);
+        for (var i = 0; i < 5; i++)
+        {
+            var job = FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
+            backend.Jobs.Complete(job);
+            backend.Clock.Advance(TimeSpan.FromMinutes(1));
+        }
+
+        harness.Settle();
+        Assert.Equal(6, screen.Rows.Count);
+        Assert.Same(screen.Rows[^1], screen.SelectedRow);
+        var chosen = screen.Rows[0];
+        var list = harness.Find<ListBox>("JobList");
+
+        // The open task is the oldest, at the bottom, so the list is scrolled down; the reader scrolls up to the newest.
+        list.ScrollIntoView(chosen);
+        harness.Settle();
+        var item = list.GetVisualDescendants().OfType<ListBoxItem>().Single(candidate => ReferenceEquals(candidate.DataContext, chosen));
+        var at = item.TranslatePoint(new Point(item.Bounds.Width / 2, item.Bounds.Height / 2), harness.Window)!.Value;
+
+        harness.Window.MouseDown(at, MouseButton.Left);
+        harness.Window.MouseUp(at, MouseButton.Left);
+        harness.Settle();
+
+        Assert.Same(chosen, screen.SelectedRow);
+        Assert.Equal(5, screen.Rows.Count);
+        Assert.DoesNotContain(screen.Rows, row => row.JobId == first);
     }
 
     [AvaloniaFact]
