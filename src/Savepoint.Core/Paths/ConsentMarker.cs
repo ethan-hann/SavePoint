@@ -9,7 +9,7 @@ namespace Savepoint.Core.Paths;
 
 /// <summary>What a consent marker file claims: the game and folder role the user confirmed, and when.</summary>
 /// <param name="GameId">The game that owns the folder.</param>
-/// <param name="Role">Which of the game's two folders this is.</param>
+/// <param name="Role">Which of the game's folders this is.</param>
 /// <param name="ConfirmedAt">When the user confirmed it.</param>
 public sealed record ConsentMarkerData(string GameId, RepoRole Role, DateTimeOffset ConfirmedAt);
 

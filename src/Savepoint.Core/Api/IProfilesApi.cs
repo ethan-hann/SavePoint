@@ -42,7 +42,7 @@ public interface IProfilesApi
     Task<OperationResult<Profile>> UpdateAsync(string gameId, string profileId, ProfileChanges changes);
 
     /// <summary>
-    /// Makes a new profile that starts from another profile's history. Takes the game's lock (D13.14). It finishes in both folders or
+    /// Makes a new profile that starts from another profile's history. Takes the game's lock (D13.14). It finishes in every folder or
     /// changes nothing: a failure takes back the branch of every folder that got one.
     /// </summary>
     /// <param name="gameId">The game.</param>
@@ -84,8 +84,8 @@ public interface IProfilesApi
     Task<OperationResult<ProfileDeletePreview>> GetDeletePreviewAsync(string gameId, string profileId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Deletes a profile and the history only it holds; storage optimization reclaims the space (D28). Both folders are
-    /// checked before either is touched (D13.9), and a failure on the second puts the first back, so a failed delete changes
+    /// Deletes a profile and the history only it holds; storage optimization reclaims the space (D28). Every folder is
+    /// checked before any is touched (D13.9), and a failure in a later one puts the earlier ones back, so a failed delete changes
     /// nothing and can be repeated. Fails with <c>error.gameService.profileActive</c> for the active profile and
     /// <c>error.gameService.gameRunning</c> while the game has an open session (D13.5).
     /// </summary>

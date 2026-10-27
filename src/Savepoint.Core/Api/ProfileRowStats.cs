@@ -4,7 +4,7 @@ namespace Savepoint.Core.Api;
 
 /// <summary>What one row of the profile table shows beyond the profile itself.</summary>
 /// <param name="ProfileId">The profile.</param>
-/// <param name="IsActive">True when both folders hold this profile's latest points with nothing unsaved.</param>
+/// <param name="IsActive">True when every folder holds this profile's latest points with nothing unsaved.</param>
 /// <param name="UnsavedChanges">The folders on this profile that have changes not yet saved; empty for none.</param>
 /// <param name="SnapshotCount">
 /// How many snapshots the profile owns, whichever folders each took: the number History lists for the profile, so a snapshot both
@@ -12,7 +12,8 @@ namespace Savepoint.Core.Api;
 /// before its figures arrive.
 /// </param>
 /// <param name="ModFileCount">
-/// How many mod files the profile's install holds; null when the game names no mod folders or the profile has no install point yet.
+/// How many mod files the profile holds: the install files the game's hints name plus every file of its mods folder; null when the game
+/// names no mod folders and has no mods folder snapshot of the profile, or the profile has no install point yet.
 /// </param>
 /// <param name="DetectedVersion">The version read from the game's program at the profile's latest install point; null when it cannot be read.</param>
 /// <param name="VersionOverride">The profile's own version override (D13.6), or null.</param>

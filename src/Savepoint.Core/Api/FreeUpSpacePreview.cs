@@ -43,7 +43,7 @@ public sealed class FreeUpSpaceToken
     /// <summary>A token that allows no record to be deleted, which is what a run without a preview gets.</summary>
     public static FreeUpSpaceToken Nothing { get; } = new([]);
 
-    /// <summary>One entry per record of every snapshot the preview counted, in both folders of its game.</summary>
+    /// <summary>One entry per record of every snapshot the preview counted, in every folder of its game.</summary>
     public IReadOnlyList<FreeUpSpaceRecord> Records { get; }
 
     /// <summary>True when a preview in this process issued the token and its records are still the ones it sealed.</summary>

@@ -113,7 +113,7 @@ internal sealed class CaptureRunner
             new JobProfile(profile.Id, profile.Name));
 
     /// <summary>
-    /// Refuses a plain save onto a branch that a folder is not on, before either folder is written: a snapshot copies what the folders hold, which
+    /// Refuses a plain save onto a branch that a folder is not on, before any folder is written: a snapshot copies what the folders hold, which
     /// is the loaded profile's files, so a profile the folders do not hold would be handed another profile's files. A folder the profile never saved is
     /// fine (its first snapshot there is what the folder holds), and so is a first save that stopped before the folder moved onto its branch, which the retry finishes.
     /// </summary>
@@ -212,7 +212,7 @@ internal sealed class CaptureRunner
         }
 
 
-        // The two folders are separate repositories, so they are saved side by side; one failing never stops the other.
+        // The folders are separate repositories, so they are saved side by side; one failing never stops the others.
         var saved = await Task.WhenAll(repos.Select(repo => SaveFolderAsync(context, storage, game, repo, profile.BranchName, pointName, capture, forksNewBranches, plans?.GetValueOrDefault(repo.Role), progress.For(repo.Role)))).ConfigureAwait(false);
 
         var outcomes = saved.Select(folder => folder.Outcome).ToList();
