@@ -216,6 +216,50 @@ public sealed class FolderRecheckTests : IDisposable
         Assert.Equal(new InterruptedSwitch(b, a, "profile-a"), SwitchJournal.Read(repo.GitDir));
     }
 
+    [Fact]
+    public async Task A_folder_swapped_for_a_link_before_a_file_standing_where_a_folder_was_is_removed_is_refused_and_nothing_outside_is_touched()
+    {
+        RequireLinks(_ws.Root);
+
+        // profile-a holds Mods/Foo as a file and profile-b as a folder; the stopped switch to profile-a left the whole file standing.
+        var repo = (await RepoTemplates.CopyAsync("folder-recheck-file-and-folder", _ws, async ws =>
+        {
+            var made = await ws.InitializedFreshAsync();
+            ws.Write(made, "Mods/Foo", "a's file");
+            await ws.CaptureAsync(made, "profile-a", "A");
+            await ws.Engine.CreateBranchAsync(made, "profile-b", "profile-a", TestContext.Current.CancellationToken);
+            await ws.Engine.CheckoutBranchAsync(made, "profile-b", ct: TestContext.Current.CancellationToken);
+            ws.Delete(made, "Mods/Foo");
+            ws.Write(made, "Mods/Foo/x.txt", "b's x");
+            await ws.CaptureAsync(made, "profile-b", "B");
+            return (made, string.Empty);
+        })).Repo;
+        var a = (await _ws.TipAsync(repo, "profile-a"))!;
+        var b = (await _ws.TipAsync(repo, "profile-b"))!;
+        SwitchJournal.Write(repo.GitDir, b, a, "profile-a");
+        _ws.Delete(repo, "Mods/Foo/x.txt");
+        Directory.Delete(_ws.FileOf(repo, "Mods/Foo"));
+        _ws.Write(repo, "Mods/Foo", "a's file");
+        var decoy = CopyAsDecoy(repo);
+        File.WriteAllText(Path.Combine(decoy, "Mods", "Foo"), "not part of this game either");
+        var before = Contents(decoy);
+        var reached = false;
+        _beforeStep = step =>
+        {
+            if (!reached && step == "remove-standing")
+            {
+                reached = true;
+                ReplaceWithLinkTo(repo, decoy);
+            }
+        };
+
+        var error = await Assert.ThrowsAsync<FolderChangedException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+
+        Assert.True(reached, "no standing file was found, so the test did not reach the step it is about");
+        Assert.Equal("error.path.changed", error.MessageId);
+        Assert.Equal(before, Contents(decoy));
+    }
+
     [Theory]
     [InlineData(Operation.Discard)]
     [InlineData(Operation.Clean)]

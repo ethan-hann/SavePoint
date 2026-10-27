@@ -31,7 +31,7 @@ public sealed record GitEngineOptions
     /// <summary>Where the engine records what it could not do for a folder, such as holding it open; null writes nothing.</summary>
     public IDiagnosticLog? Log { get; init; }
 
-    // Called with the name of a step ("hold", "remove-displaced", "remove-new", "remove-leftover", "make-folders") just before the engine
+    // Called with the name of a step ("hold", "remove-displaced", "remove-new", "remove-leftover", "remove-standing", "make-folders") just before the engine
     // looks at the guarded folder again for it; tests swap the folder here to see the look refuse it.
     internal Action<string>? BeforeFileChanges { get; init; }
 

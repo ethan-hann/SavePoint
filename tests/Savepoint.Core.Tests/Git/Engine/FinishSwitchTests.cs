@@ -534,6 +534,24 @@ public sealed class FinishSwitchTests : IDisposable
         Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
     }
 
+    [Fact]
+    public async Task A_killed_switch_that_finished_the_file_where_a_folder_was_is_finished_too()
+    {
+        var (repo, data) = await FileAndFolderProfilesAsync();
+        SwitchJournal.Write(repo.GitDir, data.B, data.A, "profile-a");
+
+        // The folder is gone and the file that takes its place is whole, but the index and HEAD still say profile-b.
+        _ws.Delete(repo, "Mods/Foo/x.txt");
+        Directory.Delete(_ws.FileOf(repo, "Mods/Foo"));
+        _ws.Write(repo, "Mods/Foo", "a's file");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+
+        Assert.Equal("a's file", File.ReadAllText(_ws.FileOf(repo, "Mods/Foo")));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
     // Profile-a holds Mods/Foo as a file, profile-b as a folder holding x.txt. The folder is on profile-b.
     private async Task<(RepoRef Repo, (string A, string B) Data)> FileAndFolderProfilesAsync() =>
         await RepoTemplates.CopyAsync("finish-switch-file-folder", _ws, async ws =>

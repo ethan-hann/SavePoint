@@ -8,7 +8,9 @@ public sealed partial class GitEngine
     // must not run over. Rewrite lists the files (in the target's spelling) the finish writes from the target, Keep those that already hold
     // the target's bytes and only need their index entry, and StaleSpellings the index entries under an old spelling of a name the target
     // spells another way (a drive that ignores case). Replaced is the part of Rewrite that holds content found in neither snapshot, and
-    // RewriteBytes the size of the target's copy of each Rewrite file, in the same order.
+    // RewriteBytes the size of the target's copy of each Rewrite file, in the same order. Standing lists the files the target wants where the
+    // point being left has a folder: the stopped switch got as far as the file, and git cannot move on from there while it stands (it
+    // takes the file for an untracked one in the way of removing the folder's files), so the finish removes it and the checkout writes it.
     private sealed record FinishScan(
         IReadOnlyList<string> BlockingChanged,
         IReadOnlyList<string> BlockingNew,
@@ -16,9 +18,10 @@ public sealed partial class GitEngine
         IReadOnlyList<long> RewriteBytes,
         IReadOnlyList<string> Keep,
         IReadOnlyList<string> StaleSpellings,
-        IReadOnlyList<string> Replaced)
+        IReadOnlyList<string> Replaced,
+        IReadOnlyList<string> Standing)
     {
-        public static FinishScan Nothing { get; } = new([], [], [], [], [], [], []);
+        public static FinishScan Nothing { get; } = new([], [], [], [], [], [], [], []);
     }
 
     /// <summary>
@@ -102,7 +105,7 @@ public sealed partial class GitEngine
 
         if (!readFiles)
         {
-            return new FinishScan(blockingChanged, blockingNew, [], [], [], [], []);
+            return new FinishScan(blockingChanged, blockingNew, [], [], [], [], [], []);
         }
 
         var sizes = await ObjectSizesAsync(repo, candidates.Values.Select(change => change.NewId), ct).ConfigureAwait(false);
@@ -111,10 +114,24 @@ public sealed partial class GitEngine
         List<long> rewriteBytes = [];
         List<string> keep = [];
         List<string> replaced = [];
+        List<string> standing = [];
+        var foldersLeft = FoldersAbove(plan.Removed, comparer);
         foreach (var change in candidates.Values.OrderBy(change => change.Path, StringComparer.Ordinal))
         {
             ct.ThrowIfCancellationRequested();
-            switch (HoldsTarget(repo, change, sizes, trustMode, ct))
+            var holding = HoldsTarget(repo, change, sizes, trustMode, ct);
+            if (foldersLeft.Contains(change.Path))
+            {
+                standing.Add(change.Path);
+                if (holding == Holding.Other)
+                {
+                    replaced.Add(change.Path);
+                }
+
+                continue;
+            }
+
+            switch (holding)
             {
                 case Holding.Target:
                     keep.Add(change.Path);
@@ -142,7 +159,25 @@ public sealed partial class GitEngine
             .OfType<string>()
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-        return new FinishScan(blockingChanged, blockingNew, rewrite, rewriteBytes, keep, stale, replaced);
+        return new FinishScan(blockingChanged, blockingNew, rewrite, rewriteBytes, keep, stale, replaced, standing);
+    }
+
+    // Every folder that holds a file in the list, however deep.
+    private static HashSet<string> FoldersAbove(IEnumerable<string> paths, StringComparer comparer)
+    {
+        HashSet<string> folders = new(comparer);
+        foreach (var path in paths)
+        {
+            for (var slash = path.LastIndexOf('/'); slash > 0; slash = path.LastIndexOf('/', slash - 1))
+            {
+                if (!folders.Add(path[..slash]))
+                {
+                    break;
+                }
+            }
+        }
+
+        return folders;
     }
 
     private enum Holding
@@ -224,6 +259,7 @@ public sealed partial class GitEngine
     {
         try
         {
+            RemoveStanding(repo, scan.Standing);
             if (scan.Rewrite.Count > 0)
             {
                 await WriteTargetCopiesAsync(repo, to, scan, reporter, ct).ConfigureAwait(false);
@@ -243,6 +279,34 @@ public sealed partial class GitEngine
             // goes back as the alignment found it.
             await TryRestoreAsync(repo, aligned).ConfigureAwait(false);
             throw;
+        }
+    }
+
+    // Takes away the files that stand where the point being left has a folder (see FinishScan). They are only the stopped switch's own
+    // writes, and the checkout that follows writes each one from the target.
+    private void RemoveStanding(RepoRef repo, IReadOnlyList<string> standing)
+    {
+        if (standing.Count == 0)
+        {
+            return;
+        }
+
+        RecheckBeforeFileChanges(repo, "remove-standing");
+        foreach (var path in standing)
+        {
+            var full = RealFullPath(repo, path);
+            if (!File.Exists(full))
+            {
+                continue;
+            }
+
+            TryDelete(full);
+            if (File.Exists(full))
+            {
+                throw FileLockProbe.Probe(full) is { } kind
+                    ? new HeldFile(FullPath(repo, path), kind).ToException(HeldFileOperation.Switch)
+                    : new GitOperationException(FullPath(repo, path), NotUpdatedMessage([path]));
+            }
         }
     }
 
