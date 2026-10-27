@@ -133,7 +133,7 @@ try {
     }
 
     if ($code -eq 75) {
-        Write-Host 'linux package refused: the VM is busy with another package build or a gate (the VM's message names it).' -ForegroundColor Red
+        Write-Host "linux package refused: the VM is busy with another package build or a gate (the VM's message names it)." -ForegroundColor Red
     }
     else {
         $logDir = Split-Path -Parent $LogPath
