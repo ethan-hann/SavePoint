@@ -15,6 +15,7 @@ namespace Savepoint.Core.Api;
 /// <param name="TargetIsOlderPoint">
 /// True when the target is not the profile's latest point, so a capture after playing follows the fork-or-move-forward choice (D14).
 /// </param>
+/// <param name="Mods">The mods folder's state; null when the game has no mods folder.</param>
 public sealed record LaunchPreview(
     string GameId,
     string ProfileId,
@@ -27,4 +28,5 @@ public sealed record LaunchPreview(
     HistoryPointId? SelectedSaveId,
     bool ShowBanner,
     bool OnlySaveDiffers,
-    bool TargetIsOlderPoint);
+    bool TargetIsOlderPoint,
+    FolderLaunchState? Mods = null);

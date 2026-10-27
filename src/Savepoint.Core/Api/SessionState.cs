@@ -52,6 +52,10 @@ public abstract record SessionState
     /// <param name="ProgramExitCode">
     /// The exit code of the program SavePoint started, set only when <paramref name="EndKind"/> is <see cref="SessionEndKind.ProgramFailedAtStart"/>; null otherwise.
     /// </param>
+    /// <param name="ChangedModsFileCount">
+    /// Files in the mods folder that are new or changed since the session began, counted as <paramref name="NewFileCount"/> is. 0 when
+    /// the game has no mods folder, and when the save will leave the folder alone because it is on another profile's history.
+    /// </param>
     public sealed record Exited(
         DateTimeOffset StartedAt,
         TimeSpan PlayDuration,
@@ -60,7 +64,8 @@ public abstract record SessionState
         PostPlayOptions Options,
         SessionEndKind EndKind = SessionEndKind.ChildExited,
         IReadOnlyList<string>? LeaveOutRules = null,
-        int? ProgramExitCode = null) : SessionState;
+        int? ProgramExitCode = null,
+        int ChangedModsFileCount = 0) : SessionState;
 
     /// <summary>The chosen completion is running as a capture job.</summary>
     /// <param name="Completion">What the user chose.</param>

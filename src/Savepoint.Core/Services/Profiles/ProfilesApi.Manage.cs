@@ -40,18 +40,29 @@ internal sealed partial class ProfilesApi
                         VersionOverride = source.VersionOverride,
                     });
                     var repos = GameFolders.Repos(_services, storage, game);
-                    var install = repos.Single(repo => repo.Role == RepoRole.Install);
 
-                    // The install folder continues from where the source is; the saves start over, so the copy begins with none of them.
+                    // The install and mods folders continue from where the source is, so a copy keeps its mods; the saves start over, so the
+                    // copy begins with none of them.
                     var made = new List<RepoRef>();
                     try
                     {
-                        await storage.Engine.CreateBranchAsync(install, copy.BranchName, source.BranchName).ConfigureAwait(false);
-                        made.Add(install);
-                        foreach (var saves in repos.Where(repo => repo.Role == RepoRole.External))
+                        foreach (var repo in repos)
                         {
-                            await storage.Engine.CreateEmptyBranchAsync(saves, copy.BranchName, _startedMessage).ConfigureAwait(false);
-                            made.Add(saves);
+                            if (repo.Role == RepoRole.External)
+                            {
+                                await storage.Engine.CreateEmptyBranchAsync(repo, copy.BranchName, _startedMessage).ConfigureAwait(false);
+                            }
+                            else if (repo.Role == RepoRole.Install || await storage.Engine.GetBranchTipAsync(repo, source.BranchName).ConfigureAwait(false) is not null)
+                            {
+                                await storage.Engine.CreateBranchAsync(repo, copy.BranchName, source.BranchName).ConfigureAwait(false);
+                            }
+                            else
+                            {
+                                // A mods folder the source never saved has no branch to copy, and the copy leaves it alone too.
+                                continue;
+                            }
+
+                            made.Add(repo);
                         }
 
                         return await _services.Catalog.SaveProfileAsync(copy).ConfigureAwait(false);

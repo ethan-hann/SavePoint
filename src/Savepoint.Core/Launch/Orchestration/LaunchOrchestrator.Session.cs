@@ -93,17 +93,18 @@ public sealed partial class LaunchOrchestrator
                 var options = await OptionsAsync(storage, repos, profile, profiles, older, starts, counts.Where(pair => pair.Value.Count > 0).Select(pair => pair.Key).ToHashSet()).ConfigureAwait(false);
                 var install = counts.GetValueOrDefault(RepoRole.Install);
                 var external = counts.GetValueOrDefault(RepoRole.External);
+                var mods = counts.GetValueOrDefault(RepoRole.Mods);
 
                 var leaveOut = install.Paths is { Count: > 0 }
                     ? await RulesGitAgreesOnAsync(storage, repos.FirstOrDefault(repo => repo.Role == RepoRole.Install), install.Paths).ConfigureAwait(false)
                     : null;
-                // Keeping a session in which neither folder changed would make a copy of what is already kept, so it is not the suggestion.
-                if (!older && external.Count == 0 && install.Count == 0 && options.Choices.Contains(CompletionChoice.Skip))
+                // Keeping a session in which no folder changed would make a copy of what is already kept, so it is not the suggestion.
+                if (!older && external.Count == 0 && install.Count == 0 && mods.Count == 0 && options.Choices.Contains(CompletionChoice.Skip))
                 {
                     options = options with { Default = CompletionChoice.Skip };
                 }
 
-                return new SessionState.Exited(startedAt, duration, external.Count, install.Count, options, endKind, leaveOut, programExitCode);
+                return new SessionState.Exited(startedAt, duration, external.Count, install.Count, options, endKind, leaveOut, programExitCode, mods.Count);
             }).ConfigureAwait(false);
         }
         catch (Exception e) when (e is not (OperationCanceledException or OutOfMemoryException or StackOverflowException))
