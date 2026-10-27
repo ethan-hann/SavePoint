@@ -161,7 +161,7 @@ public class CoreBackendTests
         public Task<OperationResult<LaunchPreview>> GetPreviewAsync(string gameId, LaunchTarget target, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target) => throw new NotSupportedException();
+        public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false) => throw new NotSupportedException();
 
         public Task<OperationResult<JobStarted>> SwitchAsync(string gameId, LaunchTarget target) => throw new NotSupportedException();
 

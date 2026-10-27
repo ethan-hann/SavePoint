@@ -46,10 +46,19 @@ public interface ILaunchApi
     /// changed, and the file to move is named in <c>path</c>), <c>error.gitOperation.checkoutFailed</c> (a file
     /// another program holds open, named in its <c>path</c>, including one that only reads as an unsaved change because it cannot
     /// be read), <c>error.diskSpace.low</c>, or <c>error.launch.spawnFailed</c>.
+    /// <para>
+    /// A Steam game started from its program quits at once when the Steam client is not running, and starting it through Steam would
+    /// let Steam install a pending update over the version being loaded. So before anything is read or switched, Steam must be running
+    /// and signed in. If it is not, the call fails at once, with no job, with <c>error.launch.steamNotRunning</c>. Passing
+    /// <paramref name="startSteam"/> instead makes the job start the Steam client alone (no game, no app id), wait for it
+    /// to sign in, and then carry on; if it does not come up in time the job fails with <c>error.launch.steamDidNotStart</c>, and a
+    /// cancelled or failed wait leaves every folder as it was. A game started from a link, or one that is not a Steam game, never asks.
+    /// </para>
     /// </summary>
     /// <param name="gameId">The game.</param>
     /// <param name="target">What to load.</param>
-    Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target);
+    /// <param name="startSteam">True when the player agreed to have SavePoint start the Steam client if it is not running.</param>
+    Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false);
 
     /// <summary>
     /// Loads a target's files into the game's folders and stops there: the same checks and the same switch as <see cref="StartAsync"/>,

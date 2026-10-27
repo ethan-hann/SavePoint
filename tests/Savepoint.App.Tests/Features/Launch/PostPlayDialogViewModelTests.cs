@@ -73,7 +73,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         var dialog = Build(exited);
 
         Assert.Equal("The program closed right away", dialog.Title);
-        Assert.Equal("The program you chose closed right away with an error (code 127), so the game didn't start. If the game is in your Steam library, set it to start Through Steam in Edit game instead.", dialog.NotSeenHint);
+        Assert.Equal("The program you chose closed right away with an error (code 127), so the game didn't start. If this is a Steam game, start Steam first, then play again. Starting it Through Steam can update the game and replace the version you switched to.", dialog.NotSeenHint);
         Assert.Equal("Open Edit game", dialog.EditGameLabel);
         Assert.DoesNotContain("name", dialog.NotSeenHint, StringComparison.OrdinalIgnoreCase);
     }

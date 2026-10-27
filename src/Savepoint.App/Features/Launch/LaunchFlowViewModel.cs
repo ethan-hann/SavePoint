@@ -73,14 +73,20 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
     /// Completes when the dialog has been answered and the start has been handed to the service; the session itself
     /// carries on through the flow's own state.
     /// </summary>
-    public Task BeginAsync(string gameId, LaunchTarget target) => BeginCoreAsync(gameId, target, switchOnly: false);
+    public Task BeginAsync(string gameId, LaunchTarget target) => BeginCoreAsync(gameId, target, switchOnly: false, freshStart: true);
 
-    private async Task BeginCoreAsync(string gameId, LaunchTarget target, bool switchOnly)
+    private async Task BeginCoreAsync(string gameId, LaunchTarget target, bool switchOnly, bool freshStart = false)
     {
         var flow = FlowFor(gameId);
         if (IsOwned(flow))
         {
             return;
+        }
+
+        // A choice made on an earlier launch's card never carries over to a new Play.
+        if (freshStart)
+        {
+            flow.StartSteam = false;
         }
 
         flow.SwitchOnly = switchOnly;
@@ -118,6 +124,16 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
 
         var settings = await LoadSettingsAsync();
         var plan = preview.Value;
+
+        // Asked before any dialog: a dialog can discard unsaved work, and a player who says "Not now" must find everything as it was.
+        // Loading the files without playing never needs Steam.
+        if (plan.SteamNeeded is { } steamNeeded && !switchOnly && !flow.StartSteam)
+        {
+            flow.Stage = FlowStage.Idle;
+            ShowLaunchFailure(flow, steamNeeded, beforeStart: true);
+            RaiseActivity();
+            return;
+        }
 
         // A file that cannot be read is the only thing wrong with a folder that has to be switched: say which, and offer to try again,
         // rather than a dialog whose choices (keep, discard) could not help.
@@ -224,7 +240,9 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
             return;
         }
 
-        var started = await _deps.Launch.StartAsync(flow.GameId, target);
+        var startSteam = flow.StartSteam;
+        flow.StartSteam = false;
+        var started = await _deps.Launch.StartAsync(flow.GameId, target, startSteam);
         if (!started.Ok)
         {
             CloseProgress(flow);
@@ -340,6 +358,12 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         public LaunchPreview? Preview { get; set; }
 
         public bool ViaBanner { get; set; }
+
+        // True once the player agreed to have SavePoint start the Steam client for this launch. The start that follows uses it up.
+        public bool StartSteam { get; set; }
+
+        // The card shown while the service waits for Steam to sign in, so it can be taken away when the wait ends.
+        public object? SteamWait { get; set; }
 
         // True when the player asked to load the files only: no game starts and no session follows.
         public bool SwitchOnly { get; set; }

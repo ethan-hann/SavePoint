@@ -36,6 +36,11 @@ public sealed partial class LaunchOrchestrator
             }
 
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
+            if (record!.Info.State is SessionState.Exited exited)
+            {
+                await RefuseWhileRunningAsync(game, exited).ConfigureAwait(false);
+            }
+
             var profile = await _services.Catalog.GetProfileAsync(record!.Info.ProfileId).ConfigureAwait(false)
                 ?? throw new ProfileNotFoundException(gameId, record.Info.ProfileId);
             var forked = completion is SessionCompletion.ForkNewProfile fork ? await NewProfileAsync(gameId, fork.ProfileName).ConfigureAwait(false) : null;
@@ -61,6 +66,26 @@ public sealed partial class LaunchOrchestrator
             });
             return Unit.Value;
         });
+
+    // A session also ends when the player says they are done or the game was not seen, so the game can still be open; a store may also start
+    // it again just after it quit. Saving then would store half of a session. A game that quit longer ago than the guard is trusted as closed.
+    private async Task RefuseWhileRunningAsync(GameDefinition game, SessionState.Exited exited)
+    {
+        if (await IsGameOpenAsync(game).ConfigureAwait(false))
+        {
+            throw new SessionStillRunningException(game.Id);
+        }
+
+        var settled = exited.StartedAt + exited.PlayDuration + _starter.RelaunchGuard;
+        if (settled - _services.Time.GetUtcNow() is { } remaining && remaining > TimeSpan.Zero)
+        {
+            await Task.Delay(remaining, _services.Time).ConfigureAwait(false);
+            if (await IsGameOpenAsync(game).ConfigureAwait(false))
+            {
+                throw new SessionStillRunningException(game.Id);
+            }
+        }
+    }
 
     /// <inheritdoc />
     public Task<OperationResult<Unit>> RetryCompletionAsync(string gameId) =>

@@ -21,4 +21,7 @@ public interface IPlatform
 
     /// <summary>Lists the running processes.</summary>
     IProcessInspector Processes { get; }
+
+    /// <summary>The Steam client: whether it is running and signed in, and a way to start it.</summary>
+    ISteamClient Steam { get; }
 }

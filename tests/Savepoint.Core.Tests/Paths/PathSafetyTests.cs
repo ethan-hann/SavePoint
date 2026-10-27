@@ -422,6 +422,8 @@ public class PathSafetyTests
 
         public IProcessInspector Processes { get; } = new NoProcesses();
 
+        public ISteamClient Steam => throw new NotSupportedException("This platform only serves the path table.");
+
         public PathDenylist Denylist(IEnumerable<string> extraBlockedRoots) => table;
     }
 

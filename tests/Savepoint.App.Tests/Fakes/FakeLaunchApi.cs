@@ -53,8 +53,8 @@ public sealed class FakeLaunchApi : ILaunchApi
                 : throw new KeyNotFoundException($"No launch preview is scripted for {target} in game '{gameId}'."));
     }
 
-    public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target) =>
-        _backend.Call(_api, nameof(StartAsync), [gameId, target], () =>
+    public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false) =>
+        _backend.Call(_api, nameof(StartAsync), startSteam ? [gameId, target, true] : [gameId, target], () =>
         {
             State.Game(gameId);
             if (Taken(gameId) is { } taken)

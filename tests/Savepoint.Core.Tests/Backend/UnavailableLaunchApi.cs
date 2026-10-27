@@ -20,7 +20,7 @@ internal sealed class UnavailableLaunchApi : ILaunchApi
     public Task<OperationResult<LaunchPreview>> GetPreviewAsync(string gameId, LaunchTarget target, CancellationToken cancellationToken = default) =>
         Unavailable<LaunchPreview>();
 
-    public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target) => Unavailable<JobStarted>();
+    public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false) => Unavailable<JobStarted>();
 
     public Task<OperationResult<JobStarted>> SwitchAsync(string gameId, LaunchTarget target) => Unavailable<JobStarted>();
 

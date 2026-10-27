@@ -267,7 +267,7 @@ public class LaunchFlowSessionTests : IDisposable
     [Theory]
     [InlineData(SessionEndKind.NamedProcessNeverAppeared, "SavePoint didn't see Skyrim Special Edition running. If it did run, check the program name in Edit game.")]
     [InlineData(SessionEndKind.NamedProcessNeverMatched, "The program name for Skyrim Special Edition never showed up as running. Check it in Edit game.")]
-    [InlineData(SessionEndKind.ProgramFailedAtStart, "The program for Skyrim Special Edition closed right away with an error (code 1). Try Through Steam in Edit game.")]
+    [InlineData(SessionEndKind.ProgramFailedAtStart, "The program for Skyrim Special Edition closed right away with an error (code 1). If it's a Steam game, start Steam, then play again.")]
     public async Task With_session_capture_off_a_program_that_never_appeared_is_still_mentioned_once_in_a_toast(SessionEndKind kind, string text)
     {
         FakeAssert.Ok(await _f.Backend.Settings.SaveAsync(SampleScenario.Settings with { ConfirmSessionCapture = false }));

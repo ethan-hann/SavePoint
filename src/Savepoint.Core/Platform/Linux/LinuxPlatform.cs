@@ -1,3 +1,4 @@
+using Savepoint.Core.Launch;
 using Savepoint.Core.Paths;
 
 namespace Savepoint.Core.Platform.Linux;
@@ -61,6 +62,7 @@ public sealed class LinuxPlatform : IPlatform
 
         _steam = new SteamFolders(_paths, clock);
         Processes = processes ?? new LinuxProcessInspector(clock: clock);
+        Steam = new SteamClient(OsKind.Linux, Processes, static () => null, _paths.SteamFolder, new SystemProcessStarter());
     }
 
     /// <inheritdoc />
@@ -77,6 +79,9 @@ public sealed class LinuxPlatform : IPlatform
 
     /// <inheritdoc />
     public IProcessInspector Processes { get; }
+
+    /// <inheritdoc />
+    public ISteamClient Steam { get; }
 
     /// <inheritdoc />
     public PathDenylist Denylist(IEnumerable<string> extraBlockedRoots)

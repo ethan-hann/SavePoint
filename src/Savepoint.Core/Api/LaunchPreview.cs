@@ -1,4 +1,5 @@
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Api;
 
@@ -19,6 +20,10 @@ namespace Savepoint.Core.Api;
 /// <param name="TargetIsOlderPoint">
 /// True when the target is not the profile's latest point, so a capture after playing follows the fork-or-move-forward choice (D14).
 /// </param>
+/// <param name="SteamNeeded">
+/// <c>error.launch.steamNotRunning</c> when the game is a Steam game started from its program and the Steam client is not running and
+/// signed in, so the App can ask before anything changes; null otherwise. A switch without play ignores it.
+/// </param>
 public sealed record LaunchPreview(
     string GameId,
     string ProfileId,
@@ -30,7 +35,8 @@ public sealed record LaunchPreview(
     HistoryPointId? SelectedSaveId,
     bool ShowBanner,
     bool OnlySaveDiffers,
-    bool TargetIsOlderPoint)
+    bool TargetIsOlderPoint,
+    ErrorInfo? SteamNeeded = null)
 {
     /// <summary>The install folder's state, which every game has.</summary>
     public FolderLaunchState Install => Folder(RepoRole.Install) ?? throw new InvalidOperationException("A launch preview always carries the install folder.");

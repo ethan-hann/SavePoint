@@ -22,6 +22,26 @@ internal static class WindowsSteamRegistry
     }
 
     /// <summary>
+    /// The running client's process id and signed-in account (<c>ActiveProcess\pid</c> and <c>ActiveUser</c>). Null when the key or
+    /// either value is missing or unreadable; the account is 0 while Steam is closed or nobody has signed in.
+    /// </summary>
+    [SupportedOSPlatform("windows")]
+    public static SteamSignIn? ReadSignIn()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam\ActiveProcess");
+            return key?.GetValue("pid") is int pid && key.GetValue("ActiveUser") is int user
+                ? new SteamSignIn(pid, unchecked((uint)user))
+                : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or SecurityException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// The account id of the signed-in Steam user (<c>ActiveProcess\ActiveUser</c>), which is the name of its <c>userdata</c> folder.
     /// Null when the value is missing, unreadable or 0, which is what it holds while Steam is closed.
     /// </summary>
