@@ -337,9 +337,9 @@ internal sealed class CaptureRunner
         }
 
         var startedBranch = false;
-        context.AddStep(JobSteps.CaptureFolder, ("folder", repo.Role), ("path", repo.WorkTree));
         try
         {
+            context.AddStep(JobSteps.CaptureFolder, ("folder", repo.Role), ("path", repo.WorkTree));
             var existed = await storage.Engine.BranchExistsAsync(repo, branch, context.CancellationToken).ConfigureAwait(false);
             startedBranch = !existed;
             var saved = await CaptureFolderAsync(storage, game, repo, branch, existed, pointName, capture, forksNewBranches, plan, room, progress, context.CancellationToken).ConfigureAwait(false);
