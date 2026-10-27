@@ -1,5 +1,6 @@
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using Savepoint.Core.Platform;
 using Savepoint.Core.Services.Storage;
 using Savepoint.Core.Tests.Platform;
@@ -81,7 +82,7 @@ public class LegacyLocalDataTests
         using var world = new World();
         var game = await world.SeedHistoryAsync();
         var before = await world.PointCountAsync(game);
-        File.Delete(Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+        world.DeleteSettings();
         Directory.CreateDirectory(world.NewStorage);
 
         world.Upgrade();
@@ -149,7 +150,7 @@ public class LegacyLocalDataTests
             armed = false;
 
             // The write had not applied after all, and the failure is not an I/O error.
-            Task.Run(() => self!.Workspace.Backend.Services.Catalog.UpdateSettingsAsync(current => current! with { StorageRoot = self.OldStorage })).GetAwaiter().GetResult();
+            self!.RevertSettingsTo(self.OldStorage);
             throw new InvalidOperationException("an unexpected failure");
         });
         self = world;
@@ -205,13 +206,13 @@ public class LegacyLocalDataTests
 
             // The write did not take effect: there are no settings again.
             armed = false;
-            File.Delete(Path.Combine(self!.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+            self!.DeleteSettings();
             throw new IOException("the write failed");
         });
         self = world;
         var game = await world.SeedHistoryAsync();
         var before = await world.PointCountAsync(game);
-        File.Delete(Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+        world.DeleteSettings();
         BackendWorkspace.WriteFile(Path.Combine(world.NewStorage, "unrelated", "note.txt"), "not history");
 
         world.Upgrade();
@@ -268,7 +269,7 @@ public class LegacyLocalDataTests
     {
         using var world = new World();
         var game = await world.SeedHistoryAsync();
-        File.Delete(Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+        world.DeleteSettings();
         BackendWorkspace.WriteFile(Path.Combine(world.NewStorage, StorageContent.EmptyStartMarkerFileName), "empty start");
 
         world.Upgrade();
@@ -407,7 +408,7 @@ public class LegacyLocalDataTests
     {
         using var world = new World();
         var game = await world.SeedHistoryAsync();
-        File.Delete(Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+        world.DeleteSettings();
         CopyTree(world.OldStorage, world.NewStorage);
 
         world.Upgrade();
@@ -425,7 +426,7 @@ public class LegacyLocalDataTests
     {
         using var world = new World();
         var game = await world.SeedHistoryAsync();
-        File.Delete(Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+        world.DeleteSettings();
         BackendWorkspace.WriteFile(Path.Combine(world.NewStorage, "unrelated", "note.txt"), "not history");
 
         world.Upgrade();
@@ -443,7 +444,7 @@ public class LegacyLocalDataTests
     {
         using var world = new World();
         var game = await world.SeedHistoryAsync();
-        File.Delete(Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+        world.DeleteSettings();
 
         world.Upgrade();
         var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
@@ -634,7 +635,35 @@ public class LegacyLocalDataTests
 
         // Writes the stored root straight to the file, as if a settings write that seemed to land never had.
         public void RevertSettingsTo(string root) =>
-            Task.Run(() => Workspace.Backend.Services.Catalog.UpdateSettingsAsync(current => current! with { StorageRoot = root })).GetAwaiter().GetResult();
+            Task.Run(() => WhileHeldAsync(() => Workspace.Backend.Services.Catalog.UpdateSettingsAsync(current => current! with { StorageRoot = root }))).GetAwaiter().GetResult();
+
+        // Removes the settings file, as if a write that seemed to land had not.
+        public void DeleteSettings() =>
+            Task.Run(() => WhileHeldAsync(() =>
+            {
+                File.Delete(Path.Combine(Workspace.CatalogDirectory, CatalogStore.SettingsFileName));
+                return Task.CompletedTask;
+            })).GetAwaiter().GetResult();
+
+        // The settings file can be held for a moment by a program the test does not control (a virus scanner or the search indexer
+        // on Windows). The catalog's own retries give up after about a second, so a step the test depends on keeps trying until the
+        // file is free instead of leaving the scene half set up.
+        private static async Task WhileHeldAsync(Func<Task> step)
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            while (true)
+            {
+                try
+                {
+                    await step().ConfigureAwait(false);
+                    return;
+                }
+                catch (Exception e) when (e is (IOException or UnauthorizedAccessException or SavepointException) && DateTime.UtcNow < deadline)
+                {
+                    await Task.Delay(20).ConfigureAwait(false);
+                }
+            }
+        }
 
         public async Task<int> PointCountAsync(GameDefinition game)
         {
