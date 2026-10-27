@@ -62,15 +62,13 @@ public class GameEditorModsFolderTests
     }
 
     [Fact]
-    public void The_empty_mods_field_says_most_games_keep_mods_inside_the_game_folder()
+    public void The_mods_field_has_a_question_button_whose_answer_says_most_games_keep_mods_inside_the_game_folder()
     {
         var editor = EditorRig.Create().New();
 
-        Assert.True(editor.HasNoModsFolder);
-
-        editor.ModsPath = @"{appData}\Game\Mods";
-
-        Assert.False(editor.HasNoModsFolder);
+        Assert.Equal("Where do my mods live?", editor.ModsHelp.Question);
+        Assert.False(editor.ModsHelp.IsOpen);
+        Assert.StartsWith("Most games keep mods inside the game folder, and SavePoint already snapshots those.", editor.ModsHelp.Answer, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -154,7 +152,6 @@ public class GameEditorModsFolderTests
         var editor = EditorRig.Create().New(ModsSamples.SevenDays);
 
         Assert.Equal(ModsSamples.ModsRaw, editor.ModsPath);
-        Assert.False(editor.HasNoModsFolder);
     }
 
     [Fact]
@@ -311,7 +308,7 @@ public class GameEditorModsFolderTests
         var saving = editor.SaveCommand.ExecuteAsync(null);
 
         Assert.True(saving.IsCompleted, "The save should be refused without asking anything.");
-        Assert.Equal("The game folder, the mods folder and the saves folder can't be inside each other.", editor.ModsError);
+        Assert.Equal("A game's folders can't be the same folder or inside one another.", editor.ModsError);
         Assert.Empty(rig.Calls("AddAsync"));
     }
 

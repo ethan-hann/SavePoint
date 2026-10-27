@@ -34,9 +34,6 @@ public sealed partial class GameEditorViewModel
     [ObservableProperty]
     private string? _modsResolves;
 
-    /// <summary>True while the mods field is empty, which is when the editor explains that most games keep their mods in the game folder.</summary>
-    public bool HasNoModsFolder => string.IsNullOrWhiteSpace(ModsPath);
-
     /// <summary>The path shortcuts offered under the mods field; the same ones as for the saves field.</summary>
     public IReadOnlyList<SuggestionItem> ModsLocationChoices { get; private set; } = [];
 
@@ -47,13 +44,13 @@ public sealed partial class GameEditorViewModel
     public IReadOnlyList<SuggestionItem> LocationChoices { get; private set; } = [];
 
     // Each field offers its own buttons: a shortcut changes only the field its row sits under.
-    private IReadOnlyList<SuggestionItem> BuildLocationChoices(Action<string> apply)
+    private IReadOnlyList<SuggestionItem> BuildLocationChoices(Action<string> apply, string automationKey)
     {
         // Saved Games is a Windows folder; every other system has the home folder as a starting point instead.
         string[] tokens = _text.Os == "windows"
             ? ["{documents}", "{savedGames}", "{appData}", "{localAppData}"]
             : ["{documents}", "{userHome}", "{appData}", "{localAppData}"];
-        return [.. tokens.Select(token => new SuggestionItem(token, new RelayCommand(() => apply(token)), LocationName(token)))];
+        return [.. tokens.Select(token => new SuggestionItem(token, new RelayCommand(() => apply(token)), LocationName(token), _text.Message(automationKey, ("location", LocationName(token)))))];
     }
 
     // What a person calls the place; the field itself keeps the shortcut, which the button's tooltip shows.
@@ -85,7 +82,6 @@ public sealed partial class GameEditorViewModel
 
     partial void OnModsPathChanged(string value)
     {
-        OnPropertyChanged(nameof(HasNoModsFolder));
         ModsError = null;
         ModsCard = null;
         UpdateConfirmations();

@@ -12,20 +12,23 @@ public static class PartialSnapshotText
     /// <param name="text">The formatter.</param>
     /// <param name="inSnapshot">The folders the snapshot holds.</param>
     /// <param name="failed">The folders it does not hold.</param>
-    public static string State(UiFormatter text, IEnumerable<RepoRole> inSnapshot, IEnumerable<RepoRole> failed)
+    /// <param name="hasMods">True when the game has a mods folder of its own, so the game folder's sentence names only the game version.</param>
+    public static string State(UiFormatter text, IEnumerable<RepoRole> inSnapshot, IEnumerable<RepoRole> failed, bool hasMods = false)
     {
         var held = inSnapshot.OrderBy(FolderRoles.Order).ToList();
 
         // After a sentence about what is in the snapshot, the other folders only need "yet"; on its own, a folder says where it is not.
         var missingKey = held.Count > 0 ? "launch.partial.notYet" : "launch.partial.notInSnapshot";
-        var sentences = held.Select(role => text.Message("launch.partial.inSnapshot", ("folder", FolderRoles.Name(role))))
-            .Concat(failed.OrderBy(FolderRoles.Order).Select(role => text.Message(missingKey, ("folder", FolderRoles.Name(role)))));
+        var mods = FolderRoles.HasMods(hasMods);
+        var sentences = held.Select(role => text.Message("launch.partial.inSnapshot", ("folder", FolderRoles.Name(role)), ("hasMods", mods)))
+            .Concat(failed.OrderBy(FolderRoles.Order).Select(role => text.Message(missingKey, ("folder", FolderRoles.Name(role)), ("hasMods", mods))));
         return string.Join(' ', sentences);
     }
 
     /// <summary>The label of the retry button: the folder to retry when exactly one did not save, and the general wording otherwise.</summary>
     /// <param name="text">The formatter.</param>
     /// <param name="failed">The folders that did not save.</param>
-    public static string RetryLabel(UiFormatter text, IReadOnlyCollection<RepoRole> failed) =>
-        text.Message("launch.partial.retry", ("role", failed.Count == 1 ? FolderRoles.Name(failed.First()) : "other"));
+    /// <param name="hasMods">True when the game has a mods folder of its own, so retrying the game folder is "the game version".</param>
+    public static string RetryLabel(UiFormatter text, IReadOnlyCollection<RepoRole> failed, bool hasMods = false) =>
+        text.Message("launch.partial.retry", ("role", failed.Count == 1 ? FolderRoles.Name(failed.First()) : "other"), ("hasMods", FolderRoles.HasMods(hasMods)));
 }

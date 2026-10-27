@@ -198,7 +198,7 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
     {
         if (await _deps.Dialogs.ShowAsync(new KeepAsNewProfileDialogViewModel(GameId, _deps)))
         {
-            // Keeping captures both folders, so nothing is left to resolve.
+            // Keeping captures every folder, so nothing is left to resolve.
             UnsavedBlocks.Clear();
         }
     }
@@ -240,8 +240,11 @@ public sealed partial class LaunchDialogViewModel : DialogViewModel<LaunchTarget
         // Only what changes is said: a version that stays is not named twice, and mods that stay are not named at all.
         var sameVersion = string.Equals(from.Version ?? string.Empty, to.Version ?? string.Empty, StringComparison.Ordinal);
         var sameMods = from.ModFileCount == to.ModFileCount;
+        // The mods folder can change without the count moving (an updated mod), and the game folder's counts say nothing about it.
+        var modsChange = _preview.Mods is { MatchesTarget: false };
         var (sentence, target) = (sameVersion, sameMods) switch
         {
+            (true, true) when modsChange => (text.Message("launch.dialog.versionStaysModsChange", ("target", _targetMarker)), LaunchText.InstallState(text, to)),
             (true, true) => (text.Message("launch.dialog.versionStays", ("target", _targetMarker)), LaunchText.InstallState(text, to)),
             (true, false) => (text.Message("launch.dialog.modsSentence", ("from", LaunchText.Mods(text, from)), ("target", _targetMarker)), LaunchText.Mods(text, to)),
             _ => (

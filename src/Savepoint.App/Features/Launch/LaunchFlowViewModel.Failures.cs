@@ -154,7 +154,7 @@ public sealed partial class LaunchFlowViewModel
     {
         var left = result.Folders.Where(folder => folder.LeftAlone).ToList();
         var which = left.Count == 1 ? FolderRoles.Name(left[0].Role) : "other";
-        var body = _deps.Text.Message("launch.leftAlone.body", ("folder", which));
+        var body = _deps.Text.Message("launch.leftAlone.body", ("folder", which), ("hasMods", FolderRoles.HasMods(HasModsFolder(result))));
         SetInline(flow, ErrorCardViewModel.Custom(
             _deps.Text,
             Icons.Info,
@@ -167,8 +167,11 @@ public sealed partial class LaunchFlowViewModel
     private string KeptAsNewSentence(CaptureResult result)
     {
         var kept = result.Folders.Where(folder => folder.KeptAsNew).ToList();
-        return _deps.Text.Message("launch.keptAsNew.body", ("folder", kept.Count == 1 ? FolderRoles.Name(kept[0].Role) : "other"));
+        return _deps.Text.Message("launch.keptAsNew.body", ("folder", kept.Count == 1 ? FolderRoles.Name(kept[0].Role) : "other"), ("hasMods", FolderRoles.HasMods(HasModsFolder(result))));
     }
+
+    // A save reports every folder the game has, so a mods outcome means the mods have a folder of their own and the game folder's words must not claim them.
+    private static bool HasModsFolder(CaptureResult result) => result.Folders.Any(folder => folder.Role == RepoRole.Mods);
 
     // Every folder failed, which the service may report as a result alone.
     private static ErrorInfo? WholeFailure(CaptureResult? result) =>
@@ -206,9 +209,10 @@ public sealed partial class LaunchFlowViewModel
         // A folder the save left alone is neither saved nor failed; when nothing was saved at all, the card must not say half was.
         var nothingSaved = inSnapshot.Count == 0 && left.Count > 0;
         var title = text.Message(nothingSaved ? "launch.partial.titleNothingSaved" : "launch.partial.title");
-        var state = PartialSnapshotText.State(text, inSnapshot.Select(folder => folder.Role), failed.Select(folder => folder.Role));
+        var hasMods = HasModsFolder(result);
+        var state = PartialSnapshotText.State(text, inSnapshot.Select(folder => folder.Role), failed.Select(folder => folder.Role), hasMods);
         var body = nothingSaved
-            ? text.Message("launch.partial.bodyLeftAlone", ("state", state), ("reason", reason), ("left", left.Count == 1 ? FolderRoles.Name(left[0].Role) : "other"))
+            ? text.Message("launch.partial.bodyLeftAlone", ("state", state), ("reason", reason), ("left", left.Count == 1 ? FolderRoles.Name(left[0].Role) : "other"), ("hasMods", FolderRoles.HasMods(hasMods)))
             : text.Message("launch.partial.body", ("state", state), ("reason", reason));
 
         var rows = result.Folders
@@ -217,18 +221,20 @@ public sealed partial class LaunchFlowViewModel
                 folder.Saved ? Icons.CheckCircle : folder.LeftAlone || folder.Skipped ? Icons.Info : Icons.Cancel,
                 text.Message(
                     folder.Saved ? "launch.partial.rowSaved" : folder.Skipped ? "launch.partial.rowSkipped" : folder.LeftAlone ? "launch.partial.rowLeftAlone" : "launch.partial.rowFailed",
-                    ("folder", text.Message(folder.Role switch
-                    {
-                        RepoRole.Install => "launch.partial.folder.install",
-                        RepoRole.Mods => "launch.partial.folder.mods",
-                        _ => "launch.partial.folder.external",
-                    }))),
+                    ("folder", text.Message(
+                        folder.Role switch
+                        {
+                            RepoRole.Install => "launch.partial.folder.install",
+                            RepoRole.Mods => "launch.partial.folder.mods",
+                            _ => "launch.partial.folder.external",
+                        },
+                        ("hasMods", FolderRoles.HasMods(hasMods))))),
                 folder.Saved,
                 folder.LeftAlone || folder.Skipped))
             .ToList();
 
         var retry = new ErrorCardAction(
-            PartialSnapshotText.RetryLabel(text, [.. failed.Select(folder => folder.Role)]),
+            PartialSnapshotText.RetryLabel(text, [.. failed.Select(folder => folder.Role)], hasMods),
             new AsyncRelayCommand(() => RetryCompletionAsync(flow)),
             IsPrimary: true);
 

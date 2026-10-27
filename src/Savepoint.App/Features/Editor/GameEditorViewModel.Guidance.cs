@@ -24,6 +24,9 @@ public sealed partial class GameEditorViewModel
     /// <summary>"Does my store sync saves?", beside the saves folder; shown only while the store's answer is unknown.</summary>
     public ContextualHelpViewModel CloudSavesHelp { get; private set; } = null!;
 
+    /// <summary>"Where do my mods live?": why a game's mods folder is optional and when to set it.</summary>
+    public ContextualHelpViewModel ModsHelp { get; private set; } = null!;
+
     /// <summary>True while it is not known whether the store syncs this game's saves, so the question button shows.</summary>
     public bool HasCloudSavesUnknown { get; private set; }
 
@@ -79,6 +82,7 @@ public sealed partial class GameEditorViewModel
         ProcessHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.processName.helper"), more, () => OpenHelpPage(ProcessHelp, HowItWorksSection.HowTheGameStarts), automationName: _text.Message("gameEditor.processName.whenNeededName"));
         ModFoldersHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.modPathHints.helper"), automationName: _text.Message("gameEditor.modPathHints.whenNeededName"));
         SteamAppIdHelp = new ContextualHelpViewModel(_text.Message("gameEditor.whenNeeded.question"), _text.Message("gameEditor.artwork.appId.helper"), automationName: _text.Message("gameEditor.artwork.appId.whenNeededName"));
+        ModsHelp = new ContextualHelpViewModel(_text.Message("gameEditor.mods.question"), _text.Message("gameEditor.mods.answer"));
         CloudSavesHelp = new ContextualHelpViewModel(_text.Message("gameEditor.cloudSaves.unknown.question"), _text.Message("gameEditor.cloudSaves.unknown"), more, () => OpenHelpPage(CloudSavesHelp, HowItWorksSection.CloudSaves));
     }
 

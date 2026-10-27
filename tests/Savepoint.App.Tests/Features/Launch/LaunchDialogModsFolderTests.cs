@@ -127,6 +127,34 @@ public class LaunchDialogModsFolderTests : IDisposable
     }
 
     [Fact]
+    public async Task A_mods_change_that_keeps_the_version_and_the_file_count_says_the_mods_change_instead_of_staying_put()
+    {
+        var dialog = await _rig.DialogAsync(
+            LaunchRig.ClearedBlackreachPoint,
+            change: p => WithMods(
+                p with { CurrentInstall = new InstallState("1.6.640", 212), TargetInstall = new InstallState("1.6.640", 212) },
+                CleanMods(new SwitchSummary(40, 40, 3_100_000_000, null))));
+
+        Assert.True(dialog.HasVersionSection);
+        Assert.Equal("Staying on ", dialog.VersionBefore);
+        Assert.Equal("1.6.640 with 212 mod files", dialog.VersionTarget);
+        Assert.StartsWith(". The files in your mods folder change.", dialog.VersionAfter, StringComparison.Ordinal);
+        Assert.Contains("About 3.1 GB of files will be replaced.", dialog.VersionAfter, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_version_that_stays_with_mods_that_already_match_says_only_that_it_stays()
+    {
+        var dialog = await _rig.DialogAsync(
+            LaunchRig.ClearedBlackreachPoint,
+            change: p => WithMods(
+                p with { CurrentInstall = new InstallState("1.6.640", 212), TargetInstall = new InstallState("1.6.640", 212), Install = p.Install with { MatchesTarget = false, Switch = new SwitchSummary(3, 0, 1_000_000, null) } },
+                CleanMods()));
+
+        Assert.DoesNotContain("mods folder change", dialog.VersionAfter, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task The_size_of_the_mods_switch_is_added_to_the_size_of_the_game_switch()
     {
         var dialog = await _rig.DialogAsync(change: p => WithMods(p, CleanMods(new SwitchSummary(40, 40, 3_100_000_000, null))));

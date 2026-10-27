@@ -14,6 +14,10 @@ public static class FolderRoles
         _ => "external",
     };
 
+    /// <summary>The text a message's <c>hasMods</c> select branches on: <c>yes</c> when the game has a mods folder of its own, so the game folder's wording must not claim the mods.</summary>
+    /// <param name="hasMods">Whether the game has a mods folder.</param>
+    public static string HasMods(bool hasMods) => hasMods ? "yes" : "no";
+
     /// <summary>Where a folder sits in lists: the game folder, the mods folder, then the saves folder, the order a switch writes them and the editor shows them.</summary>
     /// <param name="role">The folder.</param>
     public static int Order(RepoRole role) => role switch

@@ -170,8 +170,8 @@ public sealed partial class GameEditorViewModel : ObservableObject, IDisposable
         LaunchArgs = new ChipListViewModel(text, text.Message("gameEditor.launchArgs.label"), text.Message("gameEditor.addOption"), text.Message("gameEditor.launchArgs.placeholder"));
         ModFolders = new ChipListViewModel(text, text.Message("gameEditor.modPathHints.label"), text.Message("gameEditor.addFolder"), text.Message("gameEditor.modPathHints.placeholder"));
         Title = saved is null ? text.Message("gameEditor.title.create") : text.Message("gameEditor.title.edit", ("name", saved.Name));
-        LocationChoices = BuildLocationChoices(token => SavesPath = WithLocation(SavesPath, token));
-        ModsLocationChoices = BuildLocationChoices(token => ModsPath = WithLocation(ModsPath, token));
+        LocationChoices = BuildLocationChoices(token => SavesPath = WithLocation(SavesPath, token), "gameEditor.external.locationAutomation");
+        ModsLocationChoices = BuildLocationChoices(token => ModsPath = WithLocation(ModsPath, token), "gameEditor.mods.locationAutomation");
         ArtworkPreview = shell.Artwork.Preview(saved?.Id ?? string.Empty);
         LoadForm(_source, rulesAreDefaults: saved is null && prefill is null);
         InitializeArtwork(shell, saved);
