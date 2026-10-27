@@ -10,12 +10,14 @@ namespace Savepoint.Core.Catalog;
 /// <param name="GogIds">GOG product ids, as text, for the game and its editions.</param>
 /// <param name="GogFolders">Folder names the GOG installer uses for the game, compared without regard to case.</param>
 /// <param name="SavesByOs">The saves folder to use on one operating system instead of the definition's own, keyed by <c>windows</c>, <c>linux</c>, or <c>macos</c>.</param>
+/// <param name="ModsByOs">The mods folder to use on one operating system instead of the definition's own, keyed like <paramref name="SavesByOs"/>.</param>
 public sealed record TemplateLibraryHints(
     IReadOnlyList<int>? SteamAppIds = null,
     IReadOnlyList<string>? SteamInstallDirs = null,
     IReadOnlyList<string>? GogIds = null,
     IReadOnlyList<string>? GogFolders = null,
-    IReadOnlyDictionary<string, ExternalLocation>? SavesByOs = null)
+    IReadOnlyDictionary<string, ExternalLocation>? SavesByOs = null,
+    IReadOnlyDictionary<string, ModsLocation>? ModsByOs = null)
 {
     /// <summary>The extra Steam app ids; empty, never null, when the file had none.</summary>
     // Redeclared so an absent JSON value reads as empty instead of null.
@@ -32,4 +34,7 @@ public sealed record TemplateLibraryHints(
 
     /// <summary>The per-system saves folders; empty, never null, when the file had none.</summary>
     public IReadOnlyDictionary<string, ExternalLocation> SavesByOs { get; init; } = SavesByOs ?? new Dictionary<string, ExternalLocation>();
+
+    /// <summary>The per-system mods folders; empty, never null, when the file had none.</summary>
+    public IReadOnlyDictionary<string, ModsLocation> ModsByOs { get; init; } = ModsByOs ?? new Dictionary<string, ModsLocation>();
 }

@@ -26,8 +26,12 @@ namespace Savepoint.Core.Catalog;
 /// at the game's launch link or folders (D30); it only picks the artwork and has no other effect.
 /// </param>
 /// <param name="InstallIgnorePaths">
-/// Patterns for files SavePoint never saves from the install folder only. <paramref name="IgnorePaths"/> applies to both folders; these
+/// Patterns for files SavePoint never saves from the install folder only. <paramref name="IgnorePaths"/> applies to every folder; these
 /// never reach the saves folder, so a log rule here cannot hide a save. Empty for none, and absent from older files, which read as empty.
+/// </param>
+/// <param name="Mods">
+/// The optional third folder, outside the install, that holds the game's mods; null when the game has none. Written as an extra
+/// <c>mods</c> key beside <c>external</c>, which an older build ignores, so a catalog that holds one still reads there.
 /// </param>
 public sealed record GameDefinition(
     int SchemaVersion = GameDefinition.CurrentSchemaVersion,
@@ -40,7 +44,8 @@ public sealed record GameDefinition(
     IReadOnlyList<string>? ModPathHints = null,
     string? Notes = null,
     int? SteamAppId = null,
-    IReadOnlyList<string>? InstallIgnorePaths = null)
+    IReadOnlyList<string>? InstallIgnorePaths = null,
+    ModsLocation? Mods = null)
 {
     /// <summary>The only schema version this build reads and writes.</summary>
     public const int CurrentSchemaVersion = 1;
@@ -79,6 +84,7 @@ public sealed record GameDefinition(
         && Name == other.Name
         && Install == other.Install
         && External == other.External
+        && Mods == other.Mods
         && Launch == other.Launch
         && Notes == other.Notes
         && SteamAppId == other.SteamAppId
@@ -95,6 +101,7 @@ public sealed record GameDefinition(
         hash.Add(Name);
         hash.Add(Install);
         hash.Add(External);
+        hash.Add(Mods);
         hash.Add(Launch);
         hash.Add(Notes);
         hash.Add(SteamAppId);

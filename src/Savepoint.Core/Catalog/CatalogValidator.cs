@@ -29,6 +29,7 @@ public static partial class CatalogValidator
             Name = Trim(game.Name),
             Install = new InstallLocation(Trim(game.Install.Path)),
             External = game.External is null ? null : game.External with { Path = Trim(game.External.Path) },
+            Mods = game.Mods is null ? null : game.Mods with { Path = Trim(game.Mods.Path) },
             Launch = launch with
             {
                 ExePath = TrimToNull(launch.ExePath),
@@ -63,7 +64,7 @@ public static partial class CatalogValidator
 
     /// <summary>
     /// Normalizes the game, then lists every problem found; empty means valid. Checks the schema version, the id's shape, the
-    /// name, the install and external paths (present, not nested), the external role, the Steam app id (positive when given), and
+    /// name, the install and external paths (present, not nested), the mods path (present when given, nested with neither), the external role, the Steam app id (positive when given), and
     /// the launch method with its program path (relative, no <c>..</c>) or link (has a scheme).
     /// </summary>
     /// <param name="game">The game to check.</param>
@@ -190,6 +191,20 @@ public static partial class CatalogValidator
             if (game.Install.Path.Length > 0 && external.Path.Length > 0 && PathsNested(game.Install.Path, external.Path))
             {
                 issues.Add(new ValidationIssue("external.path", ValidationMessageIds.GamePathsNested));
+            }
+        }
+
+        if (game.Mods is { } mods)
+        {
+            if (mods.Path.Length == 0)
+            {
+                issues.Add(new ValidationIssue("mods.path", ValidationMessageIds.GameModsPathRequired));
+            }
+            else if ((game.Install.Path.Length > 0 && PathsNested(game.Install.Path, mods.Path))
+                || (game.External is { Path.Length: > 0 } saves && PathsNested(saves.Path, mods.Path)))
+            {
+                // The issue goes on the mods field whichever folder it meets, so the player is sent to the one that was added last.
+                issues.Add(new ValidationIssue("mods.path", ValidationMessageIds.GamePathsNested));
             }
         }
 
