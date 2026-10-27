@@ -1,4 +1,5 @@
 using Savepoint.Core.Git;
+using Savepoint.Core.Tests.Paths;
 
 namespace Savepoint.Core.Tests.Git;
 
@@ -19,5 +20,22 @@ public class FileLockProbeTests
     public void Any_other_number_is_not_a_held_file_on_any_system()
     {
         Assert.False(FileLockProbe.IsSharingViolation(new IOException("failed", 5)));
+    }
+
+    [Fact]
+    public void A_folder_is_not_a_file_that_cannot_be_read()
+    {
+        using var tree = new TempTree();
+
+        Assert.Null(FileLockProbe.Probe(tree.Dir("lib")));
+    }
+
+    [Fact]
+    public void A_link_to_a_folder_is_not_a_file_that_cannot_be_read()
+    {
+        using var tree = new TempTree();
+        var link = tree.DirectoryLink("link", tree.Dir("real"));
+
+        Assert.Null(FileLockProbe.Probe(link));
     }
 }

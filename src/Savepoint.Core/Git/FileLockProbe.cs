@@ -7,11 +7,16 @@ internal static class FileLockProbe
     private const int _sharingViolation = 32;
     private const int _lockViolation = 33;
 
-    // Null when the file can be read, even by a reader that allows every kind of sharing (or is not there). Only a sharing or lock
-    // violation means a program holds it; access denied and any other failure to read it are a different problem, which closing
-    // programs does not fix.
+    // Null when the file can be read, even by a reader that allows every kind of sharing (or is not there, or is a folder or a link to
+    // one, which is something in the way and not a file that cannot be read). Only a sharing or lock violation means a program holds
+    // it; access denied and any other failure to read it are a different problem, which closing programs does not fix.
     public static HeldFileKind? Probe(string path)
     {
+        if (Directory.Exists(path))
+        {
+            return null;
+        }
+
         try
         {
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
