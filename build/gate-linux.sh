@@ -3,9 +3,11 @@
 # this script and a run.env file in one folder; that folder is the only argument.
 #
 # The VM is a real Ubuntu on ext4 and the gate runs as an ordinary user, the way the CI Linux job does, so the CI skip list
-# (build/expected-skips/linux-ci.txt) applies. One gate at a time: a second run is refused at once.
+# (build/expected-skips/linux-ci.txt) applies. One gate at a time, and none while a package build runs on the VM: such a run is
+# refused at once. When the run ends, the SDKs and runtimes an install left behind and the NuGet packages unread for 30 days are
+# removed from the gate's folder.
 #
-# Exit codes: the gate's own, or 75 when another gate already holds the VM, or 1 for a setup failure.
+# Exit codes: the gate's own, or 75 when a gate or a package build already holds the VM, or 1 for a setup failure.
 set -euo pipefail
 
 # Absolute, because the script changes directory before its trap removes the folder.
@@ -20,6 +22,8 @@ fail() {
 # run.env holds GATE_ID, GATE_COMMIT, GATE_DIR, GATE_ALLOW_NARROWED and the optional SAVEPOINT_* settings, each single-quoted.
 # shellcheck disable=SC1091
 . "$incoming/run.env"
+# shellcheck disable=SC1091
+. "$incoming/vm-common.sh"
 
 case "$GATE_DIR" in
   /*) root="$GATE_DIR" ;;
@@ -35,10 +39,12 @@ if ! flock -n 9; then
   [ -f "$root/gate.holder" ] && sed 's/^/gate-linux:   /' "$root/gate.holder" >&2
   exit 75
 fi
+# A package build on the VM holds this too, and the two must not run together.
+vm_take_heavy_lock gate-linux "$GATE_COMMIT"
 printf 'pid %s, commit %s, started %s\n(stop it with: kill -TERM %s)\n' "$$" "$GATE_COMMIT" "$(date '+%F %T')" "$$" >"$root/gate.holder"
 # The driver stops an interrupted run through this file; TERM stops the whole session (build, test host, children), not just this shell.
 printf '%s\n' "$$" >"$root/run-$GATE_ID.pid"
-trap 'rm -f "$root/gate.holder" "$root/run-$GATE_ID.pid"; rm -rf "$incoming"' EXIT
+trap 'rm -f "$root/gate.holder" "$root/run-$GATE_ID.pid"; vm_release_heavy_lock; rm -rf "$incoming"' EXIT
 trap 'trap - TERM INT HUP; kill -TERM 0' TERM INT HUP
 
 # Old uploads from runs that died, and all but the newest logs.
@@ -113,7 +119,7 @@ cd "$tree"
 status_file="$incoming/status"
 {
   set +e
-  bash build/gate.sh "${gate_args[@]}" </dev/null 9>&- 2>&1
+  bash build/gate.sh "${gate_args[@]}" </dev/null 8>&- 9>&- 2>&1
   echo "$?" >"$status_file"
 } | {
   while IFS= read -r line || [ -n "$line" ]; do
@@ -128,6 +134,9 @@ status="$(cat "$status_file" 2>/dev/null || echo 1)"
 
 # The compiler server the build starts would otherwise stay on the VM for ten idle minutes.
 dotnet build-server shutdown >/dev/null 2>&1 || true
+
+# Last, so the pruning never meets a build: the SDKs the install left behind, and packages unread for 30 days.
+vm_prune_caches "$dotnet_root" "$NUGET_PACKAGES" "$NUGET_HTTP_CACHE_PATH"
 
 echo "gate-linux: gate exited with $status after ${SECONDS}s (log $log)"
 exit "$status"

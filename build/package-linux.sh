@@ -3,10 +3,12 @@
 # beside this script and a run.env file in one folder; that folder is the only argument.
 #
 # The VM is a real Ubuntu on ext4. The package is built as an ordinary user in a folder of its own (default ~/package), apart from
-# the gate's tree, so a package run and a gate run never share bin/, obj/ or an SDK. One package run at a time: a second one is
-# refused at once. When the build succeeds, the package files are copied to <folder>/out/<run id>/release for the driver to fetch.
+# the gate's tree, so a package run and a gate run never share bin/, obj/ or an SDK. One package run at a time, and none while a gate
+# runs on the VM: such a run is refused at once. When the build succeeds, the package files are copied to <folder>/out/<run id>/release
+# for the driver to fetch. When the run ends, the SDKs and runtimes an install left behind and the NuGet packages unread for 30 days
+# are removed from the package folder.
 #
-# Exit codes: package.sh's own, or 75 when another package run already holds the VM, or 1 for a setup failure.
+# Exit codes: package.sh's own, or 75 when a package run or a gate already holds the VM, or 1 for a setup failure.
 set -euo pipefail
 
 # Absolute, because the script changes directory before its trap removes the folder.
@@ -21,6 +23,8 @@ fail() {
 # run.env holds PACKAGE_ID, PACKAGE_COMMIT, PACKAGE_DIR and PACKAGE_SOURCES, each single-quoted.
 # shellcheck disable=SC1091
 . "$incoming/run.env"
+# shellcheck disable=SC1091
+. "$incoming/vm-common.sh"
 
 case "$PACKAGE_DIR" in
   /*) root="$PACKAGE_DIR" ;;
@@ -36,10 +40,12 @@ if ! flock -n 9; then
   [ -f "$root/package.holder" ] && sed 's/^/package-linux:   /' "$root/package.holder" >&2
   exit 75
 fi
+# A gate on the VM holds this too, and the two must not run together.
+vm_take_heavy_lock package-linux "$PACKAGE_COMMIT"
 printf 'pid %s, commit %s, started %s\n(stop it with: kill -TERM %s)\n' "$$" "$PACKAGE_COMMIT" "$(date '+%F %T')" "$$" >"$root/package.holder"
 # The driver stops an interrupted run through this file; TERM stops the whole session (publish, vpk, children), not just this shell.
 printf '%s\n' "$$" >"$root/run-$PACKAGE_ID.pid"
-trap 'rm -f "$root/package.holder" "$root/run-$PACKAGE_ID.pid"; rm -rf "$incoming"' EXIT
+trap 'rm -f "$root/package.holder" "$root/run-$PACKAGE_ID.pid"; vm_release_heavy_lock; rm -rf "$incoming"' EXIT
 trap 'trap - TERM INT HUP; kill -TERM 0' TERM INT HUP
 
 # Old uploads from runs that died, and all but the newest logs and outputs.
@@ -94,7 +100,7 @@ cd "$tree"
 status_file="$incoming/status"
 {
   set +e
-  bash build/package.sh "${package_args[@]}" </dev/null 9>&- 2>&1
+  bash build/package.sh "${package_args[@]}" </dev/null 8>&- 9>&- 2>&1
   echo "$?" >"$status_file"
 } | {
   while IFS= read -r line || [ -n "$line" ]; do
@@ -121,6 +127,10 @@ if [ "$status" -eq 0 ]; then
     cp -a "$tree/artifacts/release/source" "$out/"
   fi
 fi
+
+# Last, so the pruning never meets a build: the SDKs the install left behind, and packages unread for 30 days. These are the
+# caches package.sh was given with --tools-dir.
+vm_prune_caches "$dotnet_root" "$root/tools/nuget-linux" "$root/tools/nuget-http-linux"
 
 echo "package-linux: package.sh exited with $status after ${SECONDS}s (log $log)"
 exit "$status"
