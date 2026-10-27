@@ -293,7 +293,12 @@ public sealed class FakeGamesApi : IGamesApi
         _backend.Call(_api, nameof(GetCapturePreviewAsync), [gameId], () =>
         {
             var game = State.Game(gameId);
-            var empty = new CapturePreview(gameId, [.. FakeState.FoldersOf(game).Select(r => new FolderCapturePreview(r, State.Resolve(PathOf(game, r)), 0, 0, 0, State.FolderHeld(gameId, r)))], 0);
+            // As the real backend answers: a folder with no profile to hold it is blocked by the game having no profile yet.
+            var blocked = State.Profiles.Any(profile => profile.GameId == gameId) ? StartEmptyBlock.NewChanges : StartEmptyBlock.FirstProfile;
+            var empty = new CapturePreview(
+                gameId,
+                [.. FakeState.FoldersOf(game).Select(r => new FolderCapturePreview(r, State.Resolve(PathOf(game, r)), 0, 0, 0, State.FolderHeld(gameId, r), r == RepoRole.Install || State.FolderHeld(gameId, r) ? StartEmptyBlock.None : blocked))],
+                0);
             return OperationResult.Success(State.CapturePreviews.GetValueOrDefault(gameId) ?? empty);
         });
 

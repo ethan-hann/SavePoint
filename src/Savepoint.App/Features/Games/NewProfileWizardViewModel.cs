@@ -201,11 +201,34 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     /// <summary>True when the "Start with no mods" box can be ticked: the game has the folder and its current files are in a snapshot, so nothing is lost.</summary>
     public bool CanStartWithoutMods => HasModsFolder && Preview.IsHeld(RepoRole.Mods);
 
+    /// <summary>True when the saves box is switched off and says why: the game has the folder and the preview shows it cannot start empty.</summary>
+    public bool SavesBoxIsOff => HasSavesFolder && Preview.IsRead && !CanStartWithoutSaves;
+
+    /// <summary>True when the mods box is switched off and says why: the game has the folder and the preview shows it cannot start empty.</summary>
+    public bool ModsBoxIsOff => HasModsFolder && Preview.IsRead && !CanStartWithoutMods;
+
     /// <summary>What the saves box does, or why it is off; also its help text for a screen reader.</summary>
-    public string StartWithoutSavesHint => _text.Message(Preview.IsRead && !CanStartWithoutSaves ? "profiles.wizard.startEmpty.savesNeedSnapshot" : "profiles.wizard.startEmpty.savesHint");
+    public string StartWithoutSavesHint => SavesBoxIsOff ? ReasonFor(RepoRole.External) : _text.Message("profiles.wizard.startEmpty.savesHint");
 
     /// <summary>What the mods box does, or why it is off; also its help text for a screen reader.</summary>
-    public string StartWithoutModsHint => _text.Message(Preview.IsRead && !CanStartWithoutMods ? "profiles.wizard.startEmpty.modsNeedSnapshot" : "profiles.wizard.startEmpty.modsHint");
+    public string StartWithoutModsHint => ModsBoxIsOff ? ReasonFor(RepoRole.Mods) : _text.Message("profiles.wizard.startEmpty.modsHint");
+
+    /// <summary>What a screen reader says for the reason a saves box is off: the box's name, then the reason. Empty while the box is on, when its help text speaks instead.</summary>
+    public string StartWithoutSavesReasonName => SavesBoxIsOff ? OffName("profiles.wizard.startEmpty.saves", StartWithoutSavesHint) : string.Empty;
+
+    /// <summary>What a screen reader says for the reason a mods box is off: the box's name, then the reason. Empty while the box is on, when its help text speaks instead.</summary>
+    public string StartWithoutModsReasonName => ModsBoxIsOff ? OffName("profiles.wizard.startEmpty.mods", StartWithoutModsHint) : string.Empty;
+
+    // The cause decides the one step that helps: a snapshot is no way out of a first profile or of a stopped switch.
+    private string ReasonFor(RepoRole role) => _text.Message(Preview.BlockOf(role) switch
+    {
+        StartEmptyBlock.FirstProfile => "profiles.wizard.startEmpty.firstProfile",
+        StartEmptyBlock.StoppedSwitch => "profiles.wizard.startEmpty.stoppedSwitch",
+        StartEmptyBlock.Other => "profiles.wizard.startEmpty.other",
+        _ => "profiles.wizard.startEmpty.newChanges",
+    });
+
+    private string OffName(string boxKey, string reason) => _text.Message("profiles.wizard.startEmpty.offName", ("box", _text.Message(boxKey)), ("reason", reason));
 
     /// <summary>True when the name is not blank, which is what Continue needs.</summary>
     public bool CanContinue => TrimmedName.Length > 0;
@@ -302,6 +325,10 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
         OnPropertyChanged(nameof(CanStartWithoutMods));
         OnPropertyChanged(nameof(StartWithoutSavesHint));
         OnPropertyChanged(nameof(StartWithoutModsHint));
+        OnPropertyChanged(nameof(SavesBoxIsOff));
+        OnPropertyChanged(nameof(ModsBoxIsOff));
+        OnPropertyChanged(nameof(StartWithoutSavesReasonName));
+        OnPropertyChanged(nameof(StartWithoutModsReasonName));
     }
 
     partial void OnStartWithoutSavesChanged(bool value) => Preview.StartEmpty(EmptyFolders());

@@ -20,14 +20,14 @@ namespace Savepoint.App.Tests.Features.Games;
 public class NewProfileWizardStartEmptyViewTests
 {
     // The preview says whether each folder's files are already in a snapshot, which is what turns its box on.
-    private static (ThemeHost Host, NewProfileWizardView View, NewProfileWizardViewModel Wizard) Open(GameDefinition game, bool held = true)
+    private static (ThemeHost Host, NewProfileWizardView View, NewProfileWizardViewModel Wizard) Open(GameDefinition game, bool held = true, StartEmptyBlock block = StartEmptyBlock.None)
     {
         var preview = new CapturePreview(
             game.Id,
             [
                 new FolderCapturePreview(RepoRole.Install, ModsSamples.InstallPath, 900, 0, 9_400_000_000),
-                .. game.Mods is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.Mods, ModsSamples.ModsResolved, 40, 40, 3_100_000_000, held)],
-                .. game.External is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.External, ModsSamples.SavesResolved, 1, 0, 2_000, held)],
+                .. game.Mods is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.Mods, ModsSamples.ModsResolved, 40, 40, 3_100_000_000, held, block)],
+                .. game.External is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.External, ModsSamples.SavesResolved, 1, 0, 2_000, held, block)],
             ],
             0);
         var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(game, 1).WithCapturePreview(preview));
@@ -65,7 +65,7 @@ public class NewProfileWizardStartEmptyViewTests
     [AvaloniaFact]
     public void A_folder_no_snapshot_holds_has_its_box_switched_off_with_the_reason_shown_and_read_out()
     {
-        var (host, view, wizard) = Open(ModsSamples.SevenDays, held: false);
+        var (host, view, wizard) = Open(ModsSamples.SevenDays, held: false, block: StartEmptyBlock.NewChanges);
         using var _ = host;
 
         var saves = Find<CheckBox>(view, "StartWithoutSavesBox");
@@ -73,12 +73,47 @@ public class NewProfileWizardStartEmptyViewTests
 
         Assert.False(saves.IsEnabled);
         Assert.False(mods.IsEnabled);
-        Assert.Equal("Take a snapshot first, so your current saves are kept.", Find<TextBlock>(view, "StartWithoutSavesHint").Text);
-        Assert.Equal("Take a snapshot first, so your current mods are kept.", Find<TextBlock>(view, "StartWithoutModsHint").Text);
-        Assert.Equal("Take a snapshot first, so your current saves are kept.", AutomationProperties.GetHelpText(saves));
-        Assert.Equal("Take a snapshot first, so your current mods are kept.", AutomationProperties.GetHelpText(mods));
+        Assert.Equal("Take a snapshot first, so the files you have now are kept.", Find<TextBlock>(view, "StartWithoutSavesHint").Text);
+        Assert.Equal("Take a snapshot first, so the files you have now are kept.", Find<TextBlock>(view, "StartWithoutModsHint").Text);
+        Assert.Equal("Take a snapshot first, so the files you have now are kept.", AutomationProperties.GetHelpText(saves));
+        Assert.Equal("Take a snapshot first, so the files you have now are kept.", AutomationProperties.GetHelpText(mods));
         Assert.Equal("Start with no saves", AutomationProperties.GetName(saves));
         Assert.False(wizard.StartWithoutSaves);
+    }
+
+    [AvaloniaFact]
+    public void Tab_stops_on_the_reason_of_a_switched_off_box_and_a_screen_reader_hears_the_box_and_why()
+    {
+        var (host, view, _) = Open(ModsSamples.SevenDays, held: false, block: StartEmptyBlock.StoppedSwitch);
+        using var _ = host;
+        var notes = Find<TextBox>(view, "NotesField");
+        var savesReason = Find<Border>(view, "StartWithoutSavesReason");
+        var modsReason = Find<Border>(view, "StartWithoutModsReason");
+        Assert.True(notes.Focus());
+
+        host.Window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        host.Window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Same(savesReason, host.Window.FocusManager!.GetFocusedElement());
+
+        host.Window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        host.Window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Same(modsReason, host.Window.FocusManager!.GetFocusedElement());
+
+        Assert.Equal("Start with no saves. Finish or discard the stopped switch first.", AutomationProperties.GetName(savesReason));
+        Assert.Equal("Start with no mods. Finish or discard the stopped switch first.", AutomationProperties.GetName(modsReason));
+        Assert.Equal(AccessibilityView.Content, AutomationProperties.GetAccessibilityView(savesReason));
+    }
+
+    [AvaloniaFact]
+    public void A_box_that_is_on_has_no_reason_to_stop_on()
+    {
+        var (host, view, _) = Open(ModsSamples.SevenDays);
+        using var _ = host;
+
+        Assert.False(Find<Border>(view, "StartWithoutSavesReason").Focusable);
+        Assert.False(Find<Border>(view, "StartWithoutModsReason").Focusable);
     }
 
     [AvaloniaFact]

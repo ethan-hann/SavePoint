@@ -13,6 +13,17 @@
     <Style Selector="StackPanel.field:focus-within > TextBlock.field-label">
       <Setter Property="Foreground" Value="{DynamicResource Md3PrimaryBrush}" />
     </Style>
+    <!-- The reason a box is off lines up under the box's label; the border is always there so taking focus moves nothing. -->
+    <Style Selector="Border.reason-stop">
+      <Setter Property="Margin" Value="30,0,0,0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Border.reason-stop:focus-visible">
+      <Setter Property="BorderBrush" Value="{DynamicResource Md3PrimaryBrush}" />
+    </Style>
   </UserControl.Styles>
   <dialogs:DialogFrame>
     <dialogs:DialogFrame.Footer>
@@ -70,7 +81,14 @@
                       Content="{loc:Loc profiles.wizard.startEmpty.saves}"
                       AutomationProperties.Name="{loc:Loc profiles.wizard.startEmpty.saves}"
                       AutomationProperties.HelpText="{Binding StartWithoutSavesHint}" />
-            <TextBlock x:Name="StartWithoutSavesHint" Classes="caption subtle" Margin="32,0,0,0" TextWrapping="Wrap" AutomationProperties.AccessibilityView="Raw" Text="{Binding StartWithoutSavesHint}" />
+            <!-- A switched-off box takes no focus, so its reason does: Tab and a screen reader reach it. -->
+            <Border x:Name="StartWithoutSavesReason" Classes="reason-stop"
+                    Focusable="{Binding SavesBoxIsOff}"
+                    AutomationProperties.AccessibilityView="Content"
+                    AutomationProperties.ControlTypeOverride="Text"
+                    AutomationProperties.Name="{Binding StartWithoutSavesReasonName}">
+              <TextBlock x:Name="StartWithoutSavesHint" Classes="caption subtle" TextWrapping="Wrap" AutomationProperties.AccessibilityView="Raw" Text="{Binding StartWithoutSavesHint}" />
+            </Border>
           </StackPanel>
           <StackPanel x:Name="StartWithoutModsChoice" Spacing="2" IsVisible="{Binding HasModsFolder}">
             <CheckBox x:Name="StartWithoutModsBox"
@@ -79,7 +97,13 @@
                       Content="{loc:Loc profiles.wizard.startEmpty.mods}"
                       AutomationProperties.Name="{loc:Loc profiles.wizard.startEmpty.mods}"
                       AutomationProperties.HelpText="{Binding StartWithoutModsHint}" />
-            <TextBlock x:Name="StartWithoutModsHint" Classes="caption subtle" Margin="32,0,0,0" TextWrapping="Wrap" AutomationProperties.AccessibilityView="Raw" Text="{Binding StartWithoutModsHint}" />
+            <Border x:Name="StartWithoutModsReason" Classes="reason-stop"
+                    Focusable="{Binding ModsBoxIsOff}"
+                    AutomationProperties.AccessibilityView="Content"
+                    AutomationProperties.ControlTypeOverride="Text"
+                    AutomationProperties.Name="{Binding StartWithoutModsReasonName}">
+              <TextBlock x:Name="StartWithoutModsHint" Classes="caption subtle" TextWrapping="Wrap" AutomationProperties.AccessibilityView="Raw" Text="{Binding StartWithoutModsHint}" />
+            </Border>
           </StackPanel>
         </StackPanel>
         <ContentControl x:Name="NamePreview" Content="{Binding Preview}" />

@@ -15,15 +15,15 @@ public class NewProfileWizardStartEmptyTests
     private const string _dot = " · ";
 
     // A folder is "held" when its files are already in a snapshot of a profile, which is what lets a new profile start it empty.
-    private static async Task<(NewProfileWizardViewModel Wizard, FakeBackend Backend)> StartAsync(GameDefinition? game = null, bool held = true)
+    private static async Task<(NewProfileWizardViewModel Wizard, FakeBackend Backend)> StartAsync(GameDefinition? game = null, bool held = true, StartEmptyBlock block = StartEmptyBlock.None)
     {
         game ??= ModsSamples.SevenDays;
         var preview = new CapturePreview(
             game.Id,
             [
                 new FolderCapturePreview(RepoRole.Install, ModsSamples.InstallPath, 900, 0, 9_400_000_000),
-                .. game.Mods is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.Mods, ModsSamples.ModsResolved, 40, 40, 3_100_000_000, held)],
-                .. game.External is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.External, ModsSamples.SavesResolved, 1, 0, 2_000, held)],
+                .. game.Mods is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.Mods, ModsSamples.ModsResolved, 40, 40, 3_100_000_000, held, block)],
+                .. game.External is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.External, ModsSamples.SavesResolved, 1, 0, 2_000, held, block)],
             ],
             0);
         var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(game, 1).WithCapturePreview(preview));
@@ -141,14 +141,60 @@ public class NewProfileWizardStartEmptyTests
     }
 
     [Fact]
-    public async Task A_folder_no_snapshot_holds_cannot_start_empty_and_the_hint_says_to_take_a_snapshot_first()
+    public async Task A_folder_with_new_or_changed_files_cannot_start_empty_and_the_hint_says_to_take_a_snapshot_first()
     {
-        var (wizard, _) = await StartAsync(held: false);
+        var (wizard, _) = await StartAsync(held: false, block: StartEmptyBlock.NewChanges);
 
         Assert.False(wizard.CanStartWithoutSaves);
         Assert.False(wizard.CanStartWithoutMods);
-        Assert.Equal("Take a snapshot first, so your current saves are kept.", wizard.StartWithoutSavesHint);
-        Assert.Equal("Take a snapshot first, so your current mods are kept.", wizard.StartWithoutModsHint);
+        Assert.Equal("Take a snapshot first, so the files you have now are kept.", wizard.StartWithoutSavesHint);
+        Assert.Equal("Take a snapshot first, so the files you have now are kept.", wizard.StartWithoutModsHint);
+        Assert.True(wizard.SavesBoxIsOff);
+        Assert.True(wizard.ModsBoxIsOff);
+    }
+
+    [Fact]
+    public async Task On_a_games_first_profile_the_hint_says_to_make_this_profile_first_instead_of_taking_a_snapshot()
+    {
+        var (wizard, _) = await StartAsync(held: false, block: StartEmptyBlock.FirstProfile);
+
+        Assert.Equal("Your current files aren't in a snapshot yet. Make this profile first, then a later one can start empty.", wizard.StartWithoutSavesHint);
+        Assert.Equal("Your current files aren't in a snapshot yet. Make this profile first, then a later one can start empty.", wizard.StartWithoutModsHint);
+    }
+
+    [Fact]
+    public async Task While_a_switch_is_stopped_or_the_folder_cannot_be_checked_the_hint_says_to_finish_or_discard_it()
+    {
+        var (wizard, _) = await StartAsync(held: false, block: StartEmptyBlock.StoppedSwitch);
+
+        Assert.Equal("Finish or discard the stopped switch first.", wizard.StartWithoutSavesHint);
+        Assert.Equal("Finish or discard the stopped switch first.", wizard.StartWithoutModsHint);
+    }
+
+    [Fact]
+    public async Task For_any_other_reason_the_hint_does_not_point_at_a_snapshot_or_a_stopped_switch()
+    {
+        var (wizard, _) = await StartAsync(held: false, block: StartEmptyBlock.Other);
+
+        Assert.Equal("SavePoint can't check these files right now. Load one of this game's profiles and close any program using them, then try again.", wizard.StartWithoutSavesHint);
+    }
+
+    [Fact]
+    public async Task A_box_that_is_on_is_not_reported_as_off()
+    {
+        var (wizard, _) = await StartAsync();
+
+        Assert.False(wizard.SavesBoxIsOff);
+        Assert.False(wizard.ModsBoxIsOff);
+    }
+
+    [Fact]
+    public async Task The_name_a_screen_reader_speaks_for_an_off_box_is_the_box_and_its_reason()
+    {
+        var (wizard, _) = await StartAsync(held: false, block: StartEmptyBlock.StoppedSwitch);
+
+        Assert.Equal("Start with no saves. Finish or discard the stopped switch first.", wizard.StartWithoutSavesReasonName);
+        Assert.Equal("Start with no mods. Finish or discard the stopped switch first.", wizard.StartWithoutModsReasonName);
     }
 
     [Fact]
