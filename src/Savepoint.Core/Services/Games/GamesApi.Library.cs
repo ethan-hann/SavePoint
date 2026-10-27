@@ -47,6 +47,15 @@ internal sealed partial class GamesApi
                     leftOut = game.SavesFolder ?? SavesFolderPath(saves.Path);
                 }
 
+
+                // The mods folder was not shown with the scan, so it is kept only if it is there now; SavePoint never makes a folder of the game's.
+                string? modsLeftOut = null;
+                if (draft.Mods is { } mods && !FolderIsThere(mods.Path, "mods.path", out var resolvedMods))
+                {
+                    draft = draft with { Mods = null };
+                    modsLeftOut = resolvedMods;
+                }
+
                 draft = await WithProcessNameAsync(draft).ConfigureAwait(false);
                 // Every rule of a scanned draft came from a template, none from the player.
                 var added = await AddAsync(draft, draft.IgnorePaths).ConfigureAwait(false);
@@ -57,7 +66,7 @@ internal sealed partial class GamesApi
 
                 return added.Value switch
                 {
-                    AddGameOutcome.Added done => new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Added, done.Game.Id, SavesFolderLeftOut: leftOut, RulesLeftOff: done.LeftOff),
+                    AddGameOutcome.Added done => new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.Added, done.Game.Id, SavesFolderLeftOut: leftOut, RulesLeftOff: done.LeftOff, ModsFolderLeftOut: modsLeftOut),
                     _ => new LibraryAddResult(game.Key, game.Name, LibraryAddStatus.HasOlderHistory),
                 };
             });
@@ -75,6 +84,22 @@ internal sealed partial class GamesApi
         var programs = await _services.Executables.ListProgramsAsync(folder).ConfigureAwait(false);
         var name = ProcessNameSuggester.Suggest(Path.GetFileName(Path.TrimEndingDirectorySeparator(folder)), draft.Name, programs, folder);
         return name is null ? draft : draft with { Launch = draft.Launch with { ProcessNameForExitDetection = name } };
+    }
+
+    // True when the folder resolves on this machine and exists; the resolved path is returned when it resolves, else the text as written.
+    private bool FolderIsThere(string raw, string field, out string shown)
+    {
+        try
+        {
+            shown = _services.PathTokens.Resolve(raw, field);
+        }
+        catch (ValidationException)
+        {
+            shown = raw;
+            return false;
+        }
+
+        return Directory.Exists(shown);
     }
 
     // True when the scan showed this very saves folder as being there and it still is.

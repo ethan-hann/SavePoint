@@ -127,6 +127,7 @@ internal sealed class RemovedSnapshots
         }
 
         var install = repos.Single(repo => repo.Role == RepoRole.Install);
+        var mods = repos.FirstOrDefault(repo => repo.Role == RepoRole.Mods);
         var candidates = new ConcurrentDictionary<(RepoRole, string), Lazy<Task<IReadOnlyList<CommitInfo>>>>();
         var snapshots = new RemovedSnapshot[state.Groups.Count];
         using var slots = new SemaphoreSlim(_parallelism);
@@ -137,7 +138,8 @@ internal sealed class RemovedSnapshots
             {
                 var origin = profiles.FirstOrDefault(profile => profile.BranchName == group.Lead.Branch);
                 var commit = await CommitInAsync(storage, install, state, group, candidates, cancellationToken).ConfigureAwait(false);
-                var installState = await _history.InstallStateAsync(game, install, origin?.VersionOverride, commit?.Id, cancellationToken).ConfigureAwait(false);
+                var modsCommit = mods is null ? null : await CommitInAsync(storage, mods, state, group, candidates, cancellationToken).ConfigureAwait(false);
+                var installState = await _history.InstallStateAsync(game, install, origin?.VersionOverride, commit?.Id, mods, modsCommit?.Id, cancellationToken).ConfigureAwait(false);
                 snapshots[index] = new RemovedSnapshot(
                     new HistoryPointId(group.CaptureId),
                     (group.Install ?? group.Mods, group.External) switch

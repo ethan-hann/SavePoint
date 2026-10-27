@@ -27,6 +27,21 @@ public class ModsFreeUpSpaceTests
     }
 
     [Fact(Timeout = 240_000)]
+    public async Task Bringing_back_a_snapshot_only_the_mods_folder_recorded_starts_a_profile_with_that_mods_point_and_the_other_folders_as_they_were()
+    {
+        using var world = await World.CreateAsync();
+
+        var brought = await world.Workspace.Profiles.BringBackAsync(world.Game.Id, world.ModsOnly, "Back with mod c");
+
+        Assert.True(brought.Ok, brought.Error?.Detail);
+        var mods = await world.Workspace.CommitsAsync(world.Game, RepoRole.Mods, brought.Value);
+        Assert.Equal(world.ModsOnly.Value, mods[0].CaptureId);
+        Assert.Contains("modC/info.xml", await world.Workspace.FilesAsync(world.Game, RepoRole.Mods, brought.Value));
+        Assert.NotEmpty(await world.Workspace.CommitsAsync(world.Game, RepoRole.Install, brought.Value));
+        Assert.Single(await world.ListAsync(), snapshot => snapshot.Id != world.ModsOnly);
+    }
+
+    [Fact(Timeout = 240_000)]
     public async Task The_preview_counts_the_snapshots_and_names_the_records_of_every_store()
     {
         using var world = await World.CreateAsync();
