@@ -205,6 +205,12 @@
                           AutomationProperties.Name="{Binding AutomationName}"
                           AutomationProperties.HelpText="{Binding HelpText}"
                           ToolTip.Tip="{Binding HelpText}">
+                    <!-- Right-click, the menu key and Shift+F10 open the same list More actions shows; it is an addition, not a replacement. -->
+                    <Border.ContextFlyout>
+                      <MenuFlyout Placement="Pointer"
+                                  ItemsSource="{Binding MenuEntries}"
+                                  ItemContainerTheme="{StaticResource ProfileMenuItemTheme}" />
+                    </Border.ContextFlyout>
                     <Grid>
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />

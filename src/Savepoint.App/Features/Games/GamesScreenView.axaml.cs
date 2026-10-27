@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace Savepoint.App.Features.Games;
 
@@ -42,6 +43,16 @@ public partial class GamesScreenView : UserControl
     // A row is a Tab stop that carries the row's spoken summary, so Enter on it plays the row; a button inside the row handles its own Enter first.
     private static void OnKeyDown(object? sender, KeyEventArgs e)
     {
+        // Avalonia opens a context menu from the menu key but not from Shift+F10, which Windows and Linux players also reach for.
+        if (e.Key == Key.F10 && e.KeyModifiers == KeyModifiers.Shift
+            && e.Source is Visual source
+            && source.GetSelfAndVisualAncestors().OfType<Border>().FirstOrDefault(border => border.Classes.Contains("table-row")) is { } menuRow)
+        {
+            menuRow.RaiseEvent(new ContextRequestedEventArgs { RoutedEvent = ContextRequestedEvent, Source = menuRow });
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Enter && e.Source is Border { DataContext: ProfileRowViewModel profile } row && row.Classes.Contains("table-row"))
         {
             profile.PlayCommand.Execute(null);

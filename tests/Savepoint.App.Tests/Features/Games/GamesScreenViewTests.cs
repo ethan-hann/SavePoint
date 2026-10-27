@@ -252,6 +252,68 @@ public class GamesScreenViewTests
         Assert.Equal([SampleScenario.SkyrimSaves], harness.Rig.Revealer.Revealed);
     }
 
+    // ---- The row's right-click menu
+
+    private static void RightClick(GamesViewHarness harness, Control row)
+    {
+        var at = row.TranslatePoint(new Point(40, row.Bounds.Height / 2), harness.Window)!.Value;
+        harness.Window.MouseDown(at, MouseButton.Right);
+        harness.Window.MouseUp(at, MouseButton.Right);
+        harness.Settle();
+    }
+
+    private static List<(string? Header, bool Visible, bool Enabled)> Shape(IEnumerable<MenuItem> items) =>
+        [.. items.Select(item => (item.Header as string, item.IsVisible, item.IsEnabled))];
+
+    [AvaloniaFact]
+    public async Task Right_clicking_a_row_opens_the_same_menu_as_more_actions()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var more = MoreButtons(harness)[1];
+        more.Flyout!.ShowAt(more);
+        harness.Settle();
+        var fromMore = Shape(harness.OpenMenuItems());
+        more.Flyout.Hide();
+        harness.Settle();
+
+        RightClick(harness, Rows(harness)[1]);
+
+        var row = harness.Rig.Screen.Profiles[1];
+        var items = harness.OpenMenuItems();
+        Assert.NotEmpty(items);
+        Assert.Equal(fromMore, Shape(items));
+        Assert.Same(row.SwitchCommand, items[0].Command);
+        Assert.Same(row.DeleteCommand, items[^1].Command);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Key.Apps, KeyModifiers.None)]
+    [InlineData(Key.F10, KeyModifiers.Shift)]
+    public async Task The_menu_key_and_shift_f10_open_the_menu_of_the_focused_row(Key key, KeyModifiers modifiers)
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var row = Rows(harness)[1];
+        row.Focus(NavigationMethod.Tab);
+        harness.Settle();
+
+        harness.Window.KeyPress(key, (RawInputModifiers)modifiers, PhysicalKey.None, null);
+        harness.Window.KeyRelease(key, (RawInputModifiers)modifiers, PhysicalKey.None, null);
+        harness.Settle();
+
+        Assert.Equal("Switch to this profile", harness.OpenMenuItems().FirstOrDefault()?.Header);
+    }
+
+    [AvaloniaFact]
+    public async Task A_row_with_a_right_click_menu_keeps_its_spoken_summary()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+
+        var rows = Rows(harness);
+
+        Assert.NotNull(rows[0].ContextFlyout);
+        Assert.Equal(harness.Rig.Screen.Profiles.Select(profile => profile.AutomationName), rows.Select(AutomationProperties.GetName));
+    }
+
     [AvaloniaFact]
     public async Task Choosing_delete_in_the_row_menu_asks_with_what_would_be_lost()
     {
