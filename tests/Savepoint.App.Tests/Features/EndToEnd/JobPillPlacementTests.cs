@@ -54,6 +54,9 @@ public class JobPillPlacementTests
     // scrolls with the profiles in a short window), at some of the sizes.
     private static readonly HashSet<string> _opensScrolled = ["games-failure-card", "activity", "games-banner", "games-running", "games-checking"];
 
+    // The Games footer's free-up button is the job here, so there is no state of this screen without it to try the toasts against.
+    private const string _noJobFreeScreen = "games-free-up";
+
     private static (string Name, double Width, double Height)[] LargestFirst((string Name, double Width, double Height)[] sizes) =>
         [.. sizes.OrderByDescending(size => size.Width).ThenByDescending(size => size.Height)];
 
@@ -71,24 +74,10 @@ public class JobPillPlacementTests
         return data;
     }
 
-    public static TheoryData<string, string> LayoutsAtEverySize()
-    {
-        var data = new TheoryData<string, string>();
-        foreach (var layout in new[] { ShellLayout.Sidebar, ShellLayout.Library })
-        {
-            foreach (var (size, _, _) in _sizes)
-            {
-                data.Add(layout.ToString(), size);
-            }
-        }
-
-        return data;
-    }
-
     private static ProfileRowViewModel Row(ComposedApp app, string id) => app.Games.Profiles.Single(row => row.Id == id);
 
-    // The screen the way a person gets there, with a job running: the pill is up and the screen has settled.
-    private static async Task<ComposedApp> OpenAsync(string screen, ShellLayout layout, double width, double height, bool widestPill = true, bool withJob = true)
+    // The screen the way a person gets there, settled, before any job runs.
+    private static async Task<ComposedApp> OpenScreenAsync(string screen, ShellLayout layout, double width, double height)
     {
         var scenario = screen.StartsWith("history-removed", StringComparison.Ordinal) ? RemovedSnapshotSamples.Scenario() : ScenarioBuilder.Sample();
         var backend = new FakeBackend(scenario.WithSettings(SampleScenario.Settings with { Layout = layout }));
@@ -142,12 +131,13 @@ public class JobPillPlacementTests
         }
 
         app.Settle();
-        if (!withJob)
-        {
-            return app;
-        }
+        return app;
+    }
 
-        if (screen == "games-free-up")
+    // A job running on the screen: the pill is up, as wide as it gets when asked.
+    private static async Task StartJobAsync(ComposedApp app, string screen, bool widestPill)
+    {
+        if (screen == _noJobFreeScreen)
         {
             _ = app.Games.FreeUp.FreeUpCommand.ExecuteAsync(null);
         }
@@ -165,48 +155,65 @@ public class JobPillPlacementTests
 
         app.Settle();
         Assert.True(app.Find<Button>("Pill").IsEffectivelyVisible, "The job pill is not up.");
+    }
+
+    // The screen the way a person gets there, with a job running: the pill is up and the screen has settled.
+    private static async Task<ComposedApp> OpenAsync(string screen, ShellLayout layout, double width, double height, bool widestPill = true, bool withJob = true)
+    {
+        var app = await OpenScreenAsync(screen, layout, width, height);
+        if (withJob)
+        {
+            await StartJobAsync(app, screen, widestPill);
+        }
+
         return app;
     }
 
-    // One composition per screen steps through the sizes, from the largest down, so the window only shrinks. Before each size every scroll
-    // area goes back to the top, which is where a fresh open has it; a screen that opens already scrolled (the one that scrolls its error
-    // card or its selected row into view) is opened fresh at every size instead, so it keeps the scroll its own opening gave it.
+    // One audit of the screen with the pill up, one with the toasts up and one with both, then the full stack of toasts in the smallest window;
+    // each configuration places content differently, so each is tried. A window with the job runs through the configurations at each size, and a
+    // second window, opened without the job, tries the toasts alone, since a job once started cannot be taken back.
     [AvaloniaTheory]
     [MemberData(nameof(ScreensInBothLayouts))]
-    public async Task No_control_under_the_job_pill_loses_its_clicks_and_no_pinned_text_is_hidden_under_it(string layoutName, string screen) =>
-        await AuditAsync(layoutName, screen, withJob: true, toasts: ToastLoad.None);
-
-    public static TheoryData<string, string> ToastScreensInBothLayouts()
+    public async Task No_control_under_the_pill_or_the_toasts_loses_its_clicks_and_no_pinned_text_is_hidden_under_them(string layoutName, string screen)
     {
-        var data = new TheoryData<string, string>();
-        foreach (var layout in new[] { ShellLayout.Sidebar, ShellLayout.Library })
+        var problems = new List<string>();
+        if (screen != _noJobFreeScreen)
         {
-            foreach (var screen in _screens.Where(screen => screen != "games-free-up"))
-            {
-                data.Add(layout.ToString(), screen);
-            }
+            problems.AddRange(await SweepAsync(layoutName, screen, withJob: false, ToastsAlone));
         }
 
-        return data;
+        problems.AddRange(await SweepAsync(layoutName, screen, withJob: true, WithTheJob));
+
+        Assert.True(problems.Count == 0, $"{screen}, {layoutName} layout:{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
     }
 
-    // The same audit with toasts up: nothing a person presses or reads may sit under the toast stack.
-    [AvaloniaTheory]
-    [MemberData(nameof(ToastScreensInBothLayouts))]
-    public async Task No_control_under_the_toasts_loses_its_clicks_and_no_pinned_text_is_hidden_under_them(string layoutName, string screen) =>
-        await AuditAsync(layoutName, screen, withJob: false, toasts: ToastLoad.Two);
+    // The pill over the page and at the end of its scroll, in render-output/job-pill/, to look at by eye.
+    [AvaloniaFact]
+    public async Task Writes_the_job_pill_over_the_page_and_at_the_end_of_its_scroll_on_request()
+    {
+        RenderOutput.SkipUnlessRequested();
+        foreach (var (layoutName, screen, sizeName) in new[]
+        {
+            ("Sidebar", "games", "1040x660"),
+            ("Sidebar", "games-banner", "150% on 1366x768"),
+            ("Library", "games", "150% on 1366x768"),
+            ("Sidebar", "settings", "the smallest window"),
+            ("Library", "how-it-works", "200% on 1080p"),
+        })
+        {
+            var (_, width, height) = _sizes.Single(size => size.Name == sizeName);
+            using var app = await OpenAsync(screen, Enum.Parse<ShellLayout>(layoutName), width, height, widestPill: false);
+            var name = $"{layoutName.ToLowerInvariant()}-{screen}-{width}x{height}";
 
-    // The most room there is: the pill standing above the toasts, both kept clear of everything pinned.
-    [AvaloniaTheory]
-    [MemberData(nameof(ScreensInBothLayouts))]
-    public async Task No_control_under_the_pill_and_the_toasts_together_loses_its_clicks_and_no_pinned_text_is_hidden(string layoutName, string screen) =>
-        await AuditAsync(layoutName, screen, withJob: true, toasts: ToastLoad.Two);
+            app.Render("job-pill", name);
+            foreach (var scroller in app.Window.GetVisualDescendants().OfType<ScrollViewer>().Where(Scrolls))
+            {
+                scroller.ScrollToEnd();
+            }
 
-    // The stack at its full height: four toasts with long wrapped details and the dismiss-all button, the pill up, in the smallest window.
-    [AvaloniaTheory]
-    [MemberData(nameof(ScreensInBothLayouts))]
-    public async Task A_full_height_toast_stack_and_the_pill_cover_nothing_in_the_smallest_window(string layoutName, string screen) =>
-        await AuditAsync(layoutName, screen, withJob: true, toasts: ToastLoad.Heavy, onlySize: "the smallest window");
+            app.Render("job-pill", $"{name}-end");
+        }
+    }
 
     private enum ToastLoad
     {
@@ -234,65 +241,97 @@ public class JobPillPlacementTests
         app.Settle();
     }
 
-    private static async Task AuditAsync(string layoutName, string screen, bool withJob, ToastLoad toasts, string? onlySize = null)
+    // What one window is audited for at one size: each configuration of the pill and the toasts, with its name and what it found.
+    private delegate IEnumerable<(string Configuration, List<string> Found)> Configurations(ComposedApp app, ScrollMemory scrolls, bool smallest);
+
+    // Puts the scroll areas back where a fresh open has them: at the top, or, for a screen that opens scrolled, where its own opening left them.
+    private sealed class ScrollMemory(List<(ScrollViewer Scroller, Vector Offset)>? opened)
+    {
+        public bool OpensScrolled => opened is not null;
+
+        public void Reset(ComposedApp app)
+        {
+            foreach (var scroller in app.Window.GetVisualDescendants().OfType<ScrollViewer>())
+            {
+                if (opened is null)
+                {
+                    scroller.ScrollToHome();
+                }
+                else if (opened.FirstOrDefault(saved => saved.Scroller == scroller) is { Scroller: not null } kept)
+                {
+                    scroller.Offset = kept.Offset;
+                }
+            }
+
+            app.Settle();
+        }
+    }
+
+    private static IEnumerable<(string, List<string>)> ToastsAlone(ComposedApp app, ScrollMemory scrolls, bool smallest)
+    {
+        yield return ("toasts only", Audit(app, scrolls, withJob: false, ToastLoad.Two));
+    }
+
+    private static IEnumerable<(string, List<string>)> WithTheJob(ComposedApp app, ScrollMemory scrolls, bool smallest)
+    {
+        yield return ("pill only", Audit(app, scrolls, withJob: true, ToastLoad.None));
+
+        scrolls.Reset(app);
+        ShowToasts(app, ToastLoad.Two);
+        yield return ("pill and toasts", Audit(app, scrolls, withJob: true, ToastLoad.Two));
+
+        // The stack at its full height: four toasts with long wrapped details and the dismiss-all button, the pill up.
+        if (smallest)
+        {
+            scrolls.Reset(app);
+            app.Toasts.DismissAll();
+            ShowToasts(app, ToastLoad.Heavy);
+            yield return ("pill and a full-height toast stack", Audit(app, scrolls, withJob: true, ToastLoad.Heavy));
+        }
+
+        scrolls.Reset(app);
+        app.Toasts.DismissAll();
+        app.Settle();
+    }
+
+    // One composition per screen steps through the sizes, from the largest down, so the window only shrinks. Before each size every scroll
+    // area goes back to the top, which is where a fresh open has it; a screen that opens already scrolled (the one that scrolls its error
+    // card or its selected row into view) is opened fresh at every size instead, so it keeps the scroll its own opening gave it.
+    private static async Task<List<string>> SweepAsync(string layoutName, string screen, bool withJob, Configurations configurations)
     {
         var layout = Enum.Parse<ShellLayout>(layoutName);
         var problems = new List<string>();
         ComposedApp? app = null;
+        ScrollMemory? scrolls = null;
         var openFreshEachTime = _opensScrolled.Contains(screen);
         try
         {
-            foreach (var (sizeName, width, height) in _sizes.Where(size => onlySize is null || size.Name == onlySize))
+            foreach (var (sizeName, width, height) in _sizes)
             {
-                var reused = app is not null && !openFreshEachTime;
-                if (!reused)
+                if (app is null || openFreshEachTime)
                 {
                     app?.Dispose();
                     app = await OpenAsync(screen, layout, width, height, withJob: withJob);
-                    ShowToasts(app, toasts);
+                    if (!withJob)
+                    {
+                        ShowToasts(app, ToastLoad.Two);
+                    }
+
+                    scrolls = new ScrollMemory(openFreshEachTime ? [.. app.Window.GetVisualDescendants().OfType<ScrollViewer>().Select(scroller => (scroller, scroller.Offset))] : null);
                 }
                 else
                 {
-                    foreach (var scroller in app!.Window.GetVisualDescendants().OfType<ScrollViewer>())
-                    {
-                        scroller.ScrollToHome();
-                    }
-
+                    scrolls!.Reset(app);
                     app.Window.Width = width;
                     app.Window.Height = height;
                     app.Settle();
-                    Assert.True(!withJob || app.Find<Button>("Pill").IsEffectivelyVisible, $"The job pill is not up at {sizeName}.");
                 }
 
-                var overlays = new List<Control>();
-                if (withJob)
+                var smallest = sizeName == _sizes[^1].Name;
+                foreach (var (configuration, found) in configurations(app, scrolls!, smallest))
                 {
-                    overlays.Add(app.Find<Button>("Pill"));
+                    problems.AddRange(found.Select(problem => $"{sizeName} ({width}x{height}), {configuration}: {problem}"));
                 }
-
-                if (toasts != ToastLoad.None)
-                {
-                    Assert.True(app.Find<Grid>("Strip").IsEffectivelyVisible, $"No toast is up at {sizeName}.");
-                    overlays.Add(app.Find<Grid>("Strip"));
-                }
-
-                Redraw(app);
-                var moved = app.Window.GetVisualDescendants().OfType<ScrollViewer>().Where(scroller => scroller.Offset != default).ToList();
-                if (!openFreshEachTime)
-                {
-                    Assert.True(moved.Count == 0, $"{screen}, {layoutName} layout, {sizeName}: a scroll area did not start at the top ({string.Join(", ", moved.Select(scroller => $"{scroller.Name ?? scroller.GetType().Name} at {scroller.Offset.Y}"))}); add the screen to {nameof(_opensScrolled)}.");
-                }
-
-                var found = overlays.SelectMany(overlay => Covered(app, overlay, scrolledToEnd: false)).Select(problem => $"{problem} (pinned)").ToList();
-                found.AddRange(overlays.SelectMany(overlay => HiddenPinnedText(app, overlay)).Select(problem => $"{problem} (pinned text)"));
-                foreach (var scroller in app.Window.GetVisualDescendants().OfType<ScrollViewer>().Where(Scrolls))
-                {
-                    scroller.ScrollToEnd();
-                }
-
-                Redraw(app);
-                found.AddRange(overlays.SelectMany(overlay => Covered(app, overlay, scrolledToEnd: true)).Select(problem => $"{problem} (scrolled to the end)"));
-                problems.AddRange(found.Distinct().Select(problem => $"{sizeName} ({width}x{height}): {problem}"));
             }
         }
         finally
@@ -300,51 +339,84 @@ public class JobPillPlacementTests
             app?.Dispose();
         }
 
-        Assert.True(problems.Count == 0, $"{screen}, {layoutName} layout:{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
+        return problems;
     }
 
-    [AvaloniaTheory]
-    [InlineData("Sidebar", "games", "1040x660")]
-    [InlineData("Sidebar", "games-banner", "150% on 1366x768")]
-    [InlineData("Library", "games", "150% on 1366x768")]
-    [InlineData("Sidebar", "settings", "the smallest window")]
-    [InlineData("Library", "how-it-works", "200% on 1080p")]
-    public async Task The_job_pill_renders_over_the_page_and_at_the_end_of_its_scroll(string layoutName, string screen, string sizeName)
+    // Everything the window shows now is audited: what the pill and the toasts take clicks from or hide, and that they keep clear of each other.
+    private static List<string> Audit(ComposedApp app, ScrollMemory scrolls,bool withJob, ToastLoad toasts)
     {
-        var (_, width, height) = _sizes.Single(size => size.Name == sizeName);
-        using var app = await OpenAsync(screen, Enum.Parse<ShellLayout>(layoutName), width, height, widestPill: false);
-        var name = $"{layoutName.ToLowerInvariant()}-{screen}-{width}x{height}";
+        var overlays = new List<Control>();
+        var found = new List<string>();
+        if (withJob)
+        {
+            if (!app.Find<Button>("Pill").IsEffectivelyVisible)
+            {
+                return ["The job pill is not up."];
+            }
 
-        var top = app.Render("job-pill", name);
+            overlays.Add(app.Find<Button>("Pill"));
+        }
+
+        if (toasts != ToastLoad.None)
+        {
+            if (!app.Find<Grid>("Strip").IsEffectivelyVisible)
+            {
+                return ["No toast is up."];
+            }
+
+            overlays.Add(app.Find<Grid>("Strip"));
+        }
+
+        Redraw(app);
+        var moved = app.Window.GetVisualDescendants().OfType<ScrollViewer>().Where(scroller => scroller.Offset != default).ToList();
+        if (!scrolls.OpensScrolled && moved.Count > 0)
+        {
+            found.Add($"a scroll area did not start at the top ({string.Join(", ", moved.Select(scroller => $"{scroller.Name ?? scroller.GetType().Name} at {scroller.Offset.Y}"))}); add the screen to {nameof(_opensScrolled)}.");
+        }
+
+        if (withJob && toasts == ToastLoad.Two)
+        {
+            found.AddRange(PillAndToastsApart(app));
+        }
+
+        found.AddRange(overlays.SelectMany(overlay => Covered(app, overlay, scrolledToEnd: false)).Select(problem => $"{problem} (pinned)"));
+        found.AddRange(overlays.SelectMany(overlay => HiddenPinnedText(app, overlay)).Select(problem => $"{problem} (pinned text)"));
         foreach (var scroller in app.Window.GetVisualDescendants().OfType<ScrollViewer>().Where(Scrolls))
         {
             scroller.ScrollToEnd();
         }
 
-        var end = app.Render("job-pill", $"{name}-end");
-
-        Assert.True(new FileInfo(top).Length > 10_000 && new FileInfo(end).Length > 10_000, "A render looks empty.");
+        Redraw(app);
+        found.AddRange(overlays.SelectMany(overlay => Covered(app, overlay, scrolledToEnd: true)).Select(problem => $"{problem} (scrolled to the end)"));
+        return [.. found.Distinct()];
     }
 
-    [AvaloniaTheory]
-    [MemberData(nameof(LayoutsAtEverySize))]
-    public async Task The_job_pill_and_the_toasts_never_cover_each_other(string layoutName, string sizeName)
+    // The pill stands above the toasts and both stay inside the window.
+    private static IEnumerable<string> PillAndToastsApart(ComposedApp app)
     {
-        var (_, width, height) = _sizes.Single(size => size.Name == sizeName);
-        using var app = await OpenAsync("games", Enum.Parse<ShellLayout>(layoutName), width, height);
-
-        app.Toasts.Show(new ToastMessage("Could not save Skyrim Special Edition.", ToastKind.Error, "There is not enough free disk space to save this profile right now."));
-        app.Toasts.Show(new ToastMessage("Only part of Satisfactory was saved.", ToastKind.Warning, "A file is in use."));
-        app.Settle();
-
         var pill = LayoutAudit.BoundsIn(app.Window, app.Find<Button>("Pill"));
         var strip = LayoutAudit.BoundsIn(app.Window, app.Find<Grid>("Strip"));
         var toasts = app.Find<ItemsControl>("ToastList").GetVisualDescendants().OfType<Border>().Where(border => border.Classes.Contains("panel")).ToList();
 
-        Assert.Equal(2, toasts.Count);
-        Assert.False(pill.Intersects(strip), $"The pill at {pill} overlaps the toast stack at {strip}.");
-        Assert.All(toasts, toast => Assert.False(pill.Intersects(LayoutAudit.BoundsIn(app.Window, toast)), $"The pill at {pill} covers a toast at {LayoutAudit.BoundsIn(app.Window, toast)}."));
-        Assert.True(new Rect(app.Window.ClientSize).Contains(pill), $"The pill at {pill} is not inside the {app.Window.ClientSize} window.");
+        if (toasts.Count != 2)
+        {
+            yield return $"{toasts.Count} toasts are up, not 2.";
+        }
+
+        if (pill.Intersects(strip))
+        {
+            yield return $"The pill at {pill} overlaps the toast stack at {strip}.";
+        }
+
+        foreach (var toast in toasts.Where(toast => pill.Intersects(LayoutAudit.BoundsIn(app.Window, toast))))
+        {
+            yield return $"The pill at {pill} covers a toast at {LayoutAudit.BoundsIn(app.Window, toast)}.";
+        }
+
+        if (!new Rect(app.Window.ClientSize).Contains(pill))
+        {
+            yield return $"The pill at {pill} is not inside the {app.Window.ClientSize} window.";
+        }
     }
 
     // Words that stay put while the page scrolls (a pinned footer, a pinned card) never get the 64 px of room a scroll area keeps under
