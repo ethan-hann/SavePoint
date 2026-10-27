@@ -95,7 +95,7 @@ public class TabOrderTests
         Assert.Equal(
             [
                 "History", "Search games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
-                "What's a snapshot?", "Filter by profile: All profiles", "Cards",
+                "What's a snapshot?", "Filter by profile: All profiles", "Cards", "Search snapshots", "All",
                 "Go back and play: Cleared Blackreach", "Go back without playing: Cleared Blackreach",
                 "Go back and play: 14 mod files updated", "Go back without playing: 14 mod files updated",
                 "Go back and play: Fresh start with Nolvus", "Go back without playing: Fresh start with Nolvus",
@@ -137,7 +137,7 @@ public class TabOrderTests
         Assert.Equal(
             [
                 "History", "Search games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
-                "What's a snapshot?", "Filter by profile: All profiles", "List",
+                "What's a snapshot?", "Filter by profile: All profiles", "List", "Search snapshots", "All",
                 .. app.History.Timeline.Where(entry => entry.CanGoBack).SelectMany(entry => new[] { entry.GoBackAutomationName, entry.SwitchAutomationName }),
                 "Go back and play: Cleared Blackreach (saves)", "Go back without playing: Cleared Blackreach (saves)",
                 "Go back and play: Fresh start with Nolvus (saves)", "Go back without playing: Fresh start with Nolvus (saves)",

@@ -86,6 +86,9 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     [NotifyPropertyChangedFor(nameof(HasPoints))]
     [NotifyPropertyChangedFor(nameof(HasNoGame))]
     [NotifyPropertyChangedFor(nameof(ShowRemoved))]
+    [NotifyPropertyChangedFor(nameof(ShowSearch))]
+    [NotifyPropertyChangedFor(nameof(IsSearchEmpty))]
+    [NotifyPropertyChangedFor(nameof(ShowPoints))]
     private HistoryState _state = HistoryState.Loading;
 
     /// <summary>The selected game's name; null when the library is empty.</summary>
@@ -173,6 +176,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         _currentViewOption = ViewOptions[0];
         _selectedViewOption = _currentViewOption;
         SnapshotHelp = ContextualHelp.Snapshot(text, shell.ShowHelp);
+        InitializeSearch();
 
         shell.PropertyChanged += OnShellPropertyChanged;
         shell.LibraryRefreshed += (_, _) => ReloadIfShown();
@@ -233,7 +237,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     public bool HasFooter => FooterText is not null;
 
     /// <summary>True when there is something to say about recently removed snapshots: some are kept, or they could not be read.</summary>
-    public bool HasRemoved => Removed.Count > 0 || RemovedError is not null;
+    public bool HasRemoved => RemovedTotal > 0 || RemovedError is not null;
 
     /// <summary>True when the "Recently removed" section shows: it has something to say and the screen has read the game's snapshots.</summary>
     public bool ShowRemoved => HasRemoved && State is HistoryState.Loaded or HistoryState.Empty;
@@ -241,10 +245,13 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     /// <summary>True when <see cref="RemovedError"/> shows instead of the list.</summary>
     public bool HasRemovedError => RemovedError is not null;
 
-    /// <summary>The section's heading, with how many snapshots it holds ("Recently removed (3)").</summary>
-    public string RemovedHeading => Removed.Count > 0
-        ? _deps.Text.Message("history.removed.heading", ("count", Removed.Count))
-        : _deps.Text.Message("history.removed.title");
+    /// <summary>The section's heading, with how many snapshots it holds ("Recently removed (3)"), or how many of them the search leaves ("Recently removed (1 of 3)").</summary>
+    public string RemovedHeading => RemovedTotal switch
+    {
+        0 => _deps.Text.Message("history.removed.title"),
+        var total when total == Removed.Count => _deps.Text.Message("history.removed.heading", ("count", total)),
+        var total => _deps.Text.Message("search.history.removedHeading", ("shown", Removed.Count), ("total", total)),
+    };
 
     /// <summary>What the section says about the snapshots: they belong to no profile, and are deleted for good the next time space is freed up.</summary>
     public string RemovedNote => _deps.Text.Message("history.removed.note");
@@ -319,7 +326,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         // A list that cannot be read is said so in its own section, and never takes the history down with it.
         var removed = await removedTask;
         RemovedError = removed.Ok ? null : _deps.Text.Message(removed.Error);
-        Removed = removed.Ok ? BuildRemoved(game, removed.Value.Snapshots) : [];
+        SetRemoved(removed.Ok ? BuildRemoved(game, removed.Value.Snapshots) : []);
         Show(game, history.Value.Points);
     }
 
@@ -412,7 +419,8 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         FooterText = null;
         IsRemovedOpen = false;
         Clear();
-        var all = new ProfileFilter(null, _deps.Text.Message("history.filter.all"));
+        ResetSearch();
+        var all =new ProfileFilter(null, _deps.Text.Message("history.filter.all"));
         Restore(() =>
         {
             Filters = [all];
@@ -427,7 +435,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         Timeline = [];
         Saves = [];
         Groups = [];
-        Removed = [];
+        ClearEntries();
         RemovedError = null;
         _flowCommands.Clear();
     }
@@ -474,98 +482,11 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         ErrorCard = null;
         Subtitle = _deps.Text.Message("history.subtitle", ("game", game.Name), ("count", points.Count));
         _flowCommands.Clear();
-        Timeline = BuildTimeline(game, points);
-        Saves = BuildSaves(game, points);
-        Groups = BuildGroups(game, points);
+        _entries = BuildEntries(game, points);
+        _groupsNow = _deps.Clock.GetUtcNow();
+        ShowEntries();
         State = points.Count == 0 ? HistoryState.Empty : HistoryState.Loaded;
     }
-
-    private List<TimelineEntryViewModel> BuildTimeline(GameDefinition game, List<HistoryPoint> points)
-    {
-        var onTimeline = points.Where(point => point.Kind != HistoryPointKind.SaveOnly).ToList();
-        return
-        [
-            .. onTimeline.Select((point, index) =>
-            {
-                var (headline, namesVersion) = _words.Headline(point);
-                var detail = _words.TimelineDetail(point, namesVersion);
-                var stamp = _words.Stamp(point.CapturedAt, point.InUse);
-                return new TimelineEntryViewModel(
-                    headline,
-                    detail,
-                    stamp,
-                    point.InUse,
-                    index == onTimeline.Count - 1,
-                    _words.ItemName(headline, detail, stamp),
-                    _deps.Text.Message("history.card.goBackAutomation", ("name", point.Name)),
-                    BeginCommand(game.Id, new LaunchTarget.Point(point.Id)),
-                    _deps.Text.Message("history.card.switchAutomation", ("name", point.Name)),
-                    BeginCommand(game.Id, new LaunchTarget.Point(point.Id), switchOnly: true));
-            }),
-        ];
-    }
-
-    private List<SaveRowViewModel> BuildSaves(GameDefinition game, List<HistoryPoint> points) =>
-        [
-            .. points
-                .Where(point => point.Kind != HistoryPointKind.VersionAndMods)
-                .Select(point => new SaveRowViewModel(
-                    point,
-                    _words.SaveDetail(point),
-                    _deps.Text.Message("history.save.loadAutomation", ("name", point.Name)),
-                    _words.ItemName(point.Name, _words.SaveDetail(point), point.LoadedNow ? _deps.Text.Message("history.save.loaded") : string.Empty),
-                    BeginCommand(game.Id, new LaunchTarget.Save(point.ProfileId, point.Id)),
-                    _deps.Text.Message("history.save.switchAutomation", ("name", point.Name)),
-                    BeginCommand(game.Id, new LaunchTarget.Save(point.ProfileId, point.Id), switchOnly: true))),
-        ];
-
-    private List<PointGroupViewModel> BuildGroups(GameDefinition game, List<HistoryPoint> points)
-    {
-        var now = _deps.Clock.GetUtcNow();
-        var cards = points.Select(point => (Point: point, Card: new PointCardViewModel(
-            point,
-            HistoryText.Icon(point.Kind),
-            _words.Contains(point),
-            _words.Date(point.CapturedAt),
-            _deps.Text.Message("history.card.goBackAutomation", ("name", point.Name)),
-            _words.ItemName(point.Name, _words.Contains(point), _words.Date(point.CapturedAt), point.LoadedNow ? _deps.Text.Message("history.card.loadedNow") : string.Empty),
-            BeginCommand(game.Id, new LaunchTarget.Point(point.Id)),
-            _deps.Text.Message("history.card.switchAutomation", ("name", point.Name)),
-            BeginCommand(game.Id, new LaunchTarget.Point(point.Id), switchOnly: true)))).ToList();
-
-        var thisWeek = cards.Where(item => now - item.Point.CapturedAt < _thisWeek).Select(item => item.Card).ToList();
-        var earlier = cards.Where(item => now - item.Point.CapturedAt >= _thisWeek).Select(item => item.Card).ToList();
-        List<PointGroupViewModel> groups = [];
-        if (thisWeek.Count > 0)
-        {
-            groups.Add(new PointGroupViewModel(_deps.Text.Message("history.group.thisWeek"), thisWeek));
-        }
-
-        if (earlier.Count > 0)
-        {
-            groups.Add(new PointGroupViewModel(_deps.Text.Message("history.group.earlier"), earlier));
-        }
-
-        return groups;
-    }
-
-    private List<RemovedSnapshotViewModel> BuildRemoved(GameDefinition game, IReadOnlyList<RemovedSnapshot> removed) =>
-        [
-            .. removed.OrderByDescending(snapshot => snapshot.RemovedAt).Select(snapshot =>
-            {
-                var detail = _words.Contains(snapshot.Kind, snapshot.Install);
-                var origin = _words.RemovedOrigin(snapshot);
-                var when = _deps.Text.Message("history.removed.when", ("when", _deps.Text.ShortDateTime(snapshot.RemovedAt)));
-                return new RemovedSnapshotViewModel(
-                    snapshot,
-                    detail,
-                    origin,
-                    when,
-                    _deps.Text.Message("history.removed.bringBackAutomation", ("name", snapshot.Name)),
-                    _words.ItemName(snapshot.Name, detail, origin, when),
-                    new AsyncRelayCommand(() => BringBackAsync(game.Id, snapshot)));
-            }),
-        ];
 
     // Asks for the new profile's name; the player's answer decides, and the Api's refusal stays in the dialog until they give up or fix it.
     private async Task BringBackAsync(string gameId, RemovedSnapshot snapshot)

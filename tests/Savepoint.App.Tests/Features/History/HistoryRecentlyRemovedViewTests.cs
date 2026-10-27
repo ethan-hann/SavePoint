@@ -229,14 +229,18 @@ public class HistoryRecentlyRemovedViewTests
     }
 
     [AvaloniaFact]
-    public async Task A_closed_explanation_takes_no_room_between_the_header_and_the_snapshots()
+    public async Task A_closed_explanation_takes_no_room_between_the_header_and_the_search_row_or_the_search_row_and_the_snapshots()
     {
         using var harness = await StartAsync(width: 910, height: 432);
 
         var header = Named<Border>(harness, "Header");
+        var searchRow = Named<Border>(harness, "SearchRow");
         var headerBottom = header.TranslatePoint(new Point(0, header.Bounds.Height), harness.View)!.Value.Y;
+        var searchTop = searchRow.TranslatePoint(default, harness.View)!.Value.Y;
+        var searchBottom = searchRow.TranslatePoint(new Point(0, searchRow.Bounds.Height), harness.View)!.Value.Y;
         var pointsTop = harness.Find<Panel>("PointsRegion").TranslatePoint(default, harness.View)!.Value.Y;
 
-        Assert.True(pointsTop <= headerBottom + 0.5, $"the snapshots start {pointsTop - headerBottom} px under the header");
+        Assert.True(searchTop <= headerBottom + 0.5, $"the search row starts {searchTop - headerBottom} px under the header");
+        Assert.True(pointsTop <= searchBottom + 0.5, $"the snapshots start {pointsTop - searchBottom} px under the search row");
     }
 }

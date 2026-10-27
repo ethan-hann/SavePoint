@@ -168,16 +168,37 @@ public class ShellGameSearchViewTests
     public async Task The_library_shelf_has_its_own_search_that_narrows_the_shelf()
     {
         using var app = await ComposedApp.StartWithViewAsync(layout: ShellLayout.Library);
-        Assert.Equal(["ShelfSearch"], app.All<SearchBoxView>().Where(box => box.IsEffectivelyVisible).Select(box => box.Name));
+        Assert.Equal(["ShelfSearch", "ProfileSearchBox"], app.All<SearchBoxView>().Where(box => box.IsEffectivelyVisible).Select(box => box.Name));
         app.Shell.Navigate(NavDestination.Settings);
         app.Shell.Navigate(NavDestination.Games);
         app.Settle();
 
         app.Press(Key.F, PhysicalKey.F, RawInputModifiers.Control);
-        Type(app, "last");
+        Assert.Same(app.Find<SearchBoxView>("ProfileSearchBox").GetVisualDescendants().OfType<TextBox>().Single(), app.Focused);
 
-        Assert.Same(FieldOf(app, "ShelfSearch"), app.Focused);
+        FieldOf(app, "ShelfSearch").Focus();
+        Type(app, "last");
         Assert.Equal(["The Last Caretaker, 1 profile"], Listed(app, "ShelfGames"));
+    }
+
+    [AvaloniaFact]
+    public async Task Renders_the_rail_and_the_shelf_with_a_search_and_with_no_matches()
+    {
+        using var rail = await ComposedApp.StartWithViewAsync();
+        rail.Shell.GameSearch.Text = "sa";
+        Assert.True(File.Exists(rail.Render("shell", "rail-search")));
+
+        using var empty = await ComposedApp.StartWithViewAsync();
+        empty.Shell.GameSearch.Text = "zzz";
+        Assert.True(File.Exists(empty.Render("shell", "rail-search-empty")));
+
+        using var shelf = await ComposedApp.StartWithViewAsync(layout: ShellLayout.Library);
+        shelf.Shell.GameSearch.Text = "sa";
+        Assert.True(File.Exists(shelf.Render("shell", "shelf-search")));
+
+        using var shelfEmpty = await ComposedApp.StartWithViewAsync(layout: ShellLayout.Library);
+        shelfEmpty.Shell.GameSearch.Text = "zzz";
+        Assert.True(File.Exists(shelfEmpty.Render("shell", "shelf-search-empty")));
     }
 
     [AvaloniaFact]

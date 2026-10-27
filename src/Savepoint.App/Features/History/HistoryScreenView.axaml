@@ -7,6 +7,7 @@
              xmlns:history="using:Savepoint.App.Features.History"
              xmlns:help="using:Savepoint.App.Features.Help"
              xmlns:a11y="using:Savepoint.App.Features.Common.Accessibility"
+             xmlns:search="using:Savepoint.App.Features.Common.Search"
              x:Class="Savepoint.App.Features.History.HistoryScreenView"
              x:DataType="history:HistoryScreenViewModel">
   <!-- The History screen: the list view and the cards view. -->
@@ -161,6 +162,32 @@
       <help:HelpAnswerView DataContext="{Binding SnapshotHelp}" />
     </Panel>
 
+    <!-- Search: words found in a snapshot's name, profile, date or what it holds, and a choice of Saves or Game and mods. The profile filter above stays the way to pick a profile. -->
+    <Border x:Name="SearchRow" DockPanel.Dock="Top" Padding="22,14,22,0" IsVisible="{Binding ShowSearch}">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+        <search:SearchBoxView x:Name="HistorySearchBox" VerticalAlignment="Center" DataContext="{Binding Search}" />
+        <a11y:ChoiceListBox x:Name="KindToggle"
+                 Grid.Column="1"
+                 Classes="segmented-tray"
+                 VerticalAlignment="Center"
+                 ItemsSource="{Binding KindOptions}"
+                 SelectedItem="{Binding SelectedKindOption, Mode=TwoWay}"
+                 AutomationProperties.Name="{Binding KindLabel}">
+          <a11y:ChoiceListBox.Styles>
+            <Style Selector="ListBoxItem" x:DataType="history:KindOption">
+              <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+              <Setter Property="Padding" Value="14,7" />
+            </Style>
+          </a11y:ChoiceListBox.Styles>
+          <a11y:ChoiceListBox.ItemTemplate>
+            <DataTemplate x:DataType="history:KindOption">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </a11y:ChoiceListBox.ItemTemplate>
+        </a11y:ChoiceListBox>
+      </Grid>
+    </Border>
+
     <!-- Room for the job pill under the footer, so the footer is never under it. -->
     <Border x:Name="PillRoom" DockPanel.Dock="Bottom" Classes="pill-room" />
 
@@ -206,6 +233,7 @@
                        IsVisible="{Binding HasRemovedError}"
                        AutomationProperties.LiveSetting="Polite"
                        Text="{Binding RemovedError}" />
+            <TextBlock x:Name="RemovedNoMatchesLine" Classes="body" TextWrapping="Wrap" IsVisible="{Binding ShowRemovedNoMatches}" Text="{Binding RemovedNoMatchesText}" />
             <ItemsControl x:Name="RemovedList"
                           ItemsSource="{Binding Removed}"
                           AutomationProperties.ControlTypeOverride="List"
@@ -248,7 +276,7 @@
     <Panel x:Name="BodyRegion">
 
       <!-- The points: the two-column list or the cards. -->
-      <Panel x:Name="PointsRegion" IsVisible="{Binding HasPoints}">
+      <Panel x:Name="PointsRegion" IsVisible="{Binding ShowPoints}">
 
         <!-- The saves column is wider: its lines carry a date and a profile name, which the timeline's do not. -->
         <Grid x:Name="ListRegion" ColumnDefinitions="4*,Auto,5*" IsVisible="{Binding IsListView}">
@@ -429,6 +457,12 @@
           </ItemsControl>
         </ScrollViewer>
       </Panel>
+
+      <!-- A search and kind choice that leave no snapshot. -->
+      <StackPanel x:Name="SearchEmptyState" IsVisible="{Binding IsSearchEmpty}" MaxWidth="440" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" Margin="26">
+        <TextBlock Classes="card-title" TextAlignment="Center" TextWrapping="Wrap" Text="{Binding SearchNoMatchesText}" />
+        <Button Classes="pill" Padding="18,8" HorizontalAlignment="Center" Command="{Binding Search.ClearCommand}" Content="{loc:Loc search.clear}" />
+      </StackPanel>
 
       <StackPanel x:Name="LoadingState" IsVisible="{Binding IsLoading}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">
         <ProgressBar IsIndeterminate="True" Width="160" AutomationProperties.Name="{loc:Loc history.loading}" />

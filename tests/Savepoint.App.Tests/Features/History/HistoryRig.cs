@@ -48,7 +48,8 @@ internal sealed class HistoryRig
     // Starts the shell on Games and leaves History unvisited, so a test decides when the screen first shows.
     public static async Task<HistoryRig> StartAsync(
         FakeBackend? backend = null,
-        Func<IHistoryApi, IHistoryApi>? history = null)
+        Func<IHistoryApi, IHistoryApi>? history = null,
+        TimeProvider? clock = null)
     {
         backend ??= FakeBackend.Sample();
         var flow = new ScriptedLaunchFlow();
@@ -69,7 +70,7 @@ internal sealed class HistoryRig
             text,
             new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher()),
             new ImmediateUiDispatcher());
-        var factory = new CapturingFactory(new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, backend.Clock)));
+        var factory = new CapturingFactory(new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, clock ?? backend.Clock)));
         var shell = await ShellRig.StartAsync(backend, screens: [factory], launchFlow: flow);
         return new HistoryRig(shell, (HistoryScreenViewModel)factory.Created!, flow, backend, text, dialogs);
     }
@@ -77,9 +78,9 @@ internal sealed class HistoryRig
     // Shows the screen the way the nav item does.
     public void Show() => Shell.Navigate(NavDestination.History);
 
-    public static async Task<HistoryRig> ShownAsync(FakeBackend? backend = null)
+    public static async Task<HistoryRig> ShownAsync(FakeBackend? backend = null, TimeProvider? clock = null)
     {
-        var rig = await StartAsync(backend);
+        var rig = await StartAsync(backend, clock: clock);
         rig.Show();
         return rig;
     }

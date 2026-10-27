@@ -42,6 +42,10 @@
     <Style Selector="Grid.short ListBox.shelf Border.art-tile">
       <Setter Property="IsVisible" Value="False" />
     </Style>
+    <!-- The shelf's header row is as tall as its text buttons, so its search box is a slimmer field, and a short window keeps its room for the page. -->
+    <Style Selector="search|SearchBoxView#ShelfSearch TextBox">
+      <Setter Property="Padding" Value="12,4" />
+    </Style>
     <!-- The wide rail gives the label room from the button's edge; the icon rail has none to spare. -->
     <Style Selector="Button.rail-library">
       <Setter Property="Padding" Value="16,8" />
@@ -199,7 +203,7 @@
         <StackPanel Spacing="14">
           <Grid ColumnDefinitions="Auto,*,Auto">
             <TextBlock Classes="overline" VerticalAlignment="Center" Text="{theme:Upper {loc:Loc shell.yourGames}}" />
-            <search:SearchBoxView x:Name="ShelfSearch" Grid.Column="1" MinWidth="140" MaxWidth="320" Margin="20,0" HorizontalAlignment="Left" DataContext="{Binding GameSearch}" />
+            <search:SearchBoxView x:Name="ShelfSearch" Grid.Column="1" MinWidth="140" Margin="20,0" VerticalAlignment="Center" DataContext="{Binding GameSearch}" />
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
               <Button x:Name="ShelfLibrariesButton" Classes="text" Padding="8,4" Command="{Binding AddFromLibrariesCommand}" Content="{loc:Loc library.entry}" ToolTip.Tip="{loc:Loc library.entry.hint}" />
               <Button Classes="text" Padding="8,4" Command="{Binding AddGameCommand}" Content="{loc:Loc shell.addGame}" />
