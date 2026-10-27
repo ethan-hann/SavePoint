@@ -37,9 +37,9 @@ public sealed partial class LaunchOrchestrator
         }
     }
 
-    // Runs at the start of the launch job, before the game's folders are touched. Steam started here is up before the install is switched,
-    // so an update it applies at its own start usually lands before the switch and not on the version about to be loaded. That is not a
-    // guarantee: RefuseWhenSteamUpdatesAsync is the check that an update did not land later.
+    // Runs at the start of the launch job, before the game's folders are touched. When it returns, Steam is running and signed in, and no
+    // folder has been read or switched. It does not stop an update that starts or lands later; RefuseWhenSteamUpdatesAsync refuses the start
+    // when the manifest shows one.
     private async Task EnsureSteamAsync(JobContext context, GameDefinition game, bool startSteam)
     {
         if (!await SteamIsMissingAsync(game).ConfigureAwait(false))
