@@ -30,7 +30,8 @@ public sealed partial class LaunchOrchestrator
 
             // Skipping saves nothing: the session ends at once and no job runs.
             if (completion is SessionCompletion.Skip)
-            {                _book.Complete(gameId, _ => new SessionState.Completed(completion, null, null));
+            {
+                _book.Complete(gameId, _ => new SessionState.Completed(completion, null, null));
                 return Unit.Value;
             }
 

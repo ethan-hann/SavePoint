@@ -186,7 +186,7 @@ public class ErrorTypesTests
             ("gameId", "game-1"));
         Add("SteamDidNotStart", new SteamDidNotStartException("game-1"), "error.launch.steamDidNotStart",
             ("gameId", "game-1"));
-        Add("DirtyWorkingTree",new DirtyWorkingTreeException(RepoRole.Install), "error.launch.dirtyWorkingTree",
+        Add("DirtyWorkingTree", new DirtyWorkingTreeException(RepoRole.Install), "error.launch.dirtyWorkingTree",
             ("role", RepoRole.Install));
         Add("InterruptedSwitch", new InterruptedSwitchException(RepoRole.Install, "0123456789abcdef0123456789abcdef01234567"), "error.launch.switchInterrupted",
             ("role", RepoRole.Install), ("targetPoint", "0123456789abcdef0123456789abcdef01234567"));
