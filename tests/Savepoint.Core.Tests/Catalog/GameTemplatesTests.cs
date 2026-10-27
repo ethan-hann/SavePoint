@@ -1,14 +1,12 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Platform;
+using static Savepoint.Core.Tests.Catalog.TemplateRules;
 
 namespace Savepoint.Core.Tests.Catalog;
 
 public class GameTemplatesTests
 {
-    public static TheoryData<string> TemplateIds => new(GameTemplates.All.Select(t => t.Id));
-
     [Fact]
     public void Ships_the_skyrim_template_and_many_more()
     {
@@ -24,39 +22,12 @@ public class GameTemplatesTests
         Assert.Equal(ids.Order(StringComparer.Ordinal), ids);
     }
 
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Display_name_is_the_game_name_from_the_definition(string id)
-    {
-        var template = GameTemplates.All.Single(t => t.Id == id);
-
-        Assert.Equal(template.Definition.Name, template.DisplayName);
-        Assert.False(string.IsNullOrWhiteSpace(template.DisplayName));
-    }
-
     [Fact]
     public void Skyrim_display_name_is_the_full_game_name()
     {
         Assert.Equal(
             "The Elder Scrolls V: Skyrim Special Edition",
             GameTemplates.All.Single(t => t.Id == "skyrim-se").DisplayName);
-    }
-
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Templates_leave_the_install_folder_for_the_player_to_pick(string id)
-    {
-        // A drive-letter path would be wrong on Linux and macOS, and no token names a game's install folder.
-        Assert.Empty(GameTemplates.All.Single(t => t.Id == id).Definition.Install.Path);
-    }
-
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Templates_name_the_saves_folder_with_a_path_token(string id)
-    {
-        var external = GameTemplates.All.Single(t => t.Id == id).Definition.External;
-
-        Assert.True(external is null || Regex.IsMatch(external.Path, @"^\{[A-Za-z]+\}"));
     }
 
     [Fact]
@@ -82,18 +53,9 @@ public class GameTemplatesTests
         Assert.Equal(expected, GameTemplates.All.Single(t => t.Id == "skyrim-se").Definition);
     }
 
-    [Theory]
-    [MemberData(nameof(TemplateIds))]
-    public void Every_template_is_valid_once_the_player_picks_the_install_folder(string id)
-    {
-        var template = GameTemplates.All.Single(t => t.Id == id);
-
-        Assert.Equal(["install.path"], CatalogValidator.Validate(template.Definition).Select(issue => issue.Path));
-        var picked = template.Definition with { Install = new InstallLocation(@"D:\Picked") };
-        Assert.Empty(CatalogValidator.Validate(picked));
-        Assert.Equal(picked, CatalogValidator.Normalize(picked));
-        Assert.Equal(template.Id, template.Definition.Id);
-    }
+    // Also holds that the display name is the definition's name and the install folder is blank, since no token names a game's install folder.
+    [Fact]
+    public void Every_template_is_valid_once_the_player_picks_the_install_folder() => AssertShippedTemplatesKeep(ValidityProblems);
 
     [Fact]
     public void Template_list_is_built_once()
@@ -217,6 +179,21 @@ public class GameTemplatesTests
         var template = WithSaves(@"{localLow}\Studio\Game") with { Hints = hints };
 
         Assert.Equal("{userHome}/.game/saves", template.ToDraft(OsKind.Linux, new FixedRandom()).External!.Path);
+    }
+
+    [Fact]
+    public void A_draft_uses_only_the_saves_folder_written_for_its_own_system()
+    {
+        var hints = new TemplateLibraryHints(SavesByOs: new Dictionary<string, ExternalLocation>
+        {
+            ["linux"] = new("{userHome}/.game/linux-saves", ExternalRole.Saves),
+            ["macos"] = new("{userHome}/Library/Game/mac-saves", ExternalRole.Saves),
+        });
+        var template = WithSaves(@"{documents}\Game") with { Hints = hints };
+
+        Assert.Equal("{userHome}/.game/linux-saves", template.ToDraft(OsKind.Linux, new FixedRandom()).External!.Path);
+        Assert.Equal("{userHome}/Library/Game/mac-saves", template.ToDraft(OsKind.MacOS, new FixedRandom()).External!.Path);
+        Assert.Equal(@"{documents}\Game", template.ToDraft(OsKind.Windows, new FixedRandom()).External!.Path);
     }
 
     private sealed class FixedRandom : Random
