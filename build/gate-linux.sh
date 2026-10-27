@@ -1,129 +1,133 @@
 #!/usr/bin/env bash
-# Linux gate: build/gate.sh inside the .linux-gate worktree, with a .NET SDK and caches kept in .tools/.
-# Started by build/gate-linux.ps1, which creates the worktree and checks the commit out (Linux git cannot follow its Windows paths).
+# Runs build/gate.sh on the Linux test VM. Started over SSH by build/gate-linux.ps1, which uploads the commit as a tar.gz beside
+# this script and a run.env file in one folder; that folder is the only argument.
+#
+# The VM is a real Ubuntu on ext4 and the gate runs as an ordinary user, the way the CI Linux job does, so the CI skip list
+# (build/expected-skips/linux-ci.txt) applies and no test retries. One gate at a time: a second run is refused at once.
+#
+# Exit codes: the gate's own, or 75 when another gate already holds the VM, or 1 for a setup failure.
 set -euo pipefail
 
-repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-tools="$repo/.tools"
-gate_tree="$repo/.linux-gate"
-dotnet_root="$tools/dotnet-linux"
+# Absolute, because the script changes directory before its trap removes the folder.
+incoming="$(cd "${1:?usage: gate-linux.sh <upload folder>}" && pwd)"
+trap 'rm -rf "$incoming"' EXIT
 
 fail() {
   echo "gate-linux: $*" >&2
   exit 1
 }
 
-[ -f "$gate_tree/build/gate.sh" ] || fail "$gate_tree is not a checked-out worktree; run build/gate-linux.ps1 from Windows, which creates it"
+# run.env holds GATE_ID, GATE_COMMIT, GATE_DIR, GATE_ALLOW_NARROWED and the optional SAVEPOINT_* settings, each single-quoted.
+# shellcheck disable=SC1091
+. "$incoming/run.env"
 
-export HOME="$tools/home-linux"
-export DOTNET_CLI_HOME="$HOME"
-export NUGET_PACKAGES="$tools/nuget-linux"
-export NUGET_HTTP_CACHE_PATH="$tools/nuget-http-linux"
+case "$GATE_DIR" in
+  /*) root="$GATE_DIR" ;;
+  *) root="$HOME/$GATE_DIR" ;;
+esac
+mkdir -p "$root/logs" "$root/incoming"
+
+# The lock is taken before the tree is touched, so a refused run changes nothing. Its holder is written beside it because opening
+# the lock file for writing would erase it.
+exec 9>>"$root/gate.lock"
+if ! flock -n 9; then
+  echo "gate-linux: another gate is running on this VM; this run is refused and changed nothing." >&2
+  [ -f "$root/gate.holder" ] && sed 's/^/gate-linux:   /' "$root/gate.holder" >&2
+  exit 75
+fi
+printf 'pid %s, commit %s, started %s\n(stop it with: kill -TERM %s)\n' "$$" "$GATE_COMMIT" "$(date '+%F %T')" "$$" >"$root/gate.holder"
+# The driver stops an interrupted run through this file; TERM stops the whole session (build, test host, children), not just this shell.
+printf '%s\n' "$$" >"$root/run-$GATE_ID.pid"
+trap 'rm -f "$root/gate.holder" "$root/run-$GATE_ID.pid"; rm -rf "$incoming"' EXIT
+trap 'trap - TERM INT HUP; kill -TERM 0' TERM INT HUP
+
+# Old uploads from runs that died, and all but the newest logs.
+find "$root/incoming" -mindepth 1 -maxdepth 1 -mmin +1440 -exec rm -rf {} + 2>/dev/null || true
+find "$root/logs" -maxdepth 1 -type f -name '*.log' -printf '%T@ %p\n' | sort -rn | tail -n +21 | cut -d' ' -f2- | xargs -r rm -f
+
+for tool in rsync gpg flock; do
+  command -v "$tool" >/dev/null 2>&1 || fail "$tool is missing on this VM; install it with: sudo apt install $tool"
+done
+[ -x /usr/bin/dbus-daemon ] || [ -x /bin/dbus-daemon ] || fail "dbus-daemon is missing on this VM (the notification tests need it); install it with: sudo apt install dbus"
+
+# The commit goes into a fixed tree, so build outputs survive between runs. rsync compares content and gives a changed file the
+# current time, so an old commit's file times never make the build think an output is newer than its source. Folders the build
+# makes are left alone.
+tree="$root/tree"
+mkdir -p "$tree" "$incoming/src"
+tar -xzf "$incoming/commit.tar.gz" -C "$incoming/src"
+rsync -rlp --checksum --delete \
+  --exclude='/artifacts/' --exclude='/.tools/' --exclude='/resources/git/' --exclude='/render-output/' --exclude='TestResults/' \
+  --exclude='bin/' --exclude='obj/' \
+  "$incoming/src/" "$tree/"
+
+export DOTNET_CLI_HOME="$root/home"
+export NUGET_PACKAGES="$root/nuget"
+export NUGET_HTTP_CACHE_PATH="$root/nuget-http"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
 export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
-# Build servers and reused nodes would outlive the run, and shutting them down could hit other sessions.
+export POWERSHELL_TELEMETRY_OPTOUT=1
+# Build servers and reused nodes would outlive the run.
 export DOTNET_CLI_USE_MSBUILD_SERVER=0
 export MSBUILDDISABLENODEREUSE=1
-mkdir -p "$HOME" "$NUGET_PACKAGES" "$NUGET_HTTP_CACHE_PATH"
+mkdir -p "$DOTNET_CLI_HOME" "$NUGET_PACKAGES" "$NUGET_HTTP_CACHE_PATH"
 
-# global.json rolls forward to the newest feature band, so the newest SDK of its major.minor satisfies it.
-sdk_version="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9]*\.[0-9]*\)\.[0-9]*.*/\1/p' "$gate_tree/global.json" | head -n 1)"
-[ -n "$sdk_version" ] || fail "no sdk version in $gate_tree/global.json"
-
-if ! [ -x "$dotnet_root/dotnet" ] || ! "$dotnet_root/dotnet" --list-sdks | grep -q "^$sdk_version\."; then
-  echo "==> installing the .NET $sdk_version SDK into $dotnet_root"
-  mkdir -p "$tools"
-  installer="$tools/dotnet-install.sh"
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL --retry 3 --retry-delay 2 -o "$installer" https://dot.net/v1/dotnet-install.sh
-  else
-    wget -q --tries=3 -O "$installer" https://dot.net/v1/dotnet-install.sh
-  fi
-  bash "$installer" --channel "$sdk_version" --install-dir "$dotnet_root" --no-path
+# global.json rolls forward to the newest feature band, so any SDK of its major.minor satisfies it. The CI job installs the same way.
+dotnet_root="$root/dotnet"
+sdk_line="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9]*\.[0-9]*\)\.[0-9]*.*/\1/p' "$tree/global.json" | head -n 1)"
+[ -n "$sdk_line" ] || fail "no sdk version in $tree/global.json"
+if ! [ -x "$dotnet_root/dotnet" ] || ! "$dotnet_root/dotnet" --list-sdks | grep -q "^$sdk_line\."; then
+  echo "==> installing the .NET $sdk_line SDK into $dotnet_root"
+  bash "$tree/build/install-dotnet.sh" "$dotnet_root" "$sdk_line"
 fi
 export DOTNET_ROOT="$dotnet_root"
 export PATH="$dotnet_root:$PATH"
 
-# Tests drive the PowerShell scripts of build/, which skip without pwsh; the .NET SDK installs it as a tool, as the CI job does.
-pwsh_root="$tools/pwsh-linux"
-if ! [ -x "$pwsh_root/pwsh" ]; then
-  echo "==> installing PowerShell into $pwsh_root"
-  "$dotnet_root/dotnet" tool install --tool-path "$pwsh_root" PowerShell --version 7.6.8
+# Tests drive the PowerShell scripts of build/, which skip without pwsh. The CI job installs it as a .NET tool at the version its
+# workflow names, and so does this.
+pwsh_version="$(sed -n 's/.*tool install .*PowerShell --version \([0-9][0-9.]*\).*/\1/p' "$tree/.forgejo/workflows/gate.yml" | head -n 1)"
+[ -n "$pwsh_version" ] || fail "no PowerShell version in $tree/.forgejo/workflows/gate.yml"
+pwsh_root="$root/pwsh"
+if ! [ -x "$pwsh_root/pwsh" ] || [ "$("$pwsh_root/pwsh" -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')" != "$pwsh_version" ]; then
+  echo "==> installing PowerShell $pwsh_version into $pwsh_root"
+  rm -rf "$pwsh_root"
+  dotnet tool install --tool-path "$pwsh_root" PowerShell --version "$pwsh_version"
 fi
 export PATH="$pwsh_root:$PATH"
 
-# The notification tests start a private message bus and the signature tests run gpg; they skip without them, which the skip list does not allow.
-missing=""
-[ -x /usr/bin/dbus-daemon ] || [ -x /bin/dbus-daemon ] || missing="$missing dbus"
-command -v gpg >/dev/null 2>&1 || missing="$missing gnupg"
-[ -z "$missing" ] || fail "this distro lacks packages the tests need; install them with: sudo apt install$missing"
+# Settings the driver passes on; unset ones keep gate.sh's defaults.
+for name in SAVEPOINT_TEST_ARGS SAVEPOINT_GATE_BUILD_NODES SAVEPOINT_GATE_TEST_THREADS; do
+  if [ -n "${!name:-}" ]; then export "$name"; else unset "$name"; fi
+done
+gate_args=()
+[ "${GATE_ALLOW_NARROWED:-0}" = 1 ] && gate_args+=(--allow-narrowed-tests)
 
-# The tests keep their temp files in <tree>/.tools/tmp/linux; this says what that folder can do.
-temp_folder="$gate_tree/.tools/tmp/linux"
-probe="$temp_folder/case-probe-$$"
-# The warnings below print now, go into the log first, and print again after the gate, so a green run does not hide them.
-warnings=""
-mkdir -p "$probe"
-mkdir "$probe/a"
-if mkdir "$probe/A" 2>/dev/null; then
-  echo "==> temp folder $temp_folder is case sensitive"
-else
-  case_warning="==> WARNING: temp folder $temp_folder is NOT case sensitive (a and A are one directory); tests of case-sensitive behavior can fail here for that reason alone"
-  echo "$case_warning" >&2
-  warnings="$warnings$case_warning"$'\n'
-fi
-rm -rf "$probe"
+log="$root/logs/$GATE_ID.log"
+echo "==> gating $GATE_COMMIT on $(hostname) as $(id -un), .NET SDK $(dotnet --version), PowerShell $pwsh_version"
+echo "==> tree $tree (log $log)"
+cd "$tree"
+# Standard input is closed and the lock is not inherited, so nothing the gate starts can read the terminal or outlive the lock.
+# The gate runs in the background and is waited for, because bash holds a trapped signal until a foreground command ends, and
+# an interrupted run has to stop at once.
+status_file="$incoming/status"
+{
+  set +e
+  bash build/gate.sh "${gate_args[@]}" </dev/null 9>&- 2>&1
+  echo "$?" >"$status_file"
+} | {
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      '==> '*) printf '[%4ss] %s\n' "$SECONDS" "$line" ;;
+      *) printf '%s\n' "$line" ;;
+    esac
+  done
+} | tee "$log" &
+wait "$!" || true
+status="$(cat "$status_file" 2>/dev/null || echo 1)"
 
-# Tests that make a file or folder unreadable skip where permissions do not hold: for a privileged user, and on a file system that
-# keeps none (a Windows drive mounted under WSL). Each skip carries its reason, but a green gate would not say that a whole group of
-# tests never ran, so this says it first and names the files the tests live in.
-probe="$temp_folder/permission-probe-$$"
-mkdir -p "$probe"
-printf x >"$probe/file"
-chmod 000 "$probe/file"
-permissions_reason=""
-if [ "$(id -u)" -eq 0 ]; then
-  permissions_reason="the gate runs as a privileged user"
-elif cat "$probe/file" >/dev/null 2>&1; then
-  permissions_reason="chmod has no effect in $temp_folder"
-fi
-chmod 600 "$probe/file"
-rm -rf "$probe"
-if [ -n "$permissions_reason" ]; then
-  skipping="$(grep -rlE 'HeldFiles\.(Hold|MakeUnreadable|SkipUnlessPermissionsHold|PreventDeleting)|IsPrivilegedProcess' "$gate_tree/tests" --include='*.cs' 2>/dev/null | grep -v '/obj/' | grep -v '/HeldFiles\.cs$' | sed 's#.*/##; s#\.cs$##' | sort -u | tr '\n' ' ' || true)"
-  permissions_warning="==> WARNING: file permissions do not hold here ($permissions_reason), so the tests that make a file or folder unreadable SKIP, in: ${skipping:-none found}"
-  echo "$permissions_warning" >&2
-  warnings="$warnings$permissions_warning"$'\n'
-else
-  echo "==> file permissions hold in $temp_folder"
-fi
+# The compiler server the build starts would otherwise stay on the VM for ten idle minutes.
+dotnet build-server shutdown >/dev/null 2>&1 || true
 
-# D27: on this 9p mount a file just renamed into place can be briefly invisible, so file-heavy tests fail at random.
-# Failed tests are retried up to this many times and every one that needed a retry is listed below; a test that
-# fails every time still fails the gate. Only this script asks for retries: it builds the retry extension in
-# (build/TestRetry.targets) and passes the option through build/gate.sh. The Windows gate never retries.
-retries=2
-export SAVEPOINT_TEST_RETRIES="$retries"
-export SAVEPOINT_TEST_ARGS="--retry-failed-tests $retries"
-# This workspace skips more than CI does (no sockets, no permissions on the 9p mount), so it has its own skip list.
-export SAVEPOINT_EXPECTED_SKIPS=linux-wsl
-
-echo "==> .NET SDK $(dotnet --version) from $dotnet_root, gating $gate_tree (failed tests are retried up to $retries times)"
-cd "$gate_tree"
-mkdir -p "$tools"
-log="$tools/gate-linux-last.log"
-printf '%s' "$warnings" >"$log"
-set +e
-bash build/gate.sh 2>&1 | tee -a "$log"
-status="${PIPESTATUS[0]}"
-set -e
-
-bash build/report-retried-tests.sh "$log" "$retries"
-
-# The last lines of the run and of the log say what the gate could not check, however the gate went.
-if [ -n "$warnings" ]; then
-  printf '%s' "$warnings" | tee -a "$log" >&2
-fi
-
+echo "gate-linux: gate exited with $status after ${SECONDS}s (log $log)"
 exit "$status"

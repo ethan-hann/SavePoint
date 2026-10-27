@@ -7,10 +7,9 @@ Builds the Linux (linux-x64) package from Windows under WSL, in the dedicated Li
 Creates <repo>/.linux-gate as a detached worktree when it is missing and checks the commit out in it (both are done here
 because Linux git cannot follow a worktree file that holds Windows paths). Windows git then says which commit that is and
 whether the worktree is clean, and build/package.sh runs inside WSL from that worktree with the answer passed in as
---revision, so the script never asks Linux git. The SDK and caches are the main checkout's .tools, which the Linux gate uses
-too. The package lands in .linux-gate/artifacts/release/linux-x64.
+--revision, so the script never asks Linux git. The SDK and caches are the main checkout's .tools. The package lands in .linux-gate/artifacts/release/linux-x64.
 
-It takes the machine-wide gate lock first, because the Linux gate uses the same worktree.
+It takes the machine-wide gate lock first, so it never overlaps a Windows gate.
 
 .PARAMETER Commit
 What to package: a branch, tag or commit. Defaults to HEAD, this checkout's HEAD, like build/package.ps1, which packs the
@@ -51,7 +50,7 @@ function ConvertTo-WslPath([string]$Path) {
     return "/mnt/$($Matches[1].ToLowerInvariant())/$($Matches[2].Replace('\', '/'))"
 }
 
-# Shares the machine-wide gate lock with build/gate.ps1 and build/gate-linux.ps1: the Linux gate and this script use one worktree.
+# Shares the machine-wide gate lock with build/gate.ps1, so a package build never overlaps a gate.
 $commonGitDir = (Invoke-Git rev-parse --path-format=absolute --git-common-dir | Select-Object -First 1).Trim()
 $mainCheckout = Split-Path -Parent $commonGitDir
 $lockDir = Join-Path $mainCheckout '.tools/locks'

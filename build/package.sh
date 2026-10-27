@@ -26,7 +26,7 @@
 #
 # Run it from a checkout that only Linux builds: Windows and Linux builds of one tree share obj/, and each restore
 # overwrites the other's. Under WSL, keep the tree on the Linux file system (not /mnt/c) for speed. Without a .NET SDK on the
-# PATH it installs one into <tools-dir>/dotnet-linux, as build/gate-linux.sh does. From Windows, build/package-linux.ps1 does
+# PATH it installs one into <tools-dir>/dotnet-linux. From Windows, build/package-linux.ps1 does
 # all of this in the Linux-only worktree, .linux-gate.
 #
 # Windows has its own script, build/package.ps1. macOS is not produced here: vpk has to run on a Mac, and the result has to
