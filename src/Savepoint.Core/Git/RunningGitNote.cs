@@ -10,6 +10,9 @@ internal static class RunningGitNote
 {
     public const string FileName = "running-git.json";
 
+    // Static because every registry of the process shares the one file, and a read-then-write of two of them must not interleave.
+    private static readonly Lock _gate = new();
+
     public static string PathIn(string folder) => Path.Combine(folder, FileName);
 
     public static void Write(string path, ProcessStamp owner, IReadOnlyCollection<ProcessStamp> gits)
@@ -30,6 +33,31 @@ internal static class RunningGitNote
         }
 
         AtomicText.Write(path, Encoding.UTF8.GetString(buffer.ToArray()));
+    }
+
+    // Sets what one registry (its key) has running, keeping what other registries of this process wrote to the same note. The note still holds
+    // the owner and one list of every git at the top level, which is all an older start reads; each registry's own list is kept beside it so a
+    // later write can replace only its own. An empty list takes the registry's part away, and the note goes when no part is left. Parts
+    // written by another owner are dropped: that run is over, and the start that found them carries the ones that still run.
+    public static void Update(string path, ProcessStamp owner, Guid key, IReadOnlyCollection<ProcessStamp> gits)
+    {
+        lock (_gate)
+        {
+            var parts = ReadParts(path, owner);
+            parts.Remove(key);
+            if (gits.Count > 0)
+            {
+                parts[key] = [.. gits];
+            }
+
+            if (parts.Count == 0)
+            {
+                Clear(path);
+                return;
+            }
+
+            WriteParts(path, owner, parts);
+        }
     }
 
     // Null when there is no note or it cannot be understood: a note that cannot be read must not hold anything up.
@@ -74,6 +102,77 @@ internal static class RunningGitNote
                 Thread.Sleep(30 * attempt);
             }
         }
+    }
+
+    // The parts of a note the given owner wrote, with the gits that ended left out; a note of any other owner, or one that cannot be read, has none.
+    private static Dictionary<Guid, List<ProcessStamp>> ReadParts(string path, ProcessStamp owner)
+    {
+        var parts = new Dictionary<Guid, List<ProcessStamp>>();
+        if (AtomicText.ReadOrNull(path) is not { } text)
+        {
+            return parts;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(text);
+            var root = document.RootElement;
+            if (ReadStamp(root.GetProperty("owner")) != owner || !root.TryGetProperty("registries", out var registries))
+            {
+                return parts;
+            }
+
+            foreach (var part in registries.EnumerateArray())
+            {
+                var running = part.GetProperty("gits").EnumerateArray().Select(ReadStamp).Where(git => git.IsRunning()).ToList();
+                if (running.Count > 0)
+                {
+                    parts[Guid.Parse(part.GetProperty("key").GetString()!)] = running;
+                }
+            }
+        }
+        catch (Exception e) when (e is JsonException or InvalidOperationException or KeyNotFoundException or FormatException)
+        {
+            parts.Clear();
+        }
+
+        return parts;
+    }
+
+    private static void WriteParts(string path, ProcessStamp owner, Dictionary<Guid, List<ProcessStamp>> parts)
+    {
+        using var buffer = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            WriteStamp(writer, "owner", owner);
+            writer.WriteStartArray("gits");
+            foreach (var git in parts.Values.SelectMany(part => part).Distinct())
+            {
+                WriteStamp(writer, null, git);
+            }
+
+            writer.WriteEndArray();
+            writer.WriteStartArray("registries");
+            foreach (var (key, gits) in parts)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("key", key);
+                writer.WriteStartArray("gits");
+                foreach (var git in gits)
+                {
+                    WriteStamp(writer, null, git);
+                }
+
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
+
+        AtomicText.Write(path, Encoding.UTF8.GetString(buffer.ToArray()));
     }
 
     private static void WriteStamp(Utf8JsonWriter writer, string? name, ProcessStamp stamp)
