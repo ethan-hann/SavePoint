@@ -25,10 +25,10 @@ public sealed class CrashWindow : Window
     /// <summary>Creates the window.</summary>
     /// <param name="text">Formats the window's catalog messages.</param>
     /// <param name="report">The crash to show.</param>
-    /// <param name="openFolder">Opens a folder in the file manager; answers false when it could not.</param>
+    /// <param name="openFolder">Opens a folder in the file manager; answers false when it could not. It may throw or fault.</param>
     /// <param name="copyText">Puts text on the clipboard; the window's own clipboard when null. It may throw or fault.</param>
     /// <param name="build">The build to state in the support text; this app's build when null.</param>
-    public CrashWindow(UiFormatter text, CrashReport report, Func<string, bool> openFolder, Func<string, Task>? copyText = null, string? build = null)
+    public CrashWindow(UiFormatter text, CrashReport report, Func<string, Task<bool>> openFolder, Func<string, Task>? copyText = null, string? build = null)
     {
         _text = text;
         _copyText = copyText ?? CopyToOwnClipboard;
@@ -60,7 +60,7 @@ public sealed class CrashWindow : Window
             content.Children.Add(new SelectableTextBlock { Text = text.Message("app.crash.logFolder", ("path", folder)), TextWrapping = TextWrapping.Wrap });
             var failed = new TextBlock { Name = "OpenFailedText", Text = text.Message("app.crash.openFailed"), TextWrapping = TextWrapping.Wrap, IsVisible = false };
             var open = NewButton("OpenLogFolderButton", text.Message("app.crash.openLogFolder"));
-            open.Click += (_, _) => failed.IsVisible = !openFolder(folder);
+            open.Click += async (_, _) => failed.IsVisible = !await OpenedAsync(openFolder, folder);
             buttons.Children.Add(open);
             content.Children.Add(failed);
         }
@@ -115,6 +115,19 @@ public sealed class CrashWindow : Window
 
     private Task CopyToOwnClipboard(string text) =>
         Clipboard is { } clipboard ? clipboard.SetTextAsync(text) : throw new InvalidOperationException("This window has no clipboard.");
+
+    // A file manager that throws must never cause a second crash; it counts as one that did not open.
+    private static async Task<bool> OpenedAsync(Func<string, Task<bool>> openFolder, string folder)
+    {
+        try
+        {
+            return await openFolder(folder);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            return false;
+        }
+    }
 
     // A clipboard held by another program or missing from the display server must never cause a second crash.
     private async Task CopyAsync(string supportText)

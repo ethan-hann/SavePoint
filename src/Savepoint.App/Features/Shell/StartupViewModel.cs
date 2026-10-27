@@ -348,8 +348,11 @@ public sealed partial class StartupViewModel : ObservableObject
 
     // The generated OpenLogFolderCommand opens the log folder; it says so in LogFolderError when the file manager cannot be started.
     [RelayCommand]
-    private void OpenLogFolder() =>
-        LogFolderError = _logFolder is { } folder && (_revealer?.Reveal(folder) ?? false) ? null : _text.Message("startup.logFolderFailed");
+    private async Task OpenLogFolderAsync()
+    {
+        var opened = _logFolder is { } folder && _revealer is not null && await _revealer.RevealAsync(folder);
+        LogFolderError = opened ? null : _text.Message("startup.logFolderFailed");
+    }
 
     // Beginning again with nothing empties a list the player may have spent years on, so it asks, and says the old file is kept.
     private async Task StartEmptyAsync(CorruptCatalogFile file, string kind)

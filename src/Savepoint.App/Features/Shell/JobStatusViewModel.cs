@@ -167,6 +167,8 @@ public sealed partial class JobStatusViewModel : ObservableObject
 
             (JobKind.Compact, JobStatus.Succeeded) when job.GameId is null => ("shell.jobStatus.compactAllSuccess", ToastKind.Success),
             (JobKind.Compact, JobStatus.Partial) when job.GameId is null => ("shell.jobStatus.compactAllPartial", ToastKind.Warning),
+            (JobKind.Compact, JobStatus.Cancelled) when JobErrors.WasStoppedForAnotherTask(job) && job.GameId is null => ("shell.jobStatus.compactAllStopped", ToastKind.Info),
+            (JobKind.Compact, JobStatus.Cancelled) when JobErrors.WasStoppedForAnotherTask(job) => ("shell.jobStatus.compactStopped", ToastKind.Info),
             (JobKind.Compact, JobStatus.Cancelled) when job.GameId is null => ("shell.jobStatus.compactAllCancelled", ToastKind.Info),
             (JobKind.Compact, _) when job.GameId is null => ("shell.jobStatus.compactAllFailure", ToastKind.Error),
             (JobKind.Compact, JobStatus.Succeeded) => ("shell.jobStatus.compactSuccess", ToastKind.Success),

@@ -57,6 +57,18 @@ public class StartupLogFolderTests
     }
 
     [Fact]
+    public async Task A_file_manager_that_starts_and_then_fails_is_reported_under_the_card()
+    {
+        var revealer = new RecordingFileRevealer { FailsAfterStarting = true };
+        var startup = await FailedAsync(_logFolder, revealer);
+
+        Assert.Single(startup.Card!.Actions).Command.Execute(null);
+
+        Assert.True(startup.HasLogFolderError);
+        Assert.Equal("SavePoint couldn't open the log folder. You can find it at the path above.", startup.LogFolderError);
+    }
+
+    [Fact]
     public async Task Without_a_log_folder_the_card_is_as_it_was()
     {
         var startup = await FailedAsync(null);

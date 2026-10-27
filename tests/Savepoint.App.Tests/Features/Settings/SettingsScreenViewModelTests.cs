@@ -310,6 +310,31 @@ public class SettingsScreenViewModelTests
     }
 
     [Fact]
+    public async Task A_file_manager_that_starts_and_then_fails_to_show_the_notices_is_reported()
+    {
+        var rig = await SettingsRig.ShownAsync(notices: @"C:\Program Files\SavePoint\THIRD-PARTY-NOTICES.md");
+        rig.Revealer.FailsAfterStarting = true;
+
+        rig.Screen.About.ShowNoticesCommand.Execute(null);
+
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal(ToastKind.Error, toast.Message.Kind);
+    }
+
+    [Fact]
+    public async Task A_file_manager_that_starts_and_then_fails_to_show_the_license_is_reported_in_words()
+    {
+        var rig = await SettingsRig.ShownAsync(license: @"C:\Program Files\SavePoint\LICENSE");
+        rig.Revealer.FailsAfterStarting = true;
+
+        rig.Screen.About.ShowLicenseCommand.Execute(null);
+
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal(ToastKind.Error, toast.Message.Kind);
+        Assert.Equal("SavePoint couldn't open the file manager.", toast.Message.Text);
+    }
+
+    [Fact]
     public async Task The_license_action_is_hidden_when_the_file_was_not_shipped()
     {
         var rig = await SettingsRig.ShownAsync(license: null);

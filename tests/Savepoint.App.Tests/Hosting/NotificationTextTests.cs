@@ -69,6 +69,26 @@ public class NotificationTextTests
     }
 
     [Fact]
+    public void Free_up_space_that_a_launch_stopped_says_it_was_stopped_not_canceled()
+    {
+        var preempted = ErrorInfo.From(new CompactionPreemptedException("skyrim"));
+
+        var (_, body) = NotificationText.For(Job(JobKind.Compact, JobStatus.Cancelled, "skyrim", error: preempted), "Skyrim", _text);
+
+        Assert.Equal("Stopped freeing up space for Skyrim so another task could go first.", body);
+    }
+
+    [Fact]
+    public void Free_up_space_for_every_game_that_a_launch_stopped_says_it_was_stopped_not_canceled()
+    {
+        var preempted = ErrorInfo.From(new CompactionPreemptedException(null));
+
+        var (_, body) = NotificationText.For(Job(JobKind.Compact, JobStatus.Cancelled, error: preempted), "Skyrim", _text);
+
+        Assert.Equal("Stopped freeing up space for all your games so another task could go first.", body);
+    }
+
+    [Fact]
     public void Optimizing_every_game_does_not_name_one()
     {
         var (_, body) = NotificationText.For(Job(JobKind.Compact, JobStatus.Succeeded), "Skyrim", _text);

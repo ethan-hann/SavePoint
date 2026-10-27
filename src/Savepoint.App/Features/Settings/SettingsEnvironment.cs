@@ -7,12 +7,9 @@ namespace Savepoint.App.Features.Settings;
 /// <summary>Shows a file or opens a folder in the operating system's file manager.</summary>
 public interface IFileRevealer
 {
-    /// <summary>Opens the file manager on the file, or on the folder itself; false when it could not be started.</summary>
-    bool Reveal(string path);
-
     /// <summary>
-    /// Opens the file manager as <see cref="Reveal"/> does, and also reports one that fails just after it starts, such as a Linux
-    /// system where nothing answers <c>xdg-open</c>. The wait is off the calling thread.
+    /// Opens the file manager on the file, or on the folder itself; false when it could not be started or failed just after it
+    /// started, such as a Linux system where nothing answers <c>xdg-open</c>. The wait is off the calling thread.
     /// </summary>
     Task<bool> RevealAsync(string path);
 }

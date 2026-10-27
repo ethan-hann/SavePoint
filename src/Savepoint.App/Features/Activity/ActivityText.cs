@@ -56,7 +56,7 @@ public sealed class ActivityText
     {
         var id = job.Status switch
         {
-            JobStatus.Cancelled when JobErrors.WasStoppedForAnotherTask(job) => "activity.job.packStopped",
+            JobStatus.Cancelled when JobErrors.WasStoppedForAnotherTask(job) => StoppedId(job),
             JobStatus.Running => running,
             JobStatus.Succeeded or JobStatus.Partial => done,
             JobStatus.Failed => failed,
@@ -64,6 +64,13 @@ public sealed class ActivityText
         };
         return _text.Message(id, arguments);
     }
+
+    private static string StoppedId(JobSnapshot job) => job switch
+    {
+        { Kind: JobKind.Compact, GameId: null } => "activity.job.compactAllStopped",
+        { Kind: JobKind.Compact } => "activity.job.compactStopped",
+        _ => "activity.job.packStopped",
+    };
 
     /// <summary>Where the job stands: in progress, stopping, done, partly done, failed, or canceled.</summary>
     /// <param name="job">The job.</param>

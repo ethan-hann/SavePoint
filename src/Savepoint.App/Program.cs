@@ -41,7 +41,7 @@ internal static class Program
         // until the process ends.
         var crash = new CrashHandler(
             started.Log,
-            new AvaloniaCrashPresenter(path => started.Services.FileRevealer?.Reveal(path) ?? false),
+            new AvaloniaCrashPresenter(path => started.Services.FileRevealer?.RevealAsync(path) ?? Task.FromResult(false)),
             Environment.Exit,
             started.Services.LogFolder,
             () => RunningJobs.CancelAll(started.Services.Jobs, TimeSpan.FromSeconds(2)),
