@@ -65,6 +65,8 @@ public partial class App : Application
             }
 
             var services = Services ?? throw new InvalidOperationException("App.Services must be set before the main window is built.");
+            // The saved interface size is applied before the window exists, so it opens at its final size and place instead of jumping from 100%.
+            Theme.SetUiScale(StartupUiScale.Read(services.Settings));
             var window = new MainWindow();
             var attention = new SessionAttentionRelay();
             var main = AppComposition.Create(
