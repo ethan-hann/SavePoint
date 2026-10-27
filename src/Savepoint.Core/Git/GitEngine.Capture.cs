@@ -108,10 +108,11 @@ public sealed partial class GitEngine
     /// Refuses a save of several folders, before any of them is written, when the storage volume cannot take them all at once: each
     /// folder's capture checks only its own files, so folders saved side by side could together fill a volume each of them fits on. The
     /// volume needs the free-space floor plus <paramref name="newBytes"/>; temporary packs a stopped capture left in these folders'
-    /// repositories are removed first when they are what fills the volume. Writes nothing else.
+    /// repositories are removed first when they are what fills the volume (a folder with a capture of its own under way has already had
+    /// its leftovers cleared by it). Writes nothing else.
     /// </summary>
     /// <param name="repos">The folders about to be saved; at least one.</param>
-    /// <param name="newBytes">The bytes all of them add together, as <see cref="EstimateCaptureBytesAsync"/> reports for each.</param>
+    /// <param name="newBytes">The bytes all of them add together, as each capture reports its own through <see cref="CaptureRequest.BeforeWriting"/>.</param>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume has less free than the floor plus <paramref name="newBytes"/> (the exception reports both figures).</exception>
     public void RequireCaptureRoom(IReadOnlyList<RepoRef> repos, long newBytes)
     {
@@ -162,7 +163,7 @@ public sealed partial class GitEngine
             throw new AmendNotAvailableException();
         }
 
-        await StageAsync(repo, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, request, progress, ct).ConfigureAwait(false);
         await DropNamedFromIndexAsync(repo, ct).ConfigureAwait(false);
         if (request.SkipAmendWhenUnchanged && !await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false))
         {
@@ -204,7 +205,7 @@ public sealed partial class GitEngine
             return new CaptureOutcome(true, existing);
         }
 
-        await StageAsync(repo, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, request, progress, ct).ConfigureAwait(false);
         var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
 
         // The point exists before any ref changes, so a stop up to the one ref write leaves every ref where it was.
@@ -255,7 +256,7 @@ public sealed partial class GitEngine
         }
 
         // Written before any ref changes, like a fork, so a stop up to the one ref write leaves every ref and HEAD where they were.
-        await StageAsync(repo, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, request, progress, ct).ConfigureAwait(false);
         await DropNamedFromIndexAsync(repo, ct).ConfigureAwait(false);
         var commit = await WriteCommitAsync(repo, request, null, ct).ConfigureAwait(false);
         await RefWriteAsync(repo, request.Branch, commit, () => CreateBranchRefAsync(repo, request.Branch, commit, "savepoint: start branch", ct)).ConfigureAwait(false);
@@ -300,7 +301,7 @@ public sealed partial class GitEngine
             return new CaptureOutcome(true, branchTip);
         }
 
-        await StageAsync(repo, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, request, progress, ct).ConfigureAwait(false);
         var changed = await IndexDiffersAsync(repo, "HEAD", ct).ConfigureAwait(false);
 
         // The point exists before the branch moves, so the points a move drops stay on it until the one ref write.
@@ -414,7 +415,7 @@ public sealed partial class GitEngine
             throw new ProfileNotLoadedException(request.Branch, repo.Role);
         }
 
-        await StageAsync(repo, progress, ct).ConfigureAwait(false);
+        await StageAsync(repo, request, progress, ct).ConfigureAwait(false);
         if (!await IndexDiffersAsync(repo, tip is null ? GitDirFiles.EmptyTree : "HEAD", ct).ConfigureAwait(false))
         {
             return new CaptureOutcome(false, tip);
@@ -432,7 +433,7 @@ public sealed partial class GitEngine
 
     // Puts the folder's current state in the index. The files are listed here and handed to git by name, so only SavePoint's
     // exclude list decides what is left out. git prints one line per file it adds or removes, which feeds the progress reports.
-    private async Task StageAsync(RepoRef repo, IProgress<FileProgress>? progress, CancellationToken ct)
+    private async Task StageAsync(RepoRef repo, CaptureRequest request, IProgress<FileProgress>? progress, CancellationToken ct)
     {
         var listing = await ListForStagingAsync(repo, ct).ConfigureAwait(false);
         LinkedFolders.RefuseAny(repo.WorkTree, listing.Files, ct);
@@ -446,6 +447,7 @@ public sealed partial class GitEngine
         // An empty list would not mean "nothing": add -A with no paths takes the whole folder, excluded files included.
         if (listing.Files.Count == 0)
         {
+            await BeforeWritingAsync(request, 0, ct).ConfigureAwait(false);
             if (reporter is not null && stagedBefore > 0)
             {
                 reporter.SetTotal(stagedBefore);
@@ -475,6 +477,7 @@ public sealed partial class GitEngine
         // The floor stays on top, for the repack that follows.
         var sizes = additions.Count == 0 ? [] : await SizesOfAsync(repo, additions, ct).ConfigureAwait(false);
         EnsureStorageSpace(repo, sizes.Sum());
+        await BeforeWritingAsync(request, sizes.Sum(), ct).ConfigureAwait(false);
         if (reporter is not null)
         {
             reporter.SetByteTotal(sizes.Sum());
@@ -564,6 +567,10 @@ public sealed partial class GitEngine
 
         reporter?.Complete();
     }
+
+    // A save of several folders judges them together here, once each one has found what it would add and has room for it alone.
+    private static Task BeforeWritingAsync(CaptureRequest request, long newBytes, CancellationToken ct) =>
+        request.BeforeWriting is { } before ? before(newBytes, ct) : Task.CompletedTask;
 
     // The plan sorts files by the size git streams into a pack; the repository file says that size is the default. A different size (only a
     // test makes one) is told to git the same way the engine's other forced settings are, so the two agree.
