@@ -16,8 +16,13 @@ namespace Savepoint.Core.Git;
 internal sealed class GitProcessRegistry
 {
     private static readonly TimeSpan _defaultNoteDelay = TimeSpan.FromMilliseconds(500);
+    // Static because a runner built without its own registry must still have its gits ended at exit, and only one exit hook may reach them (D59).
     private static readonly Lazy<GitProcessRegistry> _shared = new(CreateShared);
+
+    // Static because the exit handler is process-wide and must reach the registry of every backend still alive when the process ends (D59).
     private static readonly ConcurrentQueue<GitProcessRegistry> _forApp = new();
+
+    // Static because the process has one exit event; hooking it once per registry would close each registry once per hook.
     private static int _exitHooked;
 
     private readonly ConcurrentDictionary<int, Entry> _running = new();

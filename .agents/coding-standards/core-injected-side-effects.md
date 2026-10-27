@@ -150,10 +150,6 @@ private static readonly Lazy<(IntPtr Handle, string? Problem)> _job = new(Create
 
 - `src/Savepoint.Core/Git/GitProcessJob.cs`, `GitProcessJob._job`: a process-lifetime OS handle with the comment that justifies it.
 
-**Known violations:**
-
-- `src/Savepoint.Core/Git/GitProcessRegistry.cs`, `GitProcessRegistry._shared` and `GitProcessRegistry._forApp`: statics under the exception, but with no comment on the fields that says why they are static.
-
 ## Additional Resources
 
 ### Project Documentation
