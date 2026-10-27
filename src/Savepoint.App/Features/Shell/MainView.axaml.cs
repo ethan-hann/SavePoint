@@ -110,8 +110,8 @@ public partial class MainView : UserControl, IAnnouncementHost
             return;
         }
 
-        // Not behind a dialog: the box would take focus out of reach of the dialog's own controls.
-        if (FindKey.Matches(e.Key, e.KeyModifiers) && DataContext is MainWindowViewModel { Shell: not null, Dialogs.IsOpen: false }
+        // Not behind a dialog, and not while the tour runs: the box would take focus out of reach of the dialog's own controls or away from the step.
+        if (FindKey.Matches(e.Key, e.KeyModifiers) && DataContext is MainWindowViewModel { Shell: not null, Dialogs.IsOpen: false, ShowTour: false }
             && Page.GetVisualDescendants().OfType<ShellView>().FirstOrDefault()?.FocusSearch() == true)
         {
             e.Handled = true;

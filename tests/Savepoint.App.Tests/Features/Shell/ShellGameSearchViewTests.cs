@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Common.Search;
 using Savepoint.App.Features.Shell;
+using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.EndToEnd;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Catalog;
@@ -52,6 +53,27 @@ public class ShellGameSearchViewTests
 
         Assert.Same(before, app.Focused);
         Assert.NotSame(FieldOf(app, "RailSearch"), app.Focused);
+    }
+
+    [AvaloniaFact]
+    public async Task Ctrl_F_does_nothing_while_the_tour_runs_and_works_again_once_it_ends()
+    {
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { TourSeen = false }));
+        using var app = await ComposedApp.StartWithViewAsync(backend);
+        Assert.True(app.Shell.ShowTour);
+        var profileSearch = FieldOf(app, "ProfileSearchBox");
+        var before = app.Focused;
+
+        app.Press(Key.F, PhysicalKey.F, RawInputModifiers.Control);
+
+        Assert.Same(before, app.Focused);
+        Assert.NotSame(profileSearch, app.Focused);
+
+        app.Shell.Tour.SkipCommand.Execute(null);
+        app.Settle();
+        app.Press(Key.F, PhysicalKey.F, RawInputModifiers.Control);
+
+        Assert.Same(profileSearch, app.Focused);
     }
 
     [AvaloniaFact]
