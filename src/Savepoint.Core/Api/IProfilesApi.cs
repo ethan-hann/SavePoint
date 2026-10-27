@@ -36,7 +36,8 @@ public interface IProfilesApi
     /// A folder may start empty only when no file in it can be lost (D65.2). That holds when the folder does not exist, or when it sits on
     /// the branch of one of the game's profiles (not on an older point), that branch has a snapshot, no switch of the folder stopped part
     /// way, no file in it is new or changed since that snapshot, and every file could be read. Files the game leaves out do not count as
-    /// changes: no snapshot holds them, and a switch never removes them. Otherwise the files would stay behind as the new profile's new
+    /// changes: no snapshot holds them, but a later switch does not remove them silently (it refuses when one is in the way, and the launch
+    /// dialog asks first). Otherwise the files would stay behind as the new profile's new
     /// changes, and discarding them at launch would delete the only copy. A game's first profile therefore cannot start a folder empty
     /// unless the folder does not exist. The check runs before a job is queued and again under the game's lock, just before the folder is
     /// started; a refusal there fails that folder, and a retry checks again. A folder that does not exist when the job runs fails with
@@ -51,10 +52,10 @@ public interface IProfilesApi
     /// The folders that start with nothing; null or empty for none. Only <see cref="RepoRole.External"/> (saves) and
     /// <see cref="RepoRole.Mods"/> may be named, and only when the game has that folder: anything else fails with
     /// <c>error.validation.invalidPayload</c> (issue <see cref="ValidationMessageIds.ProfileStartEmptyInvalid"/> at <c>startEmpty</c>) before a job is queued,
-    /// since the game's own files are what a profile is for (D29.3). A folder whose files no snapshot holds (a new or changed file, or a
-    /// folder SavePoint has no marker in) fails the same way with <see cref="ValidationMessageIds.ProfileStartEmptyUnsaved"/>, and a folder
-    /// that cannot be checked (a file held open or unreadable, a stopped switch, or a folder on an older point) with
-    /// <see cref="ValidationMessageIds.ProfileStartEmptyUnchecked"/>, which a snapshot does not fix.
+    /// since the game's own files are what a profile is for (D29.3). A folder whose files no snapshot holds (a new or changed file) fails
+    /// the same way with <see cref="ValidationMessageIds.ProfileStartEmptyUnsaved"/>, a folder SavePoint has no marker in with <see cref="ValidationMessageIds.ProfileStartEmptyUnconfirmed"/>, and a folder that cannot be checked
+    /// (a file held open or unreadable, a stopped switch, another game's marker or a corrupt one, a folder on an older point, or a folder on
+    /// no profile of the game) with <see cref="ValidationMessageIds.ProfileStartEmptyUnchecked"/>, which a snapshot does not fix.
     /// </param>
     Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName, IReadOnlyCollection<RepoRole>? startEmpty = null);
 

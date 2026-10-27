@@ -6,7 +6,7 @@ using Savepoint.Core.Git;
 namespace Savepoint.Core.Services.Profiles;
 
 // A new profile may start a folder empty only when every file the folder holds now is already in a snapshot of a profile of the game,
-// or can never be removed by a switch. Starting empty leaves the files in place as new changes of the new profile, and a launch offers
+// or is one the game leaves out. Starting empty leaves the files in place as new changes of the new profile, and a launch offers
 // to discard those; without a snapshot of them elsewhere that would delete the player's only copy. The wizard's tick boxes, the
 // refusal before a profile is made and the check inside the save all ask this, so they never disagree.
 internal static class StartEmptyRule
@@ -19,13 +19,16 @@ internal static class StartEmptyRule
     /// <item>
     /// It sits on the branch of one of the game's profiles (not on an older point), that branch has a snapshot, no switch of the folder
     /// stopped part way, no file in it is new or changed since that snapshot, and git could read every file. Files the game leaves out
-    /// never count as changes: no snapshot holds them, but a switch never removes them either.
+    /// never count as changes: no snapshot holds them, but a later switch does not remove them silently either (it refuses with
+    /// <see cref="DirtyWorkingTreeException"/> when one is in the way, and the launch dialog asks first).
     /// </item>
     /// </list>
     /// Anything else is a block. <see cref="StartEmptyBlock.StoppedSwitch"/> is a switch that stopped part way;
-    /// <see cref="StartEmptyBlock.NewChanges"/> is a new or changed file, or a folder without SavePoint's marker (its files are in no
-    /// snapshot); <see cref="StartEmptyBlock.Other"/> is a file that is held or unreadable, any other failure reading the folder, or a
-    /// folder on an older point or on no profile of the game. A snapshot is the way out of <see cref="StartEmptyBlock.NewChanges"/> only.
+    /// <see cref="StartEmptyBlock.NewChanges"/> is a new or changed file on a profile's branch, whose files are in no snapshot yet;
+    /// <see cref="StartEmptyBlock.NotConfirmed"/> is a folder without SavePoint's marker; <see cref="StartEmptyBlock.Other"/> is a file
+    /// that is held or unreadable, a folder holding another game's marker or a corrupt one, any other failure reading the folder, or a
+    /// folder on an older point (changes or not) or on no profile of the game. A snapshot is the way out of
+    /// <see cref="StartEmptyBlock.NewChanges"/> only.
     /// </summary>
     /// <param name="engine">The storage engine.</param>
     /// <param name="repo">The folder, carrying the ignore patterns it leaves out now.</param>
@@ -41,6 +44,12 @@ internal static class StartEmptyRule
                 return StartEmptyBlock.StoppedSwitch;
             }
 
+            // Before the changes: a snapshot of a folder on an older point is refused, so asking for one would send the player in a circle.
+            if (status.IsDetached)
+            {
+                return StartEmptyBlock.Other;
+            }
+
             if (!status.IsClean)
             {
                 return StartEmptyBlock.NewChanges;
@@ -54,10 +63,11 @@ internal static class StartEmptyRule
         {
             return StartEmptyBlock.None;
         }
-        catch (ConsentMarkerException)
+        catch (ConsentMarkerException e) when (e.Args["reason"] is ConsentFailure.Missing)
         {
-            // A folder SavePoint never marked, or one the player made again, holds files no snapshot has.
-            return StartEmptyBlock.NewChanges;
+            // A folder SavePoint never marked, or one the player made again: a snapshot of it waits for the player to confirm it. Another
+            // game's marker or a corrupt one is not that, and falls to the general case below.
+            return StartEmptyBlock.NotConfirmed;
         }
         catch (Exception e) when (e is SavepointException or IOException)
         {
@@ -66,8 +76,13 @@ internal static class StartEmptyRule
         }
     }
 
-    /// <summary>The refusal for a folder that is not safe: the issue says to take a snapshot for new changes, and that the folder cannot be checked for any other block.</summary>
+    /// <summary>The refusal for a folder that is not safe: the issue says to take a snapshot for new changes, to confirm the folder when it has no marker, and that the folder cannot be checked for any other block.</summary>
     /// <param name="block">What <see cref="WhyNotAsync"/> found; not <see cref="StartEmptyBlock.None"/>.</param>
     public static ValidationException Refusal(StartEmptyBlock block) =>
-        new([new ValidationIssue("startEmpty", block is StartEmptyBlock.StoppedSwitch or StartEmptyBlock.Other ? ValidationMessageIds.ProfileStartEmptyUnchecked : ValidationMessageIds.ProfileStartEmptyUnsaved)]);
+        new([new ValidationIssue("startEmpty", block switch
+        {
+            StartEmptyBlock.NotConfirmed => ValidationMessageIds.ProfileStartEmptyUnconfirmed,
+            StartEmptyBlock.StoppedSwitch or StartEmptyBlock.Other => ValidationMessageIds.ProfileStartEmptyUnchecked,
+            _ => ValidationMessageIds.ProfileStartEmptyUnsaved,
+        })]);
 }
