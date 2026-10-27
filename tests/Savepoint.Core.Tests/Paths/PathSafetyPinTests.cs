@@ -95,9 +95,8 @@ public class PathSafetyPinTests
     }
 
     [Fact]
-    public void On_Windows_a_different_folder_at_the_same_path_is_no_longer_pinned()
+    public void A_different_folder_at_the_same_path_is_no_longer_pinned()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows reports a folder's identity");
         using var tree = new TempTree();
         var safety = Safety(tree);
         var game = tree.Dir("games", "alpha");

@@ -97,7 +97,7 @@ public sealed class PathSafety
     /// <summary>
     /// True when the path still leads to the folder the pin was taken of: the same real path once links are followed and, where the pin
     /// holds an identity, the same folder under it. A folder renamed away and replaced, a link pointed elsewhere, and a path that now
-    /// runs into a link loop all answer false (a folder that merely vanished does too where identities are reported). The check never writes to the file system.
+    /// runs into a link loop all answer false (a folder that merely vanished does too when the pin holds an identity). The check never writes to the file system.
     /// </summary>
     /// <param name="path">The path the pin was taken from.</param>
     /// <param name="pin">What <see cref="Pin"/> returned for it.</param>

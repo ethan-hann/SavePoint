@@ -11,7 +11,7 @@ public interface IPathProbe
 
     /// <summary>
     /// The identity of the existing file or folder at <paramref name="path"/>, with links followed. Null when it does not exist,
-    /// cannot be opened, or the OS offers no identity (only Windows reports one).
+    /// cannot be opened, or the OS offers no identity (Windows, Linux and macOS report one; any other OS, or a read that fails, gives null).
     /// </summary>
     FileIdentity? ReadIdentity(string path);
 
