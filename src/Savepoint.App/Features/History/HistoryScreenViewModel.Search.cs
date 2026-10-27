@@ -205,13 +205,19 @@ public sealed partial class HistoryScreenViewModel
     }
 
     // What is on screen is what is counted. Matches inside a closed Recently removed section are said apart, so a listener does not
-    // take them for snapshots in the list, and still learns they are there. With no other snapshots, the section is all there is.
+    // take them for snapshots in the list, and still learns they are there. With no other snapshots, nothing is listed, so the count
+    // names the closed section alone rather than saying "0 of 0 snapshots" first.
     private string CountMessage()
     {
         var text = _deps.Text;
-        if (IsRemovedOpen || _entries.Count == 0 || _removedEntries.Count == 0)
+        if (IsRemovedOpen || _removedEntries.Count == 0)
         {
             return text.Message("search.history.count", ("shown", _visibleCount + Removed.Count), ("total", _entries.Count + _removedEntries.Count));
+        }
+
+        if (_entries.Count == 0)
+        {
+            return text.Message("search.history.countOnlyRemoved", ("removedShown", Removed.Count), ("removedTotal", _removedEntries.Count));
         }
 
         return Removed.Count == 0
