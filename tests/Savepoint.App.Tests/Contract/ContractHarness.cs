@@ -270,10 +270,10 @@ internal sealed class RealContractHarness : ContractHarness
     public override Task WaitForCompletedAsync(string gameId, CancellationToken cancellationToken) =>
         WaitForSessionAsync(gameId, state => state is SessionState.Completed, cancellationToken);
 
-    // Starts the switch with the install folder held at its first free-space question, then cancels it there: nothing is written, and the folder is marked unfinished.
+    // Starts the switch with the install folder held at the free-space question of its own switch, then cancels it there: nothing is written, and the folder is marked unfinished.
     public override async Task InterruptSwitchAsync(GameDefinition game, string currentProfileId, string toProfileId, CancellationToken cancellationToken)
     {
-        _disk.Hold(game.Install.Path);
+        _disk.Hold(game.Install.Path, skip: 2);
         try
         {
             var started = await _backend.Launch.StartAsync(game.Id, new LaunchTarget.ProfileTip(toProfileId)).ConfigureAwait(false);
@@ -402,11 +402,16 @@ internal sealed class GatedDisk : IDiskSpace
     private readonly ManualResetEventSlim _reached = new();
     private readonly ManualResetEventSlim _release = new(initialState: true);
     private volatile string? _folder;
+    private int _skip;
 
-    public void Hold(string folder)
+    // The folder is held at its question after the first `skip` ones. A launch of two folders on one drive asks the first folder twice
+    // before its switch writes (its own check, then the check of the drive both share), so a switch that must be stopped inside the
+    // folder's own switch skips those two.
+    public void Hold(string folder, int skip = 0)
     {
         _reached.Reset();
         _release.Reset();
+        Volatile.Write(ref _skip, skip);
         _folder = folder;
     }
 
@@ -421,7 +426,7 @@ internal sealed class GatedDisk : IDiskSpace
 
     public long? GetFreeBytes(string path)
     {
-        if (_folder is { } held && path.StartsWith(held, StringComparison.OrdinalIgnoreCase) && !_release.IsSet)
+        if (_folder is { } held && path.StartsWith(held, StringComparison.OrdinalIgnoreCase) && !_release.IsSet && Interlocked.Decrement(ref _skip) < 0)
         {
             _reached.Set();
             _release.Wait(_limit);
@@ -431,4 +436,6 @@ internal sealed class GatedDisk : IDiskSpace
     }
 
     public long? GetTotalBytes(string path) => _real.GetTotalBytes(path);
+
+    public string? GetVolumeId(string path) => _real.GetVolumeId(path);
 }

@@ -82,7 +82,7 @@ public sealed partial class GitEngine
             throw new InterruptedSwitchException(repo.Role, unfinished.ToCommit);
         }
 
-        EnsureStorageSpaceAfterLeftovers(repo);
+        EnsureStorageSpaceAfterLeftovers([repo]);
 
         using var scope = BeginWrite(repo, request.IgnorePatterns);
         ct.ThrowIfCancellationRequested();
@@ -104,22 +104,48 @@ public sealed partial class GitEngine
         };
     }
 
+    /// <summary>
+    /// Refuses a save of several folders, before any of them is written, when the storage volume cannot take them all at once: each
+    /// folder's capture checks only its own files, so folders saved side by side could together fill a volume each of them fits on. The
+    /// volume needs the free-space floor plus <paramref name="newBytes"/>; temporary packs a stopped capture left in these folders'
+    /// repositories are removed first when they are what fills the volume. Writes nothing else.
+    /// </summary>
+    /// <param name="repos">The folders about to be saved; at least one.</param>
+    /// <param name="newBytes">The bytes all of them add together, as <see cref="EstimateCaptureBytesAsync"/> reports for each.</param>
+    /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume has less free than the floor plus <paramref name="newBytes"/> (the exception reports both figures).</exception>
+    public void RequireCaptureRoom(IReadOnlyList<RepoRef> repos, long newBytes)
+    {
+        ArgumentNullException.ThrowIfNull(repos);
+        if (repos.Count == 0)
+        {
+            throw new ArgumentException("At least one folder is needed.", nameof(repos));
+        }
+
+        EnsureStorageSpaceAfterLeftovers([.. repos.Select(Normalize)], newBytes);
+    }
+
     // The temporary packs a stopped write left can be most of what a full volume holds, and the write about to start would remove them anyway.
     // They go before the volume is judged, and only when nothing of this engine's, and no git an earlier run left going, is working on the repository.
-    private void EnsureStorageSpaceAfterLeftovers(RepoRef repo)
+    private void EnsureStorageSpaceAfterLeftovers(IReadOnlyList<RepoRef> repos, long extraBytes = 0)
     {
         try
         {
-            EnsureStorageSpace(repo);
+            EnsureStorageSpace(repos[0], extraBytes);
         }
         catch (DiskSpaceException)
         {
-            if (!IsInitialized(repo.GitDir) || _inFlight.IsBusy(repo.GitDir) || LeftoverGitRunning() || StaleLocks.RemoveTemporaryFiles(repo.GitDir) == 0)
+            var removed = 0;
+            foreach (var repo in repos.Where(repo => IsInitialized(repo.GitDir) && !_inFlight.IsBusy(repo.GitDir) && !LeftoverGitRunning()))
+            {
+                removed += StaleLocks.RemoveTemporaryFiles(repo.GitDir);
+            }
+
+            if (removed == 0)
             {
                 throw;
             }
 
-            EnsureStorageSpace(repo);
+            EnsureStorageSpace(repos[0], extraBytes);
         }
     }
 

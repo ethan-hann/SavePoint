@@ -358,6 +358,11 @@ internal sealed class FakeDiskSpace : IDiskSpace
     public long? GetFreeBytes(string path) => FreePerPath?.Invoke(path) ?? Free ?? _real.GetFreeBytes(path);
 
     public long? GetTotalBytes(string path) => _real.GetTotalBytes(path);
+
+    // Overrides the volume a path is on, for a test that puts two folders on different drives.
+    public Func<string, string?>? VolumePerPath { get; set; }
+
+    public string? GetVolumeId(string path) => VolumePerPath?.Invoke(path) ?? _real.GetVolumeId(path);
 }
 
 // Sessions a test opens and closes by hand.

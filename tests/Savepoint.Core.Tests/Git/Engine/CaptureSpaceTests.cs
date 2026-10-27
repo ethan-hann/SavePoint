@@ -1,3 +1,4 @@
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 
@@ -42,6 +43,59 @@ public sealed class CaptureSpaceTests : IDisposable
         Assert.Equal(_floor + 200_000, error.Args["freeBytes"]);
         Assert.Equal(objectsBefore, ObjectFiles(repo));
         Assert.Null(await _ws.ResolveAsync(repo, "HEAD"));
+    }
+
+    [Fact]
+    public async Task The_estimate_counts_the_new_and_changed_files_the_capture_would_check_and_not_the_ones_already_recorded()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "big.bin", new byte[300_000]);
+        Assert.Equal(300_000, await _ws.Engine.EstimateCaptureBytesAsync(repo, [], Ct));
+        await _ws.CaptureAsync(repo, "profile-1", "First");
+        _ws.Write(repo, "small.txt", "xyz");
+        _ws.Write(repo, "big.bin", new byte[300_005]);
+
+        var estimate = await _ws.Engine.EstimateCaptureBytesAsync(repo, [], Ct);
+
+        Assert.Equal(300_008, estimate);
+    }
+
+    [Fact]
+    public async Task Room_for_several_folders_is_refused_with_the_figures_for_all_of_them_together()
+    {
+        var install = await _ws.InitializedRepoAsync(role: RepoRole.Install);
+        var saves = await _ws.InitializedRepoAsync(role: RepoRole.External);
+        _ws.Space.Free = _floor + 400_000;
+
+        var error = Assert.Throws<DiskSpaceException>(() => _ws.Engine.RequireCaptureRoom([install, saves], 500_000));
+
+        Assert.Equal(_floor + 500_000, error.Args["requiredBytes"]);
+        Assert.Equal(_floor + 400_000, error.Args["freeBytes"]);
+    }
+
+    [Fact]
+    public async Task Room_for_several_folders_is_granted_when_they_fit_together()
+    {
+        var install = await _ws.InitializedRepoAsync(role: RepoRole.Install);
+        var saves = await _ws.InitializedRepoAsync(role: RepoRole.External);
+        _ws.Space.Free = _floor + 500_000;
+
+        _ws.Engine.RequireCaptureRoom([install, saves], 500_000);
+    }
+
+    [Fact]
+    public async Task A_temporary_pack_left_in_any_of_the_folders_does_not_block_the_save_of_all_of_them()
+    {
+        var install = await _ws.InitializedRepoAsync(role: RepoRole.Install);
+        var saves = await _ws.InitializedRepoAsync(role: RepoRole.External);
+        var leftover = Path.Combine(saves.GitDir, "objects", "pack", "tmp_pack_stopped");
+        Directory.CreateDirectory(Path.GetDirectoryName(leftover)!);
+        await File.WriteAllBytesAsync(leftover, new byte[50_000], Ct);
+        _ws.Space.PerPath = _ => _floor + 500_000 - TemporaryPackBytes(saves);
+
+        _ws.Engine.RequireCaptureRoom([install, saves], 500_000);
+
+        Assert.False(File.Exists(leftover));
     }
 
     [Fact]

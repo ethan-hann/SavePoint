@@ -360,12 +360,14 @@ public sealed partial class GitEngine
     /// share a path, unsaved changes and a half-switched folder. The folder, the repository's index and config, its refs and the note of an
     /// unfinished switch are only read. When the game's patterns name files, git is also given a throwaway <c>savepoint-classify-*</c> index
     /// in the git directory, which is deleted when the question is answered. A launch that switches several folders asks the later ones
-    /// first, so a refusal in a later folder leaves the earlier ones as they were.
+    /// first, so a refusal in a later folder leaves the earlier ones as they were; it asks the first one too when another folder is on its
+    /// volume, to add up what they need together (see <see cref="RequireSwitchRoom"/>).
     /// </summary>
     /// <param name="repo">The folder that would be switched.</param>
     /// <param name="target">The branch name, or the full id of an older point.</param>
     /// <param name="isBranch">Whether <paramref name="target"/> is a branch.</param>
     /// <param name="ct">Cancels the call.</param>
+    /// <returns>The bytes the switch adds to the folder, never negative: what a launch sums for folders that share a volume (see <see cref="RequireSwitchRoom"/>). A file the switch makes smaller is not counted against another folder's growth.</returns>
     /// <remarks>A switch that passes can still fail later: a file another program holds open, or a disk that fills meanwhile.</remarks>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
@@ -382,7 +384,7 @@ public sealed partial class GitEngine
     /// <exception cref="ArgumentException"><paramref name="target"/> is not a valid branch name, or not a full commit id.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">The repository does not exist, the point is not in it, or git failed.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    public async Task CheckSwitchAsync(RepoRef repo, string target, bool isBranch, CancellationToken ct = default)
+    public async Task<long> CheckSwitchAsync(RepoRef repo, string target, bool isBranch, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(target);
         if (isBranch)
@@ -406,7 +408,26 @@ public sealed partial class GitEngine
         }
 
         var (from, to, note) = await ReadSwitchEndsAsync(repo, target, isBranch, ct).ConfigureAwait(false);
-        await RequireSwitchPossibleAsync(repo, from, to, force: false, note, readFiles: false, ct).ConfigureAwait(false);
+        var (plan, sizes, _) = await RequireSwitchPossibleAsync(repo, from, to, force: false, note, readFiles: false, ct).ConfigureAwait(false);
+        return GrowthOf(plan.Changes, sizes);
+    }
+
+    /// <summary>
+    /// Refuses a launch's switches before any folder is written when the folders that share one volume cannot take their growth together,
+    /// although each could on its own. The volume needs the free-space floor plus <paramref name="growthBytes"/>. Reads only.
+    /// </summary>
+    /// <param name="repo">One of the folders on the volume; its drive is the one measured.</param>
+    /// <param name="growthBytes">The sum of what each of the folders on the volume adds, as <see cref="CheckSwitchAsync"/> reports it.</param>
+    /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The volume has less free than the floor plus <paramref name="growthBytes"/> (the exception reports both figures).</exception>
+    public void RequireSwitchRoom(RepoRef repo, long growthBytes)
+    {
+        repo = Normalize(repo);
+        var required = _options.MinFreeBytesForCheckout + Math.Max(0, growthBytes);
+        var free = _freeSpace(repo.WorkTree);
+        if (free < required)
+        {
+            throw new DiskSpaceException(repo.WorkTree, required, free);
+        }
     }
 
     private async Task CheckoutAsync(RepoRef repo, string target, bool isBranch, bool force, IProgress<FileProgress>? progress, CancellationToken ct)
@@ -550,10 +571,13 @@ public sealed partial class GitEngine
         return (plan, sizes, finishing);
     }
 
+    // What the switch adds on net; a switch that frees more than it writes adds nothing, since the space comes back only as files are removed.
+    private static long GrowthOf(IReadOnlyList<TreeChange> changes, Dictionary<string, long> sizes) =>
+        Math.Max(0, changes.Sum(change => sizes.GetValueOrDefault(change.NewId) - sizes.GetValueOrDefault(change.OldId)));
+
     private void EnsureCheckoutSpace(RepoRef repo, IReadOnlyList<TreeChange> changes, Dictionary<string, long> sizes)
     {
-        var growth = changes.Sum(change => sizes.GetValueOrDefault(change.NewId) - sizes.GetValueOrDefault(change.OldId));
-        var required = _options.MinFreeBytesForCheckout + Math.Max(0, growth);
+        var required = _options.MinFreeBytesForCheckout + GrowthOf(changes, sizes);
 
         var free = _freeSpace(repo.WorkTree);
         if (free < required)

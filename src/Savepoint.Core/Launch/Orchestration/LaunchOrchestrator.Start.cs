@@ -231,11 +231,23 @@ public sealed partial class LaunchOrchestrator
         Report(context, gameId, JobProgress.None);
 
         // The folders after the first are asked before the first is switched: a refusal in the saves folder (room, case clashes, folder
-        // links) must not come after the install folder is already on the new profile. The first folder's own switch refuses before it writes.
-        foreach (var folder in folders.Skip(1))
+        // links) must not come after the install folder is already on the new profile. The first folder's own switch refuses before it writes,
+        // so it is asked here only when another folder is on its drive: each can fit alone and still not fit together.
+        var volumes = folders.Select(folder => _services.Disk.GetVolumeId(folder.Target.Repo.WorkTree)).ToList();
+        var growth = new long[folders.Count];
+        for (var i = 1; i < folders.Count; i++)
         {
-            var target = folder.Target;
-            await storage.Engine.CheckSwitchAsync(target.Repo, target.Branch ?? target.Commit, isBranch: target.Branch is not null, context.CancellationToken).ConfigureAwait(false);
+            growth[i] = await CheckAsync(storage, folders[i], context.CancellationToken).ConfigureAwait(false);
+        }
+
+        if (volumes[0] is { } first && volumes.Skip(1).Contains(first))
+        {
+            growth[0] = await CheckAsync(storage, folders[0], context.CancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (var (repo, bytes) in SwitchRoom.Shared([.. folders.Select((folder, i) => new FolderGrowth(folder.Target.Repo, volumes[i], growth[i]))]))
+        {
+            storage.Engine.RequireSwitchRoom(repo, bytes);
         }
 
         var done = 0;
@@ -284,6 +296,12 @@ public sealed partial class LaunchOrchestrator
             done = offset + last;
             doneBytes = bytesOffset + lastBytes;
         }
+    }
+
+    private static Task<long> CheckAsync(StorageSnapshot storage, FolderReading folder, CancellationToken cancellationToken)
+    {
+        var target = folder.Target;
+        return storage.Engine.CheckSwitchAsync(target.Repo, target.Branch ?? target.Commit, isBranch: target.Branch is not null, cancellationToken);
     }
 
     // How many files the switch writes and removes, for the job's details; a folder git cannot compare is left for the switch itself to report.

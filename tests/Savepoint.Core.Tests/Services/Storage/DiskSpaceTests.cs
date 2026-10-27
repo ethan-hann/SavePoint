@@ -73,6 +73,32 @@ public class DiskSpaceTests
     }
 
     [Fact]
+    public void Two_folders_in_one_place_are_on_the_same_volume()
+    {
+        using var temp = new TempFolder();
+
+        var first = _disk.GetVolumeId(temp.Combine("a", "b"));
+        var second = _disk.GetVolumeId(temp.Combine("c"));
+
+        Assert.NotNull(first);
+        Assert.Equal(first, second);
+        Assert.Equal(first, _disk.GetVolumeId(temp.Path + Path.DirectorySeparatorChar));
+        Assert.Equal(first, _disk.GetVolumeId(temp.WriteBytes("saves/slot1.sav", 10)));
+    }
+
+    [Fact]
+    public void A_path_that_cannot_be_resolved_has_no_volume_instead_of_throwing()
+    {
+        Assert.Null(_disk.GetVolumeId("bad\0path"));
+    }
+
+    [Fact]
+    public void A_blank_path_has_no_volume_to_ask_about()
+    {
+        Assert.Throws<ArgumentException>(() => _disk.GetVolumeId(" "));
+    }
+
+    [Fact]
     public void A_blank_path_is_refused()
     {
         Assert.Throws<ArgumentException>(() => _disk.GetFreeBytes(" "));

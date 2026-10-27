@@ -200,6 +200,13 @@ internal sealed class CaptureRunner
     {
         var repos = GameFolders.Repos(_services, storage, game).Where(repo => roles.Contains(repo.Role)).ToList();
         plans = await RefuseUnsafeReplaceAsync(storage, game, profile, repos, plans, capture.Id, context.CancellationToken).ConfigureAwait(false);
+
+        // Reported as every folder failing, as when each folder is refused on its own, so the save ends with its usual result.
+        if (await RoomRefusalAsync(storage, game, repos, plans, context.CancellationToken).ConfigureAwait(false) is { } refusal)
+        {
+            return new CaptureResult(profile.Id, null, [.. repos.Select(repo => new FolderOutcome(repo.Role, refusal))]);
+        }
+
         var progress = new CaptureProgressCombiner(context.Progress, context.AddLine);
         // A new profile's first snapshot carries the profile's name, so saying both would repeat it.
         if (creating && pointName == profile.Name)
@@ -223,6 +230,46 @@ internal sealed class CaptureRunner
 
         var recorded = saved.Any(folder => folder.Recorded);
         return new CaptureResult(profile.Id, recorded ? new HistoryPointId(capture.Id) : null, outcomes);
+    }
+
+    // The folders are saved side by side into one storage volume and each capture checks only its own files, so the whole save is judged
+    // here, before any folder is written. A folder left as it was at launch may not be written at all, so it is not counted.
+    private static async Task<ErrorInfo?> RoomRefusalAsync(
+        StorageSnapshot storage,
+        GameDefinition game,
+        IReadOnlyList<RepoRef> repos,
+        IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans,
+        CancellationToken cancellationToken)
+    {
+        var writing = repos.Where(repo => plans?.GetValueOrDefault(repo.Role) is not { LeftAtLaunch: true }).ToList();
+        if (writing.Count < 2)
+        {
+            return null;
+        }
+
+        var estimates = await Task.WhenAll(writing.Select(repo => EstimateAsync(storage, game, repo, cancellationToken))).ConfigureAwait(false);
+        try
+        {
+            storage.Engine.RequireCaptureRoom(writing, estimates.Sum());
+            return null;
+        }
+        catch (DiskSpaceException e)
+        {
+            return ErrorInfo.From(e);
+        }
+    }
+
+    // A folder that cannot be read for its estimate gets the same error from its own capture, which reports it for that folder alone.
+    private static async Task<long> EstimateAsync(StorageSnapshot storage, GameDefinition game, RepoRef repo, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await storage.Engine.EstimateCaptureBytesAsync(repo, game.IgnorePathsFor(repo.Role), cancellationToken).ConfigureAwait(false);
+        }
+        catch (SavepointException)
+        {
+            return 0;
+        }
     }
 
     // A replacement is judged again now, with the game's lock held and the folders as they are: what was true when the session ended may
