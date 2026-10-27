@@ -4,10 +4,10 @@ using Savepoint.App.Platform;
 
 namespace Savepoint.App.Features.Settings;
 
-/// <summary>Shows a file in the operating system's file manager.</summary>
+/// <summary>Shows a file or opens a folder in the operating system's file manager.</summary>
 public interface IFileRevealer
 {
-    /// <summary>Opens the file manager on the file; false when it could not be started.</summary>
+    /// <summary>Opens the file manager on the file, or on the folder itself; false when it could not be started.</summary>
     bool Reveal(string path);
 }
 

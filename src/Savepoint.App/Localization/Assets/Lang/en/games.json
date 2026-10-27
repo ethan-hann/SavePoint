@@ -51,6 +51,8 @@
   "games.profileTable.newChangesWithSnapshots": "New changes · {count, plural, one {# snapshot} other {# snapshots}}",
   "games.profileTable.noValue": "-",
   "games.profileTable.noneAutomation": "none",
+  "games.profileTable.openFolder": "Open {role, select, install {game folder} external {saves folder} other {folder}}",
+  "games.profileTable.openFolder.failed": "SavePoint couldn't open the {role, select, install {game folder} external {saves folder} other {folder}}.",
   "games.profileTable.play": "Play",
   "games.profileTable.playAutomationName": "Play {name}",
   "games.profileTable.playBlocked": "This game is already running. Play works again after you close it.",

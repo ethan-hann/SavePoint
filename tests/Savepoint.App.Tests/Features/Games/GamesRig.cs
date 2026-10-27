@@ -10,6 +10,7 @@ using Savepoint.App.Features.Games;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Settings;
 using Savepoint.App.Tests.Features.Shell;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
@@ -28,6 +29,7 @@ internal sealed class GamesRig
         Toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
         LaunchFlow = new ConfigurableLaunchFlow();
         Editor = new RecordingEditorFactory();
+        Revealer = new RecordingFileRevealer();
         var ui = dispatcher ?? new ImmediateUiDispatcher();
         var factory = new CapturingScreenFactory(new GamesScreenFactory(new GamesDependencies(
             backend.Games,
@@ -38,7 +40,8 @@ internal sealed class GamesRig
             Toasts,
             ui,
             backend.Clock,
-            Editor)));
+            Editor,
+            Revealer)));
         Factory = factory;
         Shell = new ShellViewModel(new ShellDependencies(
             backend.Games,
@@ -70,6 +73,8 @@ internal sealed class GamesRig
     public ConfigurableLaunchFlow LaunchFlow { get; }
 
     public RecordingEditorFactory Editor { get; }
+
+    public RecordingFileRevealer Revealer { get; }
 
     public CapturingScreenFactory Factory { get; }
 

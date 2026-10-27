@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,6 +18,10 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     private readonly UiFormatter _text;
     private readonly IProfileRowActions _actions;
     private bool _gameRunning = true;
+    private readonly ObservableCollection<ProfileMenuEntry> _menu;
+    private readonly ProfileMenuEntry _snapshotEntry;
+    private readonly ProfileMenuEntry _blockedEntry;
+    private readonly ProfileMenuEntry _deleteEntry;
 
     /// <summary>True when Play can start the game: a launch flow exists, the game has no session and no profile is running.</summary>
     [ObservableProperty]
@@ -34,8 +39,27 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         Columns = columns;
         Id = profile.Id;
         GameId = profile.GameId;
+        _snapshotEntry = new ProfileMenuEntry("takeSnapshot", text.Message("games.profileTable.takeSnapshot"), TakeSnapshotCommand);
+        _blockedEntry = new ProfileMenuEntry("takeSnapshotBlocked", SnapshotBlockedText, tip: SnapshotBlockedTip) { IsEnabled = false };
+        _deleteEntry = new ProfileMenuEntry("delete", text.Message("games.profileTable.delete"), DeleteCommand);
+        _menu =
+        [
+            new ProfileMenuEntry("switch", text.Message("games.profileTable.switch"), SwitchCommand, tip: text.Message("games.profileTable.switchTip")),
+            _snapshotEntry,
+            _blockedEntry,
+            new ProfileMenuEntry("edit", text.Message("games.profileTable.edit"), EditCommand),
+            new ProfileMenuEntry("duplicate", text.Message("games.profileTable.duplicate"), DuplicateCommand),
+            _deleteEntry,
+        ];
+        MenuEntries = new ReadOnlyObservableCollection<ProfileMenuEntry>(_menu);
         Fill(profile, stats, statsKnown);
     }
+
+    /// <summary>
+    /// The row's menu, in order. More actions and the right-click menu both show this one list, so they offer the same
+    /// entries in the same order with the same enabled states.
+    /// </summary>
+    public ReadOnlyObservableCollection<ProfileMenuEntry> MenuEntries { get; }
 
     /// <summary>True while a snapshot of this game is being taken; a second one is not started on top of it.</summary>
     public bool SnapshotBusy { get; private set; }
@@ -154,6 +178,11 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanTakeSnapshot))]
     private Task TakeSnapshotAsync() => _actions.TakeSnapshotAsync(this);
 
+    /// <summary>Opens one of the game's folders in the file manager.</summary>
+    /// <param name="role">Which folder.</param>
+    [RelayCommand]
+    private Task OpenFolderAsync(RepoRole role) => _actions.OpenFolderAsync(this, role);
+
     /// <summary>Starts deleting the profile, which asks first.</summary>
     [RelayCommand]
     private Task DeleteAsync() => _actions.DeleteAsync(this);
@@ -163,6 +192,36 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         Fill(profile, stats, statsKnown);
         OnPropertyChanged(string.Empty);
         TakeSnapshotCommand.NotifyCanExecuteChanged();
+    }
+
+    // The catalog's name for a folder kind, which its messages select on ("install", "external", and any kind added later).
+    internal static string RoleName(RepoRole role)
+    {
+        var name = role.ToString();
+        return char.ToLowerInvariant(name[0]) + name[1..];
+    }
+
+    // One "Open ..." entry per folder the game has, between Duplicate and Delete; every row of a game gets the same ones.
+    internal void SetFolders(IReadOnlyList<RepoRole> roles)
+    {
+        var wanted = roles.Select(role => "open:" + RoleName(role)).ToList();
+        var current = _menu.Where(entry => entry.Key.StartsWith("open:", StringComparison.Ordinal)).ToList();
+        if (current.Select(entry => entry.Key).SequenceEqual(wanted))
+        {
+            return;
+        }
+
+        foreach (var entry in current)
+        {
+            _menu.Remove(entry);
+        }
+
+        var at = _menu.IndexOf(_deleteEntry);
+        foreach (var role in roles)
+        {
+            var name = RoleName(role);
+            _menu.Insert(at++, new ProfileMenuEntry("open:" + name, _text.Message("games.profileTable.openFolder", ("role", name)), OpenFolderCommand, role));
+        }
     }
 
     internal void SetSnapshotBusy(bool busy)
@@ -195,6 +254,8 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         // One run of text, so the row's two-line limit ends it with an ellipsis instead of stopping at a line break.
         NotesText = NotesTip is null ? null : WhiteSpace().Replace(NotesTip, " ");
         SnapshotNow = stats.SnapshotNow;
+        _snapshotEntry.IsVisible = CanOfferSnapshot;
+        _blockedEntry.IsVisible = SnapshotBlocked;
         IsActive = stats.IsActive;
         IsRunning = stats.IsRunning;
         HasUnsavedChanges = stats.UnsavedChanges.Count > 0;

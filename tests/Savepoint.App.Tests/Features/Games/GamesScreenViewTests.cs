@@ -201,15 +201,15 @@ public class GamesScreenViewTests
         more.Flyout!.ShowAt(more);
         harness.Settle();
 
-        var items = ((MenuFlyout)more.Flyout).Items.OfType<MenuItem>().ToList();
-        Assert.Equal(["Switch to this profile", "Take a snapshot", "Take a snapshot (load this profile first)", "Edit", "Duplicate", "Delete"], items.Select(item => item.Header));
+        var items = harness.OpenMenuItems();
+        Assert.Equal(["Switch to this profile", "Take a snapshot", "Take a snapshot (load this profile first)", "Edit", "Duplicate", "Open game folder", "Open saves folder", "Delete"], items.Select(item => item.Header));
         Assert.Same(row.SwitchCommand, items[0].Command);
         Assert.Same(row.TakeSnapshotCommand, items[1].Command);
         Assert.True(items[1].IsVisible);
         Assert.False(items[2].IsVisible);
         Assert.Same(row.EditCommand, items[3].Command);
         Assert.Same(row.DuplicateCommand, items[4].Command);
-        Assert.Same(row.DeleteCommand, items[5].Command);
+        Assert.Same(row.DeleteCommand, items[^1].Command);
     }
 
     [AvaloniaFact]
@@ -222,7 +222,7 @@ public class GamesScreenViewTests
         more.Flyout!.ShowAt(more);
         harness.Settle();
 
-        var items = ((MenuFlyout)more.Flyout).Items.OfType<MenuItem>().ToList();
+        var items = harness.OpenMenuItems();
         Assert.Same(row.SwitchCommand, items[0].Command);
         Assert.False(items[1].IsVisible);
         var blocked = items[2];
@@ -231,7 +231,87 @@ public class GamesScreenViewTests
         Assert.Equal("Take a snapshot (load this profile first)", blocked.Header);
         Assert.Equal(row.SnapshotBlockedTip, Avalonia.Controls.ToolTip.GetTip(blocked));
         Assert.Same(row.EditCommand, items[3].Command);
-        Assert.Same(row.DeleteCommand, items[5].Command);
+        Assert.Same(row.DeleteCommand, items[^1].Command);
+    }
+
+    [AvaloniaFact]
+    public async Task Every_entry_of_the_row_menu_has_a_name_and_the_folder_entries_open_their_folder()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var more = MoreButtons(harness)[0];
+        more.Flyout!.ShowAt(more);
+        harness.Settle();
+
+        var items = harness.OpenMenuItems();
+        var saves = items.Single(item => item.Header as string == "Open saves folder");
+        saves.Command!.Execute(saves.CommandParameter);
+        harness.Settle();
+
+        Assert.All(items, item => Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(item))));
+        Assert.All(items, item => Assert.True(item.Focusable));
+        Assert.Equal([SampleScenario.SkyrimSaves], harness.Rig.Revealer.Revealed);
+    }
+
+    // ---- The row's right-click menu
+
+    private static void RightClick(GamesViewHarness harness, Control row)
+    {
+        var at = row.TranslatePoint(new Point(40, row.Bounds.Height / 2), harness.Window)!.Value;
+        harness.Window.MouseDown(at, MouseButton.Right);
+        harness.Window.MouseUp(at, MouseButton.Right);
+        harness.Settle();
+    }
+
+    private static List<(string? Header, bool Visible, bool Enabled)> Shape(IEnumerable<MenuItem> items) =>
+        [.. items.Select(item => (item.Header as string, item.IsVisible, item.IsEnabled))];
+
+    [AvaloniaFact]
+    public async Task Right_clicking_a_row_opens_the_same_menu_as_more_actions()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var more = MoreButtons(harness)[1];
+        more.Flyout!.ShowAt(more);
+        harness.Settle();
+        var fromMore = Shape(harness.OpenMenuItems());
+        more.Flyout.Hide();
+        harness.Settle();
+
+        RightClick(harness, Rows(harness)[1]);
+
+        var row = harness.Rig.Screen.Profiles[1];
+        var items = harness.OpenMenuItems();
+        Assert.NotEmpty(items);
+        Assert.Equal(fromMore, Shape(items));
+        Assert.Same(row.SwitchCommand, items[0].Command);
+        Assert.Same(row.DeleteCommand, items[^1].Command);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Key.Apps, KeyModifiers.None)]
+    [InlineData(Key.F10, KeyModifiers.Shift)]
+    public async Task The_menu_key_and_shift_f10_open_the_menu_of_the_focused_row(Key key, KeyModifiers modifiers)
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var row = Rows(harness)[1];
+        row.Focus(NavigationMethod.Tab);
+        harness.Settle();
+
+        harness.Window.KeyPress(key, (RawInputModifiers)modifiers, PhysicalKey.None, null);
+        harness.Window.KeyRelease(key, (RawInputModifiers)modifiers, PhysicalKey.None, null);
+        harness.Settle();
+
+        Assert.Equal("Switch to this profile", harness.OpenMenuItems().FirstOrDefault()?.Header);
+    }
+
+    [AvaloniaFact]
+    public async Task A_row_with_a_right_click_menu_keeps_its_spoken_summary()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+
+        var rows = Rows(harness);
+
+        Assert.NotNull(rows[0].ContextFlyout);
+        Assert.Equal(harness.Rig.Screen.Profiles.Select(profile => profile.AutomationName), rows.Select(AutomationProperties.GetName));
     }
 
     [AvaloniaFact]
@@ -242,7 +322,7 @@ public class GamesScreenViewTests
         more.Flyout!.ShowAt(more);
         harness.Settle();
 
-        ((MenuFlyout)more.Flyout).Items.OfType<MenuItem>().Last().Command!.Execute(null);
+        harness.OpenMenuItems().Last().Command!.Execute(null);
         harness.Settle();
 
         var confirm = Assert.IsType<ConfirmDialogViewModel>(harness.Dialogs.Current);

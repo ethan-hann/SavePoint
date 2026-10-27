@@ -3,6 +3,7 @@ using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Common.Navigation;
 using Savepoint.App.Features.Common.Toasts;
+using Savepoint.App.Features.Settings;
 using Savepoint.Core.Api;
 
 namespace Savepoint.App.Features.Games;
@@ -17,6 +18,7 @@ namespace Savepoint.App.Features.Games;
 /// <param name="Dispatcher">Brings Api and launch-flow events back to the UI thread.</param>
 /// <param name="Clock">What "now" means for the wizard's default profile name.</param>
 /// <param name="Editor">Builds the game editor pane.</param>
+/// <param name="Revealer">Opens a game folder in the operating system's file manager.</param>
 public sealed record GamesDependencies(
     IGamesApi Games,
     IProfilesApi Profiles,
@@ -26,4 +28,5 @@ public sealed record GamesDependencies(
     ToastHostViewModel Toasts,
     IUiDispatcher Dispatcher,
     TimeProvider Clock,
-    IGameEditorFactory Editor);
+    IGameEditorFactory Editor,
+    IFileRevealer Revealer);
