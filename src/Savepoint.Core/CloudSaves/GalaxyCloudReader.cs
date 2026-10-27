@@ -14,8 +14,11 @@ namespace Savepoint.Core.CloudSaves;
 /// <param name="localAppData">The local application data folder; null when there is none.</param>
 /// <param name="tempRoot">A folder SavePoint owns, where copies are made. Copies left behind by a crash are removed from it.</param>
 /// <param name="duringCopy">Called after each copy is made, with the copy's folder and the attempt number; tests use it to change the live files at that moment.</param>
-internal sealed class GalaxyCloudReader(string? programData, string? localAppData, string tempRoot, Action<string, int>? duringCopy = null) : IStoreCloudReader
+/// <param name="timeProvider">The clock that tells how old a leftover copy is; the system clock when null.</param>
+internal sealed class GalaxyCloudReader(string? programData, string? localAppData, string tempRoot, Action<string, int>? duringCopy = null, TimeProvider? timeProvider = null) : IStoreCloudReader
 {
+    private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
+
     private const string _databaseName = "galaxy-2.0.db";
     private const long _configLimit = 1024 * 1024;
 
@@ -189,7 +192,7 @@ internal sealed class GalaxyCloudReader(string? programData, string? localAppDat
 
             foreach (var folder in Directory.EnumerateDirectories(tempRoot, "cloud-*"))
             {
-                if (DateTime.UtcNow - Directory.GetLastWriteTimeUtc(folder) > _leftoverAge)
+                if (_time.GetUtcNow().UtcDateTime - Directory.GetLastWriteTimeUtc(folder) > _leftoverAge)
                 {
                     DeleteFolder(folder);
                 }

@@ -89,10 +89,6 @@ if (DateTime.UtcNow - Directory.GetLastWriteTimeUtc(folder) > _leftoverAge)
 - `src/Savepoint.Core/Services/Jobs/JobRegistry.cs`, `JobRegistry` constructor: the clock defaults to the system clock.
 - `src/Savepoint.Core/Backend/BackendOptions.cs`, `BackendOptions.Time`: where a test sets the clock for the whole backend.
 
-**Known violations:**
-
-- `src/Savepoint.Core/CloudSaves/GalaxyCloudReader.cs`, `GalaxyCloudReader.SweepLeftovers`: reads `DateTime.UtcNow`.
-
 ### Reach the machine through its seam
 
 Use the seam that exists for each effect. Add a new seam only for an effect that has none, and wire it through `BackendOptions` or `IPlatform`.

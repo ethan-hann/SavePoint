@@ -208,7 +208,6 @@ new UiProgress(SynchronizationContext.Current, step => ShowProgress(run, step))
 **Known violations:**
 
 - `src/Savepoint.App/Features/Shell/StartupViewModel.cs`, `UiProgress`: uses `SynchronizationContext` directly.
-- `src/Savepoint.App/Platform/AppsMenuEntry.cs`, `AppsMenuEntry`: stamps a folder with `DateTime.UtcNow` instead of the clock.
 
 ## Additional Resources
 

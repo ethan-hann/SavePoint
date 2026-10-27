@@ -83,7 +83,8 @@ public sealed class CoreBackend
             ? new GalaxyCloudReader(
                 options.GalaxyProgramData ?? Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
                 options.GalaxyLocalAppData ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                options.GalaxyTempFolder ?? Path.Combine(Path.GetTempPath(), "savepoint-galaxy-copies"))
+                options.GalaxyTempFolder ?? Path.Combine(Path.GetTempPath(), "savepoint-galaxy-copies"),
+                timeProvider: options.Time)
             : null;
 
     /// <summary>Builds the backend.</summary>
