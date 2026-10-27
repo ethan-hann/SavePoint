@@ -41,6 +41,13 @@ internal sealed partial class ProfilesApi : IProfilesApi
                 throw new ValidationException([new ValidationIssue("startEmpty", ValidationMessageIds.ProfileStartEmptyInvalid)]);
             }
 
+            // Refused before a job is queued when a folder holds files that no snapshot has: starting it empty would leave them as new changes the launch offers to discard.
+            await _services.Storage.ReadAsync(async storage =>
+            {
+                await _capture.RequireStartEmptySafeAsync(storage, game, empty, CancellationToken.None).ConfigureAwait(false);
+                return Unit.Value;
+            }).ConfigureAwait(false);
+
             var jobId = _capture.Start(game, profile, point, roles, capture, creating: true, startEmpty: empty);
             return new JobStarted(jobId);
         });

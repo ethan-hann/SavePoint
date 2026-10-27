@@ -166,7 +166,7 @@ public sealed partial class LaunchOrchestrator
             RepoRole.Mods => diff.ChangedPaths.Count,
             _ => 0,
         };
-        return new SwitchSummary(diff.FilesChanged, mods, diff.BytesAtTarget, null, diff.BytesRemoved);
+        return new SwitchSummary(diff.FilesChanged, mods, diff.BytesAtTarget, null, diff.BytesRemoved, diff.FilesRemoved);
     }
 
     // The version a commit of the install folder holds, and the mod-file count of that commit with the mods folder's commit beside it;

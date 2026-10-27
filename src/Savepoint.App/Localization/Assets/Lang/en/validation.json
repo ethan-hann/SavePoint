@@ -24,6 +24,7 @@
   "validation.profile.idRequired": "This profile is missing its ID.",
   "validation.profile.nameRequired": "Give the profile a name.",
   "validation.profile.startEmptyInvalid": "Only the saves and mods folders can start empty, and only when the game has them.",
+  "validation.profile.startEmptyUnsaved": "Take a snapshot first, so the files in your saves and mods folders are kept.",
   "validation.settings.accentColorInvalid": "Pick one of the accent colors from the list.",
   "validation.settings.layoutInvalid": "Pick the Sidebar or the Library layout.",
   "validation.settings.localeInvalid": "That language isn't available.",

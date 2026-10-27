@@ -72,6 +72,9 @@ public static class ValidationMessageIds
     /// <summary>Reported at <c>startEmpty</c>: a new profile was asked to start with an empty install folder, or with a saves or mods folder the game does not have.</summary>
     public const string ProfileStartEmptyInvalid = "validation.profile.startEmptyInvalid";
 
+    /// <summary>Reported at <c>startEmpty</c>: a folder asked to start empty holds files that no snapshot of any profile of the game has, so starting it empty could lose them.</summary>
+    public const string ProfileStartEmptyUnsaved = "validation.profile.startEmptyUnsaved";
+
     /// <summary>Reported at <c>branchName</c>: the profile has no branch name.</summary>
     public const string ProfileBranchNameRequired = "validation.profile.branchNameRequired";
 
