@@ -104,9 +104,14 @@ internal sealed class RecordingFileRevealer : IFileRevealer
 
     public bool Succeeds { get; set; } = true;
 
+    /// <summary>A file manager that starts but then fails, which only the watching open can tell.</summary>
+    public bool FailsAfterStarting { get; set; }
+
     public bool Reveal(string path)
     {
         Revealed.Add(path);
         return Succeeds;
     }
+
+    public Task<bool> RevealAsync(string path) => Task.FromResult(Reveal(path) && !FailsAfterStarting);
 }

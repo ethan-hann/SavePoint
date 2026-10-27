@@ -13,6 +13,14 @@ public interface IFileManager
     /// <param name="path">An absolute path to an existing file or folder.</param>
     /// <returns>False when nothing was started: the path is empty, relative or missing, or the file manager could not be started.</returns>
     bool Reveal(string path);
+
+    /// <summary>
+    /// Shows <paramref name="path"/> as <see cref="Reveal"/> does, and also watches a short while for a file manager that fails right
+    /// after it starts, which <see cref="Reveal"/> cannot see. The wait is off the calling thread.
+    /// </summary>
+    /// <param name="path">An absolute path to an existing file or folder.</param>
+    /// <returns>False when nothing was started or the file manager reported a failure at once.</returns>
+    Task<bool> RevealAsync(string path);
 }
 
 /// <summary>
@@ -22,6 +30,9 @@ public interface IFileManager
 /// </summary>
 public sealed class FileManager : IFileManager
 {
+    // xdg-open reports a missing handler within a moment; a file manager that is still starting is left alone after this.
+    private static readonly TimeSpan _openerGrace = TimeSpan.FromSeconds(3);
+
     private readonly OsKind _os;
     private readonly IProcessRunner _runner;
     private readonly string _explorerPath;
@@ -46,9 +57,34 @@ public sealed class FileManager : IFileManager
     /// <inheritdoc />
     public bool Reveal(string path)
     {
-        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
+        var (ok, command) = Plan(path);
+        return ok && (command is null || _runner.TryStart(command));
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> RevealAsync(string path)
+    {
+        var (ok, command) = Plan(path);
+        if (!ok)
         {
             return false;
+        }
+
+        if (command is null)
+        {
+            return true;
+        }
+
+        // Only xdg-open's exit code means anything (3 and 4 are "no tool" and "the action failed"); Explorer exits 1 on success and open is quiet.
+        return _os == OsKind.Linux ? await _runner.TryStartAndConfirmAsync(command, _openerGrace).ConfigureAwait(false) : _runner.TryStart(command);
+    }
+
+    // Ok is false when the path cannot be shown. A null command with Ok means the shell already showed it.
+    private (bool Ok, ProcessCommand? Command) Plan(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
+        {
+            return (false, null);
         }
 
         string full;
@@ -58,22 +94,22 @@ public sealed class FileManager : IFileManager
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
-            return false;
+            return (false, null);
         }
 
         var isFile = File.Exists(full);
         if (!isFile && !Directory.Exists(full))
         {
-            return false;
+            return (false, null);
         }
 
         // Explorer's /select, switch splits on commas, so the shell is asked first, with the path as data; the switch is the fallback.
         if (_os == OsKind.Windows && isFile && TrySelectWithShell(full))
         {
-            return true;
+            return (true, null);
         }
 
-        return _runner.TryStart(_os switch
+        return (true, _os switch
         {
             OsKind.Windows => new ProcessCommand(_explorerPath, isFile ? ["/select,", full] : [full]),
             OsKind.MacOS => new ProcessCommand("/usr/bin/open", isFile ? ["-R", full] : [full]),

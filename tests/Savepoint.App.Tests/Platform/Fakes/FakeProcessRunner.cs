@@ -18,10 +18,21 @@ internal sealed class FakeProcessRunner : IProcessRunner
 
     public bool CanStart { get; set; } = true;
 
+    /// <summary>What a watched start answers: false stands for a program that exited with an error at once.</summary>
+    public bool ConfirmedStart { get; set; } = true;
+
+    public List<ProcessCommand> Confirmed { get; } = [];
+
     public bool TryStart(ProcessCommand command)
     {
         Started.Add(command);
         return CanStart;
+    }
+
+    public Task<bool> TryStartAndConfirmAsync(ProcessCommand command, TimeSpan grace, CancellationToken cancellationToken = default)
+    {
+        Confirmed.Add(command);
+        return Task.FromResult(CanStart && ConfirmedStart);
     }
 
     public Task<ProcessOutput?> RunAsync(ProcessCommand command, TimeSpan timeout, CancellationToken cancellationToken = default)

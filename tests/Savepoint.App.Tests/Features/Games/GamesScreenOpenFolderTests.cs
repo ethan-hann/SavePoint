@@ -114,6 +114,17 @@ public class GamesScreenOpenFolderTests
     }
 
     [Fact]
+    public async Task A_file_manager_that_starts_and_then_fails_is_reported()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Revealer.FailsAfterStarting = true;
+
+        await Choose(Entry(rig.Screen.Profiles[0], "open:install"));
+
+        Assert.Equal("SavePoint couldn't open the game folder.", Assert.Single(rig.ToastTexts));
+    }
+
+    [Fact]
     public async Task A_folder_kind_with_no_label_of_its_own_still_reads_as_a_folder()
     {
         var rig = await GamesRig.StartAsync();

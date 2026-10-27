@@ -118,6 +118,9 @@ public class OsSmokeTests
 
         public bool TryStart(ProcessCommand command) => _real.TryStart(command);
 
+        public Task<bool> TryStartAndConfirmAsync(ProcessCommand command, TimeSpan grace, CancellationToken cancellationToken = default) =>
+            _real.TryStartAndConfirmAsync(command, grace, cancellationToken);
+
         public async Task<ProcessOutput?> RunAsync(ProcessCommand command, TimeSpan timeout, CancellationToken cancellationToken = default)
         {
             var output = await _real.RunAsync(command, timeout, cancellationToken);

@@ -175,6 +175,61 @@ public sealed class FileManagerTests : IDisposable
         Assert.Equal([folder], command.Arguments);
     }
 
+    [Fact]
+    public async Task Linux_reports_an_opener_that_fails_right_after_it_starts()
+    {
+        var folder = NewFolder();
+        _runner.ConfirmedStart = false;
+
+        var shown = await For(OsKind.Linux).RevealAsync(folder);
+
+        Assert.False(shown);
+        var command = Assert.Single(_runner.Confirmed);
+        Assert.Equal("xdg-open", command.FileName);
+        Assert.Equal([folder], command.Arguments);
+    }
+
+    [Fact]
+    public async Task Linux_opens_a_folder_with_the_watched_start_when_the_opener_stays_up()
+    {
+        var folder = NewFolder();
+
+        Assert.True(await For(OsKind.Linux).RevealAsync(folder));
+
+        Assert.Empty(_runner.Started);
+    }
+
+    [Fact]
+    public async Task Linux_opens_the_folder_that_holds_a_file_in_the_watched_start()
+    {
+        var file = NewFile();
+
+        Assert.True(await For(OsKind.Linux).RevealAsync(file));
+
+        Assert.Equal([_root], Assert.Single(_runner.Confirmed).Arguments);
+    }
+
+    [Fact]
+    public async Task Windows_and_macOS_keep_the_plain_start_because_their_openers_exit_with_codes_that_mean_nothing()
+    {
+        var folder = NewFolder();
+        _runner.ConfirmedStart = false;
+
+        Assert.True(await For(OsKind.Windows).RevealAsync(folder));
+        Assert.True(await For(OsKind.MacOS).RevealAsync(folder));
+
+        Assert.Empty(_runner.Confirmed);
+        Assert.Equal(2, _runner.Started.Count);
+    }
+
+    [Fact]
+    public async Task A_missing_path_is_not_shown_by_the_watched_open()
+    {
+        Assert.False(await For(OsKind.Linux).RevealAsync(Path.Combine(_root, "gone")));
+
+        Assert.Empty(_runner.Confirmed);
+    }
+
     [Theory]
     [InlineData(OsKind.Windows)]
     [InlineData(OsKind.MacOS)]
