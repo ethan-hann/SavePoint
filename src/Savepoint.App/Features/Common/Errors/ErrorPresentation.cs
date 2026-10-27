@@ -98,6 +98,7 @@ public static class ErrorPresentation
         ["error.storageRelocation.insideInstallFolder"] = new(Icons.Block, ErrorTone.Error, "errorCard.title.folderInsideApp"),
         ["error.storageRelocation.moveUnfinished"] = new(Icons.Folder, ErrorTone.Warning, "errorCard.title.folderNotEmpty"),
         ["error.storageRelocation.sourceUnreadable"] = new(Icons.Storage, ErrorTone.Warning, "errorCard.title.storageUnreadable"),
+        ["error.switch.snapshotHasLinks"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.snapshotHasLinks"),
         ["error.unknown"] = new(Icons.Error, ErrorTone.Error, "errorCard.title.generic"),
         ["error.validation.invalidPayload"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.checkFields"),
     };

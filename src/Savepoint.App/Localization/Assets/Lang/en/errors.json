@@ -3,7 +3,7 @@
   "error.artwork.tooLarge": "That picture is bigger than {maxMegabytes} MB. Choose a smaller one.",
   "error.capture.cancelled": "The snapshot was canceled. Your earlier snapshots are untouched.",
   "error.capture.linkedFolder": "A folder in the game is a shortcut, which SavePoint can't safely snapshot or switch through. Replace the shortcut shown below with a real folder or move it out of the game folder, then try again.",
-  "error.capture.linkedFile": "{name} is a link to a file kept somewhere else, the kind a mod manager's link deployment makes. SavePoint can't snapshot or switch links, because a switch would replace the link with a plain file and the mod would stop loading. In your mod manager, change to hardlink or move deployment, then try again.",
+  "error.capture.linkedFile": "{name} is a link to a file kept somewhere else. SavePoint can't snapshot or switch links, because a switch would replace the link with a plain file and whatever uses the link would stop working. If a mod manager made it, change its deployment to hardlink or move. If you made it yourself, replace it with the real file. Or add this file to \"Files to leave out\" in Edit game, then try again.",
   "error.capture.nestedRepository": "{count, plural, one {A folder in the game has its own hidden change-tracking folder, usually from a mod downloaded with a developer tool. SavePoint can't snapshot it.} other {# folders in the game have their own hidden change-tracking folders, usually from mods downloaded with a developer tool. SavePoint can't snapshot them.}} Move the hidden folder shown below out of the game folder, then try again.",
   "error.catalog.corrupt": "SavePoint couldn't read one of its files for your games and profiles, and left it as it is. Close and reopen SavePoint to restore the last good copy or start again.",
   "error.compaction.cancelled": "Freeing up space was canceled. Nothing was lost.",
@@ -65,6 +65,7 @@
   "error.storageRelocation.insideInstallFolder": "That folder is inside SavePoint's install folder, which updating or removing SavePoint deletes along with your snapshots. Choose a folder somewhere else.",
   "error.storageRelocation.moveUnfinished": "An earlier move to that folder didn't finish, so it holds a partial copy. Delete what's in it, or choose another folder.",
   "error.storageRelocation.sourceUnreadable": "SavePoint can't read or copy the item shown below, so it moved nothing. Fix it or move it out of the snapshot folder, then try again.",
+  "error.switch.snapshotHasLinks": "This snapshot was taken while a program linked {name} into the game folder (shown below), and Windows can't put a linked file back. Nothing changed. Your other profiles still work, so choose one of those.",
   "error.unknown": "Something went wrong. Try again.",
   "error.validation.invalidPayload": "Some fields aren't valid yet. Check the name and paths above."
 }

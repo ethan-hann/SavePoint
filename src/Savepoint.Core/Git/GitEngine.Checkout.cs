@@ -39,6 +39,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left the folder half done and this one is not the switch to finish it; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFileException">On Windows, a file the switch would write or remove is a symbolic link; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.SnapshotHasLinksException">On Windows, the target holds a file the switch would write as a symbolic link, which git would write as a text file; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Writing a file would delete a folder holding files of the player's that the switch does not remove, or making a folder would delete a file of the player's; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.NamesDifferOnlyInCaseException">The folder is on a drive that ignores case and the target point holds two names that differ only in case; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>
@@ -119,7 +120,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.FolderChangedException">The folder was replaced, moved or re-linked after it was approved; the step that would have changed files was not run (steps that finished before it are not undone). A marker that goes missing or changes in that time raises <see cref="Savepoint.Core.Errors.ConsentMarkerException"/> instead, and one that cannot be read, <see cref="Savepoint.Core.Errors.GitOperationException"/>.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point to return to; without one a discard would delete the whole folder, so nothing is touched.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
-    /// <exception cref="Savepoint.Core.Errors.LinkedFileException">On Windows, a file the discard would overwrite or remove is a symbolic link; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.SnapshotHasLinksException">On Windows, the point holds a file the discard would write as a symbolic link, which git would write as a text file; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Restoring a file would delete a folder holding files of the player's that the discard does not remove, or restoring a folder would delete a file of the player's that the patterns name; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.NamesDifferOnlyInCaseException">The folder is on a drive that ignores case and the point holds two names that differ only in case; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The disk filled while files were restored.</exception>
@@ -143,7 +144,7 @@ public sealed partial class GitEngine
         await ClearSkipWorktreeAsync(repo, ct).ConfigureAwait(false);
 
         var point = await RequireSavedPointAsync(repo, ct).ConfigureAwait(false);
-        await RefuseLinkedFoldersInChangesAsync(repo, includeChanged: true, ct).ConfigureAwait(false);
+        await RefuseLinkedFoldersInChangesAsync(repo, point, ct).ConfigureAwait(false);
         await RefuseCaseClashAsync(repo, point, ct).ConfigureAwait(false);
         await RefuseDiscardClashAsync(repo, ct).ConfigureAwait(false);
 
@@ -222,7 +223,6 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.FolderChangedException">The folder was replaced, moved or re-linked after it was approved; the step that would have changed files was not run. A marker that goes missing or changes in that time raises <see cref="Savepoint.Core.Errors.ConsentMarkerException"/> instead, and one that cannot be read, <see cref="Savepoint.Core.Errors.GitOperationException"/>.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point, so every file in it would count as new and be removed; nothing is touched.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
-    /// <exception cref="Savepoint.Core.Errors.LinkedFileException">On Windows, a new file the clean would remove is a symbolic link; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt, or git failed.</exception>
     public async Task CleanAsync(RepoRef repo, CancellationToken ct = default)
     {
@@ -237,15 +237,17 @@ public sealed partial class GitEngine
 
         // Before the first point every file in the folder is "new"; cleaning would delete the player's whole folder.
         var point = await RequireSavedPointAsync(repo, ct).ConfigureAwait(false);
-        await RefuseLinkedFoldersInChangesAsync(repo, includeChanged: false, ct).ConfigureAwait(false);
+        await RefuseLinkedFoldersInChangesAsync(repo, restoredPoint: null, ct).ConfigureAwait(false);
 
         using var scope = BeginWrite(repo);
         await RemoveNewFilesAsync(repo, ct).ConfigureAwait(false);
         await RestoreEmptyFoldersAsync(repo, point, ct).ConfigureAwait(false);
     }
 
-    // A discard rewrites the changed files and a clean removes the new ones: neither may go through a folder link (Windows).
-    private async Task RefuseLinkedFoldersInChangesAsync(RepoRef repo, bool includeChanged, CancellationToken ct)
+    // A discard rewrites the changed files and a clean removes the new ones: neither may go through a folder link (Windows). A file link is
+    // no obstacle, because both replace or delete the link itself. A discard (restoredPoint set) also refuses to write a file the point holds
+    // as a link, which git would write as a text file.
+    private async Task RefuseLinkedFoldersInChangesAsync(RepoRef repo, string? restoredPoint, CancellationToken ct)
     {
         if (!LinkedFolders.Enabled)
         {
@@ -253,8 +255,57 @@ public sealed partial class GitEngine
         }
 
         var untracked = ListNewAsync(repo, ct);
-        var changed = includeChanged ? await ListChangedAsync(repo, hasCommits: true, ct).ConfigureAwait(false) : [];
-        LinkedFolders.RefuseAny(repo.WorkTree, changed.Concat((await untracked.ConfigureAwait(false)).Files), ct);
+        var changed = restoredPoint is null ? [] : await ListChangedAsync(repo, hasCommits: true, ct).ConfigureAwait(false);
+        LinkedFolders.RefuseAny(repo.WorkTree, changed.Concat((await untracked.ConfigureAwait(false)).Files), ct, includeFileLinks: false);
+        if (restoredPoint is not null && changed.Count > 0)
+        {
+            await RefuseLinksInPointAsync(repo, restoredPoint, changed, ct).ConfigureAwait(false);
+        }
+    }
+
+    // Git for Windows writes an entry stored as a symbolic link (mode 120000) as a text file holding the link's path, so the
+    // point cannot be put back there; named before anything is written. Files the game's patterns name are never written by a discard.
+    private async Task RefuseLinksInPointAsync(RepoRef repo, string point, IReadOnlyList<string> toWrite, CancellationToken ct)
+    {
+        var listing = await RunAsync(GitDirOnly(repo, "ls-tree", "-r", "-z", point), ct).ConfigureAwait(false);
+        var links = listing.SplitStandardOutputOnNul()
+            .Where(entry => entry.StartsWith(_linkMode + " ", StringComparison.Ordinal))
+            .Select(entry => entry[(entry.IndexOf('\t', StringComparison.Ordinal) + 1)..])
+            .ToHashSet(StringComparer.Ordinal);
+        var hits = toWrite.Where(links.Contains).Order(StringComparer.Ordinal).ToArray();
+        if (hits.Length > 0 && HasPatterns(repo))
+        {
+            var named = await RecordedNamedAsync(repo, ct).ConfigureAwait(false);
+            hits = [.. hits.Where(path => !named.Contains(path))];
+        }
+
+        if (hits.Length > 0)
+        {
+            throw new SnapshotHasLinksException(FullPath(repo, hits[0]));
+        }
+    }
+
+    // The mode git gives an entry stored as a symbolic link.
+    private const string _linkMode = "120000";
+
+    // Names, before anything is written, the first file the switch would write that the target holds as a link (Windows only): git would
+    // write the link's path into an ordinary file in its place.
+    private static void RefuseLinksInSwitch(RepoRef repo, SwitchPlan plan)
+    {
+        if (!LinkedFolders.Enabled)
+        {
+            return;
+        }
+
+        var first = plan.WrittenChanges
+            .Where(change => string.Equals(change.NewMode, _linkMode, StringComparison.Ordinal))
+            .Select(change => change.Path)
+            .Order(StringComparer.Ordinal)
+            .FirstOrDefault();
+        if (first is not null)
+        {
+            throw new SnapshotHasLinksException(FullPath(repo, first));
+        }
     }
 
     // The point the folder is on; a folder with none has nothing a discard or a clean could be measured against.
@@ -324,6 +375,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left the folder half done and this is not the switch to finish it.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFileException">On Windows, a file the switch would write or remove is a symbolic link.</exception>
+    /// <exception cref="Savepoint.Core.Errors.SnapshotHasLinksException">On Windows, the target holds a file the switch would write as a symbolic link.</exception>
     /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Writing a file would delete a folder holding files of the player's, or making a folder would delete a file of the player's.</exception>
     /// <exception cref="Savepoint.Core.Errors.NamesDifferOnlyInCaseException">The folder is on a drive that ignores case and the target holds two names that differ only in case.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>
@@ -488,6 +540,7 @@ public sealed partial class GitEngine
     private async Task<(SwitchPlan Plan, Dictionary<string, long> Sizes, FinishScan Finishing)> RequireSwitchPossibleAsync(RepoRef repo, string? from, string to, bool force, InterruptedSwitch? note, bool readFiles, CancellationToken ct)
     {
         var plan = await PlanSwitchAsync(repo, from, to, note, ct).ConfigureAwait(false);
+        RefuseLinksInSwitch(repo, plan);
         LinkedFolders.RefuseAny(repo.WorkTree, plan.Touched, ct);
         await RefuseCaseClashAsync(repo, to, ct).ConfigureAwait(false);
         var finishing = await RequireNothingInTheWayAsync(repo, from, to, force, plan, note, readFiles, ct).ConfigureAwait(false);
