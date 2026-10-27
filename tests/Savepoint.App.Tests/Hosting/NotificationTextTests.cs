@@ -39,6 +39,10 @@ public class NotificationTextTests
     [Theory]
     [InlineData(JobKind.Compact, JobStatus.Succeeded, "Freed up space for Skyrim.")]
     [InlineData(JobKind.Compact, JobStatus.Cancelled, "Canceled freeing up space for Skyrim.")]
+    [InlineData(JobKind.PackStorage, JobStatus.Succeeded, "Compacted snapshot files for Skyrim.")]
+    [InlineData(JobKind.PackStorage, JobStatus.Partial, "Compacted only some of the snapshot files for Skyrim.")]
+    [InlineData(JobKind.PackStorage, JobStatus.Cancelled, "Canceled compacting snapshot files for Skyrim.")]
+    [InlineData(JobKind.PackStorage, JobStatus.Failed, "Something went wrong compacting snapshot files for Skyrim.")]
     [InlineData(JobKind.RelocateStorage, JobStatus.Succeeded, "Snapshots moved.")]
     [InlineData(JobKind.RelocateStorage, JobStatus.Cancelled, "Canceled moving your snapshots.")]
     [InlineData(JobKind.ClearData, JobStatus.Succeeded, "SavePoint's data was cleared.")]
@@ -47,7 +51,7 @@ public class NotificationTextTests
     [InlineData(JobKind.Switch, JobStatus.Failed, "Something went wrong switching Skyrim's files.")]
     public void Each_kind_and_ending_has_its_sentence(JobKind kind, JobStatus status, string expected)
     {
-        var gameId = kind == JobKind.Compact ? "skyrim" : null;
+        var gameId = kind is JobKind.Compact or JobKind.PackStorage ? "skyrim" : null;
 
         var (_, body) = NotificationText.For(Job(kind, status, gameId), "Skyrim", _text);
 

@@ -228,7 +228,7 @@ public sealed partial class LibraryAddDialogViewModel : DialogViewModel<LibraryA
                     if (result.RulesLeftOff is { Rules.Count: > 0 } moved)
                     {
                         var key = moved.SavesHoldFiles ? "library.add.line.rulesMoved" : "library.add.line.rulesMovedUnchecked";
-                        lines.Add(new LibraryResultLine(LibraryResultKind.Notice, _text.Message(key, ("name", result.Name), ("count", moved.Rules.Count), ("rules", string.Join(", ", moved.Rules)))));
+                        lines.Add(new LibraryResultLine(LibraryResultKind.Notice, _text.Message(key, ("name", result.Name), ("count", moved.Rules.Count), ("rules", string.Join(_text.Message("common.listSeparator"), moved.Rules)))));
                     }
 
                     break;

@@ -114,6 +114,19 @@ public class ExitGuardTests
     }
 
     [Fact]
+    public async Task Packing_storage_after_a_snapshot_deletes_nothing_so_closing_stops_it_without_a_question()
+    {
+        var (guard, backend, dialogs) = Build();
+        var packing = backend.Jobs.Start(JobKind.PackStorage, SampleScenario.SkyrimId, defaultResult: null);
+
+        var allowed = await guard.PrepareToCloseAsync();
+
+        Assert.True(allowed);
+        Assert.Empty(dialogs.Confirmations);
+        Assert.Equal([packing], Assert.Single(backend.Calls.To<IJobsApi>(nameof(IJobsApi.CancelAsync))).Args);
+    }
+
+    [Fact]
     public async Task A_free_up_that_has_deleted_snapshots_asks_first_offers_no_quit_anyway_and_staying_leaves_it_alone()
     {
         var (guard, backend, dialogs) = Build();

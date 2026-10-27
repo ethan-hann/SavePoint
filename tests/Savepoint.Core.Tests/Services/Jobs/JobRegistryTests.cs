@@ -151,6 +151,7 @@ public class JobRegistryTests
     [InlineData(JobKind.Launch, "error.launch.canceled")]
     [InlineData(JobKind.Capture, "error.capture.cancelled")]
     [InlineData(JobKind.Compact, "error.compaction.cancelled")]
+    [InlineData(JobKind.PackStorage, "error.compaction.cancelled")]
     [InlineData(JobKind.RelocateStorage, "error.storageRelocation.cancelled")]
     public async Task Cancelling_a_job_cancels_its_token_and_ends_it_cancelled_with_the_message_for_its_kind(JobKind kind, string messageId)
     {

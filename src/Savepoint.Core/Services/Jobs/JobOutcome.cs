@@ -57,7 +57,7 @@ public static class JobOutcome
     /// <param name="gameId">The game the job was for, or null for a job that spans every game.</param>
     /// <exception cref="InvalidOperationException">The kind is never preempted.</exception>
     public static ErrorInfo PreemptedError(JobKind kind, string? gameId) =>
-        kind == JobKind.Compact
+        kind is JobKind.Compact or JobKind.PackStorage
             ? ErrorInfo.From(new CompactionPreemptedException(gameId))
             : throw new InvalidOperationException($"A {kind} job is never preempted.");
 
@@ -71,7 +71,7 @@ public static class JobOutcome
         {
             JobKind.Launch or JobKind.Switch => CancelledOperation.Launch,
             JobKind.Capture => CancelledOperation.Capture,
-            JobKind.Compact => CancelledOperation.Compaction,
+            JobKind.Compact or JobKind.PackStorage => CancelledOperation.Compaction,
             JobKind.RelocateStorage => CancelledOperation.StorageRelocation,
             _ => throw new InvalidOperationException($"A {kind} job cannot be cancelled."),
         };

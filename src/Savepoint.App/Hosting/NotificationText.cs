@@ -40,6 +40,11 @@ public static class NotificationText
             (JobKind.Compact, JobStatus.Cancelled) => "shell.jobStatus.compactCancelled",
             (JobKind.Compact, _) => "shell.jobStatus.compactFailure",
 
+            (JobKind.PackStorage, JobStatus.Succeeded) => "shell.jobStatus.packSuccess",
+            (JobKind.PackStorage, JobStatus.Partial) => "shell.jobStatus.packPartial",
+            (JobKind.PackStorage, JobStatus.Cancelled) => "shell.jobStatus.packCancelled",
+            (JobKind.PackStorage, _) => "shell.jobStatus.packFailure",
+
             (_, JobStatus.Succeeded) => "shell.jobStatus.success",
             (_, JobStatus.Partial) => "shell.jobStatus.partial",
             (_, JobStatus.Cancelled) => "shell.jobStatus.cancelled",

@@ -59,7 +59,7 @@ public class GameEditorFormTests
         var editor = EditorRig.Create().New();
         Assert.False(editor.IsDirty);
 
-        editor.InstallIgnoreRules.Items[0].Remove.Execute(null);
+        editor.InstallIgnoreRules.Items[0].RemoveCommand.Execute(null);
 
         Assert.True(editor.IsDirty);
     }
@@ -205,7 +205,7 @@ public class GameEditorFormTests
         editor.Name = "Skyrim Special Edition";
         Assert.False(editor.IsDirty);
 
-        editor.IgnoreRules.Items[0].Remove.Execute(null);
+        editor.IgnoreRules.Items[0].RemoveCommand.Execute(null);
         Assert.True(editor.IsDirty);
     }
 

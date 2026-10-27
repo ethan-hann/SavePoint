@@ -37,7 +37,11 @@ public class JobLineFormatterTests
         JobLine.ForStep(JobSteps.CompactRemovedDeleted, ("game", "Skyrim")),
         JobLine.ForStep(JobSteps.CompactRemovedKept, ("game", "Skyrim"), ("count", 2)),
         JobLine.ForStep(JobSteps.CompactFolderFailed, ("game", "Skyrim"), ("folder", RepoRole.External)),
-        JobLine.ForStep(JobSteps.RelocateStart, ("from", @"C:\Old"), ("to", @"D:\New"), ("files", 52), ("bytes", 57_950L)),
+        JobLine.ForStep(JobSteps.PackGame, ("game", "Skyrim")),
+        JobLine.ForStep(JobSteps.PackFreed, ("game", "Skyrim"), ("bytes", 1_500_000L)),
+        JobLine.ForStep(JobSteps.PackNothingFreed, ("game", "Skyrim")),
+        JobLine.ForStep(JobSteps.PackFolderFailed, ("game", "Skyrim"), ("folder", RepoRole.External)),
+        JobLine.ForStep(JobSteps.RelocateStart,("from", @"C:\Old"), ("to", @"D:\New"), ("files", 52), ("bytes", 57_950L)),
         JobLine.ForStep(JobSteps.RelocateFolder, ("game", "Skyrim"), ("part", "install"), ("files", 12)),
         JobLine.ForStep(JobSteps.RelocateCopied),
         JobLine.ForStep(JobSteps.RelocateSwitched, ("path", @"D:\New")),
@@ -80,6 +84,20 @@ public class JobLineFormatterTests
     public void A_byte_count_is_shown_as_a_size()
     {
         Assert.Equal("Freed 1.5 MB for Skyrim.", Format(_samples[JobSteps.CompactFreed]));
+        Assert.Equal("Compacted snapshot files for Skyrim: 1.5 MB smaller.", Format(_samples[JobSteps.PackFreed]));
+    }
+
+    [Fact]
+    public void The_routine_packing_is_said_as_compacting_storage_and_never_as_freeing_up_space()
+    {
+        Assert.Equal("Compacting snapshot files for Skyrim.", Format(_samples[JobSteps.PackGame]));
+        Assert.Equal("Compacted snapshot files for Skyrim. They were already packed as tightly as they go.", Format(_samples[JobSteps.PackNothingFreed]));
+        Assert.Equal("Couldn't compact snapshot files in the saves folder of Skyrim.", Format(_samples[JobSteps.PackFolderFailed]));
+        foreach (var id in new[] { JobSteps.PackGame, JobSteps.PackFreed, JobSteps.PackNothingFreed, JobSteps.PackFolderFailed })
+        {
+            Assert.DoesNotContain("free", Format(_samples[id]), StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("delet", Format(_samples[id]), StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     [Fact]

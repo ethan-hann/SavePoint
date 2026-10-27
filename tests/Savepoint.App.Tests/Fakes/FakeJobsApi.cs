@@ -209,7 +209,7 @@ public sealed class FakeJobsApi : IJobsApi
         {
             JobKind.Launch or JobKind.Switch => CancelledOperation.Launch,
             JobKind.Capture => CancelledOperation.Capture,
-            JobKind.Compact => CancelledOperation.Compaction,
+            JobKind.Compact or JobKind.PackStorage => CancelledOperation.Compaction,
             JobKind.RelocateStorage => CancelledOperation.StorageRelocation,
             _ => throw new InvalidOperationException($"A {job.Kind} job cannot be cancelled."),
         };

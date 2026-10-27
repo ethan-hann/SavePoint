@@ -1,21 +1,101 @@
 using System.Collections.ObjectModel;
-using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Formatting;
 
 namespace Savepoint.App.Features.Editor;
 
-/// <summary>One removable value in a <see cref="ChipListViewModel"/>.</summary>
-/// <param name="Text">The value.</param>
-/// <param name="RemoveLabel">The remove button's accessible name, already localized.</param>
-/// <param name="Remove">Takes the value out of the list.</param>
-public sealed record ChipItem(string Text, string RemoveLabel, ICommand Remove);
+/// <summary>One removable, editable value in a <see cref="ChipListViewModel"/>.</summary>
+public sealed partial class ChipItem : ObservableObject
+{
+    private readonly ChipListViewModel _list;
+    private readonly UiFormatter _formatter;
+    private string _text;
+
+    internal ChipItem(ChipListViewModel list, UiFormatter formatter, string text)
+    {
+        _list = list;
+        _formatter = formatter;
+        _text = text;
+        EditHint = formatter.Message("gameEditor.chip.editHint");
+    }
+
+    /// <summary>True while the chip is a text field.</summary>
+    [ObservableProperty]
+    private bool _isEditing;
+
+    /// <summary>What has been typed into the chip's field.</summary>
+    [ObservableProperty]
+    private string _editText = string.Empty;
+
+    /// <summary>The value.</summary>
+    public string Text
+    {
+        get => _text;
+        private set
+        {
+            if (SetProperty(ref _text, value))
+            {
+                OnPropertyChanged(nameof(RemoveLabel));
+                OnPropertyChanged(nameof(EditLabel));
+                OnPropertyChanged(nameof(EditFieldLabel));
+            }
+        }
+    }
+
+    /// <summary>The remove button's accessible name, already localized.</summary>
+    public string RemoveLabel => Label("gameEditor.chip.remove");
+
+    /// <summary>The accessible name of the chip itself, which opens it for editing.</summary>
+    public string EditLabel => Label("gameEditor.chip.edit");
+
+    /// <summary>The accessible name of the field the chip becomes while it is edited.</summary>
+    public string EditFieldLabel => Label("gameEditor.chip.editField");
+
+    /// <summary>The accessible help text of the chip, which says how to edit it.</summary>
+    public string EditHint { get; }
+
+    internal void SetText(string text) => Text = text;
+
+    private string Label(string key) => _formatter.Message(key, ("value", _text), ("list", _list.GroupName));
+
+    // Takes the value out of the list.
+    [RelayCommand]
+    private void Remove() => _list.Remove(this);
+
+    [RelayCommand]
+    private void BeginEdit()
+    {
+        EditText = Text;
+        IsEditing = true;
+    }
+
+    [RelayCommand]
+    private void CommitEdit()
+    {
+        // Leaving the field fires this after Enter or Escape already closed it.
+        if (!IsEditing)
+        {
+            return;
+        }
+
+        IsEditing = false;
+        _list.Replace(this, EditText);
+    }
+
+    [RelayCommand]
+    private void CancelEdit()
+    {
+        IsEditing = false;
+        EditText = Text;
+    }
+}
 
 /// <summary>
 /// A list of short values shown as removable monospace chips with a dashed "add" chip that turns into a text field
 /// (the ignore rules, launch options and mod folders of the game editor). Enter or leaving the field adds the value,
-/// Escape cancels; a blank or repeated value is dropped without a message.
+/// Escape cancels; a blank or repeated value is dropped without a message. A chip turns into the same kind of field to
+/// change its value in place, with the same rules.
 /// </summary>
 public sealed partial class ChipListViewModel : ObservableObject
 {
@@ -135,19 +215,30 @@ public sealed partial class ChipListViewModel : ObservableObject
             return false;
         }
 
-        Items.Add(new ChipItem(trimmed, _text.Message("gameEditor.chip.remove", ("value", trimmed), ("list", GroupName)), new RelayCommand(() => Remove(trimmed))));
+        Items.Add(new ChipItem(this, _text, trimmed));
         return true;
     }
 
-    private void Remove(string value)
+    internal void Remove(ChipItem chip)
     {
-        var chip = Items.FirstOrDefault(item => item.Text == value);
-        if (chip is null)
+        if (!Items.Remove(chip))
         {
             return;
         }
 
-        Items.Remove(chip);
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    // A blank or repeated value, or one that leaves the chip as it was, keeps the chip as it is, as an add would drop it.
+    internal void Replace(ChipItem chip, string value)
+    {
+        var trimmed = value.Trim();
+        if (!Items.Contains(chip) || trimmed.Length == 0 || trimmed == chip.Text || Items.Any(other => other.Text == trimmed))
+        {
+            return;
+        }
+
+        chip.SetText(trimmed);
         Changed?.Invoke(this, EventArgs.Empty);
     }
 }

@@ -80,7 +80,7 @@ public sealed partial class GameEditorViewModel
         if (_leftOff is { Rules.Count: > 0 } left)
         {
             var key = left.SavesHoldFiles ? "gameEditor.ignorePaths.savesKept" : "gameEditor.ignorePaths.savesUnchecked";
-            _toasts.Show(new ToastMessage(_text.Message(key, ("count", left.Rules.Count), ("rules", string.Join(", ", left.Rules))), ToastKind.Info));
+            _toasts.Show(new ToastMessage(_text.Message(key, ("count", left.Rules.Count), ("rules", string.Join(_text.Message("common.listSeparator"), left.Rules))), ToastKind.Info));
         }
     }
 

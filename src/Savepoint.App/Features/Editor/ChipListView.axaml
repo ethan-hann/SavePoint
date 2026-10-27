@@ -16,20 +16,49 @@
     </ItemsControl.ItemsPanel>
     <ItemsControl.DataTemplates>
       <DataTemplate x:DataType="editor:ChipItem">
-        <Border Classes="input-chip" Margin="0,0,8,8">
-          <StackPanel Orientation="Horizontal" Spacing="2">
-            <TextBlock VerticalAlignment="Center" Text="{Binding Text}" />
-            <!-- A 32px target that sticks out of the chip by 4px, so the chip keeps its height. -->
-            <Button Classes="icon"
-                    Margin="0,-4,-4,-4"
-                    MinWidth="32"
-                    MinHeight="32"
-                    FontSize="14"
-                    Content="{x:Static theme:Icons.Close}"
-                    Command="{Binding Remove}"
-                    AutomationProperties.Name="{Binding RemoveLabel}" />
-          </StackPanel>
-        </Border>
+        <Panel Margin="0,0,8,8">
+          <Border Classes="input-chip" IsVisible="{Binding !IsEditing}">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+              <!-- The chip's text is the edit target: Enter or F2 while it has focus, or a double-click, turns it into a field. -->
+              <Border x:Name="ChipText"
+                      Focusable="True"
+                      Background="Transparent"
+                      VerticalAlignment="Center"
+                      AutomationProperties.Name="{Binding EditLabel}"
+                      AutomationProperties.HelpText="{Binding EditHint}"
+                      AutomationProperties.ControlTypeOverride="Button">
+                <Border.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding BeginEditCommand}" />
+                  <KeyBinding Gesture="Space" Command="{Binding BeginEditCommand}" />
+                  <KeyBinding Gesture="F2" Command="{Binding BeginEditCommand}" />
+                </Border.KeyBindings>
+                <TextBlock VerticalAlignment="Center" Text="{Binding Text}" />
+              </Border>
+              <!-- A 32px target that sticks out of the chip by 4px, so the chip keeps its height. -->
+              <Button Classes="icon"
+                      Margin="0,-4,-4,-4"
+                      MinWidth="32"
+                      MinHeight="32"
+                      FontSize="14"
+                      Content="{x:Static theme:Icons.Close}"
+                      Command="{Binding RemoveCommand}"
+                      AutomationProperties.Name="{Binding RemoveLabel}" />
+            </StackPanel>
+          </Border>
+          <editor:ChipEntryBox x:Name="ChipEdit"
+                               Classes="mono"
+                               Width="200"
+                               Padding="12,6"
+                               IsVisible="{Binding IsEditing}"
+                               Text="{Binding EditText, Mode=TwoWay}"
+                               CommitCommand="{Binding CommitEditCommand}"
+                               AutomationProperties.Name="{Binding EditFieldLabel}">
+            <editor:ChipEntryBox.KeyBindings>
+              <KeyBinding Gesture="Enter" Command="{Binding CommitEditCommand}" />
+              <KeyBinding Gesture="Escape" Command="{Binding CancelEditCommand}" />
+            </editor:ChipEntryBox.KeyBindings>
+          </editor:ChipEntryBox>
+        </Panel>
       </DataTemplate>
       <DataTemplate x:DataType="editor:ChipListViewModel">
         <Panel Margin="0,0,8,8">

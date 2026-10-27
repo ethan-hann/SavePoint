@@ -174,9 +174,29 @@ public class ProfilesCaptureTests
         await workspace.WaitForJobAsync(started.Value!.JobId);
         await workspace.WaitForIdleAsync();
 
-        var optimizations = workspace.Jobs.List().Where(job => job.Kind == JobKind.Compact && job.GameId == game.Id).ToList();
+        var optimizations = workspace.Jobs.List().Where(job => job.Kind == JobKind.PackStorage && job.GameId == game.Id).ToList();
         Assert.NotEmpty(optimizations);
         Assert.All(optimizations, job => Assert.Equal(JobStatus.Succeeded, job.Status));
+        Assert.DoesNotContain(workspace.Jobs.List(), job => job.Kind == JobKind.Compact);
+    }
+
+    [Fact]
+    public async Task The_routine_optimization_says_in_its_details_that_it_packs_storage_not_that_it_frees_up_space()
+    {
+        using var workspace = new BackendWorkspace(options => options with { LooseObjectThreshold = 1 });
+        var game = await workspace.AddGameAsync(workspace.NewGame(withSaves: false));
+        var (profile, _) = await workspace.CreateProfileAsync(game);
+        await workspace.WaitForIdleAsync();
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "a.txt"), "a");
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "b.txt"), "b");
+
+        var started = await workspace.Profiles.CaptureAsync(game.Id, profile.Id, "More files");
+        await workspace.WaitForJobAsync(started.Value!.JobId);
+        await workspace.WaitForIdleAsync();
+
+        var steps = workspace.Jobs.List().Where(job => job.Kind == JobKind.PackStorage).SelectMany(job => job.RecentLines).OfType<JobLine.Step>().Select(step => step.MessageId).ToList();
+        Assert.Contains(JobSteps.PackGame, steps);
+        Assert.All(steps, id => Assert.StartsWith("activity.step.pack.", id, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -191,7 +211,7 @@ public class ProfilesCaptureTests
         await workspace.WaitForJobAsync(started.Value!.JobId);
         await workspace.WaitForIdleAsync();
 
-        Assert.DoesNotContain(workspace.Jobs.List(), job => job.Kind == JobKind.Compact);
+        Assert.DoesNotContain(workspace.Jobs.List(), job => job.Kind is JobKind.Compact or JobKind.PackStorage);
     }
 
     // A folder inside the game that keeps its own history cannot be saved inside another one.

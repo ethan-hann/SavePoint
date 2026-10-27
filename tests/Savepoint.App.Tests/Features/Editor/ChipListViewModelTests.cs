@@ -39,7 +39,7 @@ public class ChipListViewModelTests
         var changes = 0;
         list.Changed += (_, _) => changes++;
 
-        list.Items[1].Remove.Execute(null);
+        list.Items[1].RemoveCommand.Execute(null);
 
         Assert.Equal(["a", "c"], list.Values);
         Assert.Equal(1, changes);
@@ -142,11 +142,127 @@ public class ChipListViewModelTests
         list.CommitAddCommand.Execute(null);
         Assert.Equal([list.Items[0], list.Items[1], list.Items[2], list], list.Entries);
 
-        list.Items[0].Remove.Execute(null);
+        list.Items[0].RemoveCommand.Execute(null);
         Assert.Equal([list.Items[0], list.Items[1], list], list.Entries);
 
         list.SetValues(["x"]);
         Assert.Equal([list.Items[0], list], list.Entries);
+    }
+
+    [Fact]
+    public void Each_chip_is_named_for_editing_and_so_is_the_field_it_becomes()
+    {
+        var list = List("**/*.log");
+
+        Assert.Equal("Edit **/*.log in Files to leave out", list.Items[0].EditLabel);
+        Assert.Equal("Change **/*.log in Files to leave out", list.Items[0].EditFieldLabel);
+    }
+
+    [Fact]
+    public void Editing_a_chip_opens_its_text_as_a_field()
+    {
+        var list = List("a", "b");
+
+        list.Items[1].BeginEditCommand.Execute(null);
+
+        Assert.True(list.Items[1].IsEditing);
+        Assert.Equal("b", list.Items[1].EditText);
+        Assert.False(list.Items[0].IsEditing);
+    }
+
+    [Fact]
+    public void Committing_an_edit_changes_that_chip_in_place_and_says_so_once()
+    {
+        var list = List("a", "b", "c");
+        var changes = 0;
+        list.Changed += (_, _) => changes++;
+
+        list.Items[1].BeginEditCommand.Execute(null);
+        list.Items[1].EditText = "  b2  ";
+        list.Items[1].CommitEditCommand.Execute(null);
+
+        Assert.Equal(["a", "b2", "c"], list.Values);
+        Assert.Equal(1, changes);
+        Assert.All(list.Items, chip => Assert.False(chip.IsEditing));
+        Assert.Equal([list.Items[0], list.Items[1], list.Items[2], list], list.Entries);
+        Assert.Equal("Remove b2 from Files to leave out", list.Items[1].RemoveLabel);
+    }
+
+    [Fact]
+    public void An_edited_chip_still_removes_itself()
+    {
+        var list = List("a", "b");
+        list.Items[1].BeginEditCommand.Execute(null);
+        list.Items[1].EditText = "b2";
+        list.Items[1].CommitEditCommand.Execute(null);
+
+        list.Items[1].RemoveCommand.Execute(null);
+
+        Assert.Equal(["a"], list.Values);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("a")]
+    public void A_blank_or_repeated_edit_is_dropped_and_the_chip_keeps_its_value(string typed)
+    {
+        var list = List("a", "b");
+        var changes = 0;
+        list.Changed += (_, _) => changes++;
+
+        list.Items[1].BeginEditCommand.Execute(null);
+        list.Items[1].EditText = typed;
+        list.Items[1].CommitEditCommand.Execute(null);
+
+        Assert.Equal(["a", "b"], list.Values);
+        Assert.False(list.Items[1].IsEditing);
+        Assert.Equal(0, changes);
+    }
+
+    [Fact]
+    public void An_edit_that_leaves_the_value_as_it_was_changes_nothing()
+    {
+        var list = List("a", "b");
+        var changes = 0;
+        list.Changed += (_, _) => changes++;
+
+        list.Items[0].BeginEditCommand.Execute(null);
+        list.Items[0].EditText = " a ";
+        list.Items[0].CommitEditCommand.Execute(null);
+
+        Assert.Equal(["a", "b"], list.Values);
+        Assert.False(list.Items[0].IsEditing);
+        Assert.Equal(0, changes);
+    }
+
+    [Fact]
+    public void Escape_cancels_the_edit_and_a_later_blur_changes_nothing()
+    {
+        var list = List("a", "b");
+        var changes = 0;
+        list.Changed += (_, _) => changes++;
+        var chip = list.Items[0];
+
+        chip.BeginEditCommand.Execute(null);
+        chip.EditText = "z";
+        chip.CancelEditCommand.Execute(null);
+        chip.CommitEditCommand.Execute(null);
+
+        Assert.Equal(["a", "b"], list.Values);
+        Assert.False(chip.IsEditing);
+        Assert.Equal(0, changes);
+    }
+
+    [Fact]
+    public void Committing_when_no_edit_is_open_does_nothing()
+    {
+        var list = List("a", "b");
+        list.Items[0].EditText = "stale";
+
+        list.Items[0].CommitEditCommand.Execute(null);
+
+        Assert.Equal(["a", "b"], list.Values);
     }
 
     [Fact]

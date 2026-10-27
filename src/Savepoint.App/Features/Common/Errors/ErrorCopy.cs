@@ -8,6 +8,8 @@ public static class ErrorCopy
 {
     private const string _fileHeld = "error.gitOperation.checkoutFailed";
     private const string _diskFull = "error.diskSpace.low";
+    private const string _compactionCancelled = "error.compaction.cancelled";
+    private const string _compactionPreempted = "error.compaction.preempted";
 
     /// <summary>The key of the card's body text.</summary>
     /// <param name="messageId">The error's message id, which is also the neutral text's key.</param>
@@ -31,14 +33,17 @@ public static class ErrorCopy
             ErrorOperation.MoveSnapshots => "errorCard.body.noRoom.moveSnapshots",
             _ => messageId,
         },
+        _compactionCancelled when operation == ErrorOperation.PackStorage => "errorCard.body.packCancelled",
+        _compactionPreempted when operation == ErrorOperation.PackStorage => "errorCard.body.packPaused",
         _ => messageId,
     };
 
     /// <summary>The key of the card's headline.</summary>
     /// <param name="messageId">The error's message id.</param>
     /// <param name="operation">What SavePoint was doing.</param>
-    public static string TitleKey(string messageId, ErrorOperation operation) => messageId == _fileHeld
-        ? operation switch
+    public static string TitleKey(string messageId, ErrorOperation operation) => messageId switch
+    {
+        _fileHeld => operation switch
         {
             ErrorOperation.Switch => "errorCard.title.fileInUse.switch",
             ErrorOperation.Snapshot => "errorCard.title.fileInUse.snapshot",
@@ -46,6 +51,8 @@ public static class ErrorCopy
             ErrorOperation.MoveSnapshots => "errorCard.title.fileInUse.moveSnapshots",
             ErrorOperation.ClearData => "errorCard.title.fileInUse.clearData",
             _ => ErrorPresentation.For(messageId).TitleKey,
-        }
-        : ErrorPresentation.For(messageId).TitleKey;
+        },
+        _compactionPreempted when operation == ErrorOperation.PackStorage => "errorCard.title.packingPaused",
+        _ => ErrorPresentation.For(messageId).TitleKey,
+    };
 }

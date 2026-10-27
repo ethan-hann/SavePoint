@@ -6,6 +6,7 @@ using Savepoint.App.Features.Shell;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Shell;
@@ -266,6 +267,39 @@ public class JobStatusViewModelTests
         rig.Backend.Jobs.Complete(job.JobId);
 
         Assert.Equal("Freed up space for Satisfactory.", Assert.Single(rig.Toasts.Toasts).Text);
+    }
+
+    [Fact]
+    public void The_routine_packing_after_a_snapshot_is_not_called_freeing_up_space_in_the_pill_or_the_toasts()
+    {
+        var rig = new Rig();
+        Guid StartPacking()
+        {
+            var id = Guid.Empty;
+            rig.Backend.Script(() => id = rig.Backend.Jobs.Start(JobKind.PackStorage, SampleScenario.SatisfactoryId, defaultResult: null));
+            return id;
+        }
+
+        var ended = StartPacking();
+        Assert.Equal("Compacting snapshot files for Satisfactory…", rig.Status.PillText);
+
+        rig.Backend.Jobs.Complete(ended);
+        var failed = StartPacking();
+        rig.Backend.Jobs.Fail(failed, ErrorInfo.From(new InvalidOperationException("boom")));
+        var cancelled = StartPacking();
+        rig.Backend.Jobs.CompleteCancelled(cancelled);
+        var partial = StartPacking();
+        var half = new OptimizeResult([new GameOptimizeOutcome(SampleScenario.SatisfactoryId, [new FolderOutcome(RepoRole.Install), new FolderOutcome(RepoRole.External, SampleScenario.SavesOutOfRoomError)], null)]);
+        rig.Backend.Jobs.Complete(partial, half);
+
+        Assert.Equal(
+            [
+                "Compacted snapshot files for Satisfactory.",
+                "Something went wrong compacting snapshot files for Satisfactory.",
+                "Canceled compacting snapshot files for Satisfactory.",
+                "Compacted only some of the snapshot files for Satisfactory.",
+            ],
+            rig.Toasts.Toasts.Select(toast => toast.Text));
     }
 
     [Fact]

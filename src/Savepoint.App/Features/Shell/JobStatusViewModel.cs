@@ -146,6 +146,7 @@ public sealed partial class JobStatusViewModel : ObservableObject
         JobKind.RelocateStorage => _formatter.Message("shell.jobStatus.relocating"),
         JobKind.Compact when job.GameId is null => _formatter.Message("shell.jobStatus.compactingAll"),
         JobKind.Compact => _formatter.Message("shell.jobStatus.compacting", ("gameName", NameOf(job))),
+        JobKind.PackStorage => _formatter.Message("shell.jobStatus.packing", ("gameName", NameOf(job))),
         JobKind.ClearData => _formatter.Message("shell.jobStatus.clearing"),
         _ => _formatter.Message("shell.jobStatus.saving", ("gameName", NameOf(job))),
     };
@@ -172,6 +173,11 @@ public sealed partial class JobStatusViewModel : ObservableObject
             (JobKind.Compact, JobStatus.Partial) => ("shell.jobStatus.compactPartial", ToastKind.Warning),
             (JobKind.Compact, JobStatus.Cancelled) => ("shell.jobStatus.compactCancelled", ToastKind.Info),
             (JobKind.Compact, _) => ("shell.jobStatus.compactFailure", ToastKind.Error),
+
+            (JobKind.PackStorage, JobStatus.Succeeded) => ("shell.jobStatus.packSuccess", ToastKind.Success),
+            (JobKind.PackStorage, JobStatus.Partial) => ("shell.jobStatus.packPartial", ToastKind.Warning),
+            (JobKind.PackStorage, JobStatus.Cancelled) => ("shell.jobStatus.packCancelled", ToastKind.Info),
+            (JobKind.PackStorage, _) => ("shell.jobStatus.packFailure", ToastKind.Error),
 
             (_, JobStatus.Succeeded) => ("shell.jobStatus.success", ToastKind.Success),
             (_, JobStatus.Partial) => ("shell.jobStatus.partial", ToastKind.Warning),

@@ -116,10 +116,10 @@ internal sealed class FakeShellContext : IShellContext
 // The editor wired to the fake backend with every collaborator recorded.
 internal sealed class EditorRig
 {
-    private EditorRig(FakeBackend backend, string os)
+    private EditorRig(FakeBackend backend, string os, LocalizationCatalog? catalog)
     {
         Backend = backend;
-        Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, os, TimeZoneInfo.Utc);
+        Text = new UiFormatter(catalog ?? LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, os, TimeZoneInfo.Utc);
         Dialogs = new FakeDialogs();
         Toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
         Shell = new FakeShellContext(FakeAssert.Ok(backend.Games.ListAsync().GetAwaiter().GetResult()), Text);
@@ -139,7 +139,7 @@ internal sealed class EditorRig
 
     public GameEditorFactory Factory { get; }
 
-    public static EditorRig Create(FakeBackend? backend = null, string os = "windows") => new(backend ?? FakeBackend.Sample(), os);
+    public static EditorRig Create(FakeBackend? backend = null, string os = "windows", LocalizationCatalog? catalog = null) => new(backend ?? FakeBackend.Sample(), os, catalog);
 
     public GameEditorViewModel Edit(string gameId = SampleScenario.SkyrimId) =>
         Assert.IsType<GameEditorViewModel>(Factory.CreateForExisting(Shell, gameId));
