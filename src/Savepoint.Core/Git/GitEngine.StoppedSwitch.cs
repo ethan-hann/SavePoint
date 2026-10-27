@@ -7,10 +7,11 @@ public sealed partial class GitEngine
     // What a switch that finishes a stopped one finds in the folder. The BlockingChanged and BlockingNew lists are unsaved work the finish
     // must not run over. Rewrite lists the files (in the target's spelling) the finish writes from the target, Keep those that already hold
     // the target's bytes and only need their index entry, and StaleSpellings the index entries under an old spelling of a name the target
-    // spells another way (a drive that ignores case). Replaced is the part of Rewrite that holds content found in neither snapshot, and
-    // RewriteBytes the size of the target's copy of each Rewrite file, in the same order. Standing lists the files the target wants where the
-    // point being left has a folder: the stopped switch got as far as the file, and git cannot move on from there while it stands (it
-    // takes the file for an untracked one in the way of removing the folder's files), so the finish removes it and the checkout writes it.
+    // spells another way (a drive that ignores case). Replaced is the part of Rewrite and Standing that holds content found in neither snapshot,
+    // and RewriteBytes the size of the target's copy of each Rewrite file, in the same order. Standing lists the files that stand where the
+    // point being left has a folder: git cannot move on from there while one stands (it takes the file for an untracked one in the way of
+    // removing the folder's files), so the finish removes it and the checkout writes it from the target. Such a file may be the stopped
+    // switch's write, whole or partial, or content the player put there since.
     private sealed record FinishScan(
         IReadOnlyList<string> BlockingChanged,
         IReadOnlyList<string> BlockingNew,
@@ -272,7 +273,7 @@ public sealed partial class GitEngine
 
             await WriteIndexInfoAsync(repo, scan.StaleSpellings, [], new Dictionary<string, string?>(), ct).ConfigureAwait(false);
         }
-        catch (Exception e) when (e is FolderChangedException or ConsentMarkerException or GitOperationException)
+        catch (SavepointException)
         {
             // Some batches of files may be written and the next one not, and a step may fail after the files before it were written. That is
             // safe: the note stays, so repeating the switch finds those files as a kill would have left them and finishes the job. The index
@@ -282,8 +283,9 @@ public sealed partial class GitEngine
         }
     }
 
-    // Takes away the files that stand where the point being left has a folder (see FinishScan). They are only the stopped switch's own
-    // writes, and the checkout that follows writes each one from the target.
+    // Takes away the files that stand where the point being left has a folder (see FinishScan); the checkout that follows writes each one
+    // from the target. A file that is no longer a plain file in the approved folder (a folder above it became a link after the scan, or
+    // another file now has its name in other letter case) is not ours to remove.
     private void RemoveStanding(RepoRef repo, IReadOnlyList<string> standing)
     {
         if (standing.Count == 0)
@@ -292,12 +294,18 @@ public sealed partial class GitEngine
         }
 
         RecheckBeforeFileChanges(repo, "remove-standing");
+        var approved = repo.Guard is { } guard ? repo with { WorkTree = guard.RealPath } : repo;
         foreach (var path in standing)
         {
-            var full = RealFullPath(repo, path);
+            var full = FullPath(approved, path);
             if (!File.Exists(full))
             {
                 continue;
+            }
+
+            if (LinkedFolders.IsInsideLink(approved.WorkTree, path) || !HasExactName(full))
+            {
+                throw new DirtyWorkingTreeException(repo.Role);
             }
 
             TryDelete(full);

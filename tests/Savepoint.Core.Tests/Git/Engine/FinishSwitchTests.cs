@@ -517,12 +517,12 @@ public sealed class FinishSwitchTests : IDisposable
     }
 
     [Fact]
-    public async Task A_killed_switch_that_stood_a_folder_where_a_file_was_is_finished_too()
+    public async Task A_killed_switch_that_left_half_a_file_where_a_folder_was_is_finished_too()
     {
         var (repo, data) = await FileAndFolderProfilesAsync();
         SwitchJournal.Write(repo.GitDir, data.B, data.A, "profile-a");
 
-        // The file Mods/Foo is gone and the folder that takes its place already holds half a file.
+        // The folder Mods/Foo is gone and the file that takes its place is half written.
         _ws.Delete(repo, "Mods/Foo/x.txt");
         Directory.Delete(_ws.FileOf(repo, "Mods/Foo"));
         _ws.Write(repo, "Mods/Foo", "a's file, cut sh");
@@ -550,6 +550,83 @@ public sealed class FinishSwitchTests : IDisposable
         Assert.Equal("a's file", File.ReadAllText(_ws.FileOf(repo, "Mods/Foo")));
         Assert.Null(SwitchJournal.Read(repo.GitDir));
         Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task A_killed_switch_that_left_a_folder_where_a_file_was_is_finished_too()
+    {
+        var (repo, data) = await FileAndFolderProfilesAsync();
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        SwitchJournal.Write(repo.GitDir, data.A, data.B, "profile-b");
+
+        // The file Mods/Foo is gone and the folder that takes its place holds half of x.txt, but HEAD and the index still say profile-a.
+        _ws.Delete(repo, "Mods/Foo");
+        _ws.Write(repo, "Mods/Foo/x.txt", "b's");
+
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-b", ct: Ct);
+
+        Assert.Equal("b's x", File.ReadAllText(_ws.FileOf(repo, "Mods/Foo/x.txt")));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
+        Assert.True((await _ws.Engine.GetStatusAsync(repo, Ct)).IsClean);
+    }
+
+    [Fact]
+    public async Task The_review_lists_a_file_the_player_put_where_a_folder_was_as_replaced()
+    {
+        var (repo, data) = await FileAndFolderProfilesAsync();
+        SwitchJournal.Write(repo.GitDir, data.B, data.A, "profile-a");
+        _ws.Delete(repo, "Mods/Foo/x.txt");
+        Directory.Delete(_ws.FileOf(repo, "Mods/Foo"));
+        _ws.Write(repo, "Mods/Foo", "the player's own file, made after the switch stopped");
+
+        var review = await _ws.Engine.ReviewStoppedSwitchAsync(repo, Ct);
+
+        Assert.Equal(["Mods/Foo"], review.ReplacedPaths);
+        Assert.Empty(review.BlockingPaths);
+    }
+
+    [Fact]
+    public async Task The_review_does_not_list_the_whole_target_copy_standing_where_a_folder_was_as_replaced()
+    {
+        var (repo, data) = await FileAndFolderProfilesAsync();
+        SwitchJournal.Write(repo.GitDir, data.B, data.A, "profile-a");
+        _ws.Delete(repo, "Mods/Foo/x.txt");
+        Directory.Delete(_ws.FileOf(repo, "Mods/Foo"));
+        _ws.Write(repo, "Mods/Foo", "a's file");
+
+        var review = await _ws.Engine.ReviewStoppedSwitchAsync(repo, Ct);
+
+        Assert.Empty(review.ReplacedPaths);
+        Assert.Empty(review.BlockingPaths);
+    }
+
+    [Fact]
+    public async Task A_file_held_open_where_a_folder_was_is_named_and_a_repeat_after_release_finishes()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to remove a file another program holds open");
+        var (repo, data) = await FileAndFolderProfilesAsync();
+        SwitchJournal.Write(repo.GitDir, data.B, data.A, "profile-a");
+        _ws.Delete(repo, "Mods/Foo/x.txt");
+        Directory.Delete(_ws.FileOf(repo, "Mods/Foo"));
+        _ws.Write(repo, "Mods/Foo", "a's file, cut sh");
+        var locked = _ws.FileOf(repo, "Mods/Foo");
+
+        var held = new FileStream(locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        try
+        {
+            var error = await Assert.ThrowsAsync<GitOperationException>(() => _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct));
+
+            Assert.Equal(locked, error.Args["path"]);
+        }
+        finally
+        {
+            await held.DisposeAsync();
+        }
+
+        Assert.Equal(new InterruptedSwitch(data.B, data.A, "profile-a"), SwitchJournal.Read(repo.GitDir));
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-a", ct: Ct);
+        Assert.Equal("a's file", File.ReadAllText(locked));
+        Assert.Null(SwitchJournal.Read(repo.GitDir));
     }
 
     // Profile-a holds Mods/Foo as a file, profile-b as a folder holding x.txt. The folder is on profile-b.
