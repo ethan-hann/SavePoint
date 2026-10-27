@@ -26,6 +26,8 @@
       <Setter Property="IsVisible" Value="{Binding IsVisible}" />
       <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
       <Setter Property="ToolTip.Tip" Value="{Binding Tip}" />
+      <!-- A tooltip opens on the pointer only, so keyboard and screen-reader players get the same words as help text. -->
+      <Setter Property="AutomationProperties.HelpText" Value="{Binding Tip}" />
       <Setter Property="AutomationProperties.Name" Value="{Binding Header}" />
     </ControlTheme>
   </UserControl.Resources>

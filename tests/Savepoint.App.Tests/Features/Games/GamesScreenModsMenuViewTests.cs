@@ -1,4 +1,6 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -78,6 +80,27 @@ public class GamesScreenModsMenuViewTests
         mods.Command!.Execute(mods.CommandParameter);
         harness.Settle();
         Assert.Equal([GamesScreenOpenFolderTests.ModsResolved], harness.Rig.Revealer.Revealed);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Way.MoreActions)]
+    [InlineData(Way.RightClick)]
+    [InlineData(Way.MenuKey)]
+    [InlineData(Way.ShiftF10)]
+    public async Task Every_open_folder_entry_gives_assistive_technology_its_warning_as_help_text(Way way)
+    {
+        using var harness = await GamesViewHarness.StartAsync(BackendWith(_install, _mods, _saves));
+        Open(harness, way);
+
+        var opens = harness.OpenMenuItems().Where(item => (item.Header as string)?.StartsWith("Open ", StringComparison.Ordinal) == true).ToList();
+
+        Assert.Equal(3, opens.Count);
+        Assert.All(opens, item =>
+        {
+            const string warning = "Opens the folder as it is now, which may hold a different profile's files.";
+            Assert.Equal(warning, AutomationProperties.GetHelpText(item));
+            Assert.Equal(warning, ControlAutomationPeer.CreatePeerForElement(item).GetHelpText());
+        });
     }
 
     [AvaloniaTheory]
