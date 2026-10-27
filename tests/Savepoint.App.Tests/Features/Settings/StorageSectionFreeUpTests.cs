@@ -1,5 +1,6 @@
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Common;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
 
@@ -18,6 +19,88 @@ public class StorageSectionFreeUpTests
 
         Assert.Equal("Free up space would delete 3 recently removed snapshots for good. You can't bring them back.", rig.Screen.Storage.OptimizePreview);
         Assert.Equal(0, rig.Calls<ISettingsApi>(nameof(ISettingsApi.OptimizeAllStorageAsync)));
+    }
+
+    // ---- Saying how much space comes back
+
+    [Fact]
+    public async Task The_row_adds_about_how_much_space_comes_back_once_the_backend_has_worked_it_out()
+    {
+        var backend = new FakeBackend(RemovedSnapshotSamples.Scenario());
+        backend.State.FreeUpEstimate = 1_200_000_000;
+
+        var rig = await SettingsRig.ShownAsync(backend);
+
+        Assert.Equal("Free up space would delete 3 recently removed snapshots for good and free up about 1.2 GB. You can't bring them back.", rig.Screen.Storage.OptimizePreview);
+    }
+
+    [Fact]
+    public async Task While_the_size_is_being_worked_out_the_row_has_the_count_alone_and_the_screen_is_ready()
+    {
+        var backend = new FakeBackend(RemovedSnapshotSamples.Scenario());
+        backend.State.FreeUpEstimate = 1_200_000_000;
+        var hold = backend.Settings.EstimateHold = new TaskCompletionSource();
+
+        var rig = await SettingsRig.ShownAsync(backend);
+        var whileWaiting = rig.Screen.Storage.OptimizePreview;
+        hold.SetResult();
+
+        Assert.Equal("Free up space would delete 3 recently removed snapshots for good. You can't bring them back.", whileWaiting);
+        Assert.True(rig.Screen.IsLoaded);
+        Assert.True(await UiWait.UntilAsync(() => rig.Screen.Storage.OptimizePreview.Contains("about 1.2 GB", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task A_size_that_cannot_be_worked_out_leaves_the_row_with_the_count_alone_and_shows_no_error()
+    {
+        var backend = new FakeBackend(RemovedSnapshotSamples.Scenario());
+        backend.FailNext<ISettingsApi>(nameof(ISettingsApi.EstimateFreeUpSpaceAsync), ErrorInfo.From(new InvalidOperationException("Busy.")));
+
+        var rig = await SettingsRig.ShownAsync(backend);
+
+        Assert.Equal("Free up space would delete 3 recently removed snapshots for good. You can't bring them back.", rig.Screen.Storage.OptimizePreview);
+        Assert.Empty(rig.Toasts.Toasts);
+        Assert.Null(rig.Screen.Storage.Problem);
+    }
+
+    [Fact]
+    public async Task No_size_is_asked_for_when_nothing_is_removed()
+    {
+        var backend = FakeBackend.Sample();
+        backend.State.FreeUpEstimate = 1_200_000_000;
+
+        var rig = await SettingsRig.ShownAsync(backend);
+
+        Assert.Equal(0, rig.Calls<ISettingsApi>(nameof(ISettingsApi.EstimateFreeUpSpaceAsync)));
+        Assert.DoesNotContain("about", rig.Screen.Storage.OptimizePreview, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Run_now_names_the_size_in_its_question_when_it_is_known()
+    {
+        var backend = new FakeBackend(RemovedSnapshotSamples.Scenario());
+        backend.State.FreeUpEstimate = 1_200_000_000;
+        var rig = await SettingsRig.ShownAsync(backend);
+        rig.Dialogs.AnswerConfirm(true);
+
+        await rig.Screen.Storage.RunNowCommand.ExecuteAsync(null);
+
+        Assert.Equal("This also deletes 3 recently removed snapshots for good and frees up about 1.2 GB. You can't bring them back.", Assert.Single(rig.Dialogs.Confirmations).Message);
+    }
+
+    [Fact]
+    public async Task Run_now_does_not_wait_for_a_size_that_is_slow()
+    {
+        var backend = new FakeBackend(RemovedSnapshotSamples.Scenario());
+        backend.State.FreeUpEstimate = 1_200_000_000;
+        backend.Settings.EstimateHold = new TaskCompletionSource();
+        var rig = await SettingsRig.ShownAsync(backend);
+        rig.Dialogs.AnswerConfirm(true);
+
+        await rig.Screen.Storage.RunNowCommand.ExecuteAsync(null);
+
+        Assert.Equal("This also deletes 3 recently removed snapshots for good. You can't bring them back.", Assert.Single(rig.Dialogs.Confirmations).Message);
+        Assert.True(rig.Screen.Storage.IsOptimizing);
     }
 
     [Fact]

@@ -23,6 +23,7 @@ public static partial class FeatureComposition
             context.Text,
             context.Toasts,
             context.Dispatcher,
+            context.Clock,
             environment ?? SettingsEnvironmentOf(context.Services, context.Clock));
 
     // The running app's file manager and log folder, so the About section opens a folder the way the rest of the app reveals files.

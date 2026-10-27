@@ -129,6 +129,62 @@ public class FreeUpSpaceViewModelTests
         Assert.True(rig.FreeUp.IsRunning);
     }
 
+    // ---- Saying how much space comes back
+
+    [Fact]
+    public async Task The_question_says_about_how_much_space_comes_back_once_the_backend_has_worked_it_out()
+    {
+        var rig = new Rig(removed: true);
+        rig.Backend.State.FreeUpEstimate = 1_200_000_000;
+        rig.Dialogs.AnswerConfirm(true);
+
+        await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        var question = Assert.Single(rig.Dialogs.Confirmations);
+        Assert.Equal("This also deletes 2 recently removed snapshots for good and frees up about 1.2 GB. You can't bring them back.", question.Message);
+        Assert.Equal("Delete 2 snapshots and free up space", question.ConfirmLabel);
+    }
+
+    [Fact]
+    public async Task A_size_that_cannot_be_worked_out_leaves_the_question_without_one_and_shows_no_error()
+    {
+        var rig = new Rig(removed: true);
+        rig.Backend.FailNext<IGamesApi>(nameof(IGamesApi.EstimateFreeUpSpaceAsync), FileInUseError);
+        rig.Dialogs.AnswerConfirm(true);
+
+        await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        Assert.Equal("This also deletes 2 recently removed snapshots for good. You can't bring them back.", Assert.Single(rig.Dialogs.Confirmations).Message);
+        Assert.Empty(rig.Errors);
+        Assert.True(rig.FreeUp.IsRunning);
+    }
+
+    [Fact]
+    public async Task A_size_that_is_slow_does_not_hold_the_question_back()
+    {
+        var rig = new Rig(removed: true);
+        rig.Backend.State.FreeUpEstimate = 1_200_000_000;
+        rig.Backend.Games.EstimateHold = new TaskCompletionSource();
+        rig.Dialogs.AnswerConfirm(true);
+
+        await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        Assert.Equal("This also deletes 2 recently removed snapshots for good. You can't bring them back.", Assert.Single(rig.Dialogs.Confirmations).Message);
+        Assert.True(rig.FreeUp.IsRunning);
+    }
+
+    [Fact]
+    public async Task No_size_is_asked_for_when_nothing_is_removed()
+    {
+        var rig = new Rig();
+        rig.Backend.State.FreeUpEstimate = 1_200_000_000;
+
+        await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
+
+        Assert.Empty(rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.EstimateFreeUpSpaceAsync)));
+        Assert.Empty(rig.Dialogs.Confirmations);
+    }
+
     [Fact]
     public async Task A_count_that_cannot_be_read_is_shown_as_an_error_and_starts_nothing()
     {
@@ -392,7 +448,8 @@ public class FreeUpSpaceViewModelTests
                 {
                     AfterRuns++;
                     return Task.CompletedTask;
-                });
+                },
+                Backend.Clock);
             if (selected)
             {
                 FreeUp.SetGame(SkyrimId, _skyrim);

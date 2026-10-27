@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
@@ -25,6 +26,8 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     private Guid? _optimizeJob;
     private Guid? _relocationJob;
     private readonly ProgressMilestones _milestones = new();
+    private readonly FreeUpSizeEstimate _size;
+    private int _previewVersion;
 
     /// <summary>The folder SavePoint keeps its data in, shown in monospace.</summary>
     [ObservableProperty]
@@ -113,6 +116,7 @@ public sealed partial class StorageSectionViewModel : ObservableObject
     {
         _deps = dependencies;
         _store = store;
+        _size = new FreeUpSizeEstimate(dependencies.Clock);
         store.Changed += (_, settings) => Show(settings);
     }
 
@@ -142,15 +146,45 @@ public sealed partial class StorageSectionViewModel : ObservableObject
         await RefreshPreviewAsync();
     }
 
-    // The line under Free up space is a nicety: when the count cannot be read it goes away and the button still works.
+    // The line under Free up space is a nicety: when the count cannot be read it goes away and the button still works. The count shows
+    // at once; the size joins it when the backend has worked it out, and is simply never said when it cannot be.
     private async Task RefreshPreviewAsync()
     {
+        var shown = ++_previewVersion;
         var read = await _deps.Settings.GetFreeUpSpacePreviewAsync();
-        OptimizePreview = !read.Ok
-            ? string.Empty
-            : read.Value.RecentlyRemovedSnapshots is > 0 and var removed
-                ? _deps.Text.Message("settings.storage.optimizePreview.some", ("count", removed))
-                : _deps.Text.Message("settings.storage.optimizePreview.none");
+        if (shown != _previewVersion)
+        {
+            return;
+        }
+
+        if (!read.Ok)
+        {
+            OptimizePreview = string.Empty;
+            _size.Cancel();
+            return;
+        }
+
+        var removed = read.Value.RecentlyRemovedSnapshots;
+        if (removed <= 0)
+        {
+            OptimizePreview = _deps.Text.Message("settings.storage.optimizePreview.none");
+            _size.Cancel();
+            return;
+        }
+
+        OptimizePreview = _deps.Text.Message("settings.storage.optimizePreview.some", ("count", removed));
+
+        // Not awaited: the screen is ready now, and the size follows whenever the backend has it.
+        _ = ShowSizeAsync(read.Value.Token, removed, shown);
+    }
+
+    private async Task ShowSizeAsync(FreeUpSpaceToken token, int removed, int shown)
+    {
+        var size = await _size.Start(token, _deps.Settings.EstimateFreeUpSpaceAsync);
+        if (size is { } bytes && shown == _previewVersion)
+        {
+            OptimizePreview = _deps.Text.Message("settings.storage.optimizePreview.someWithSize", ("count", removed), ("size", _deps.Text.FileSize(bytes)));
+        }
     }
 
     // Takes a job change, on the UI thread. A snapshot that is not newer than the one held for the job is dropped.
@@ -384,14 +418,21 @@ public sealed partial class StorageSectionViewModel : ObservableObject
             return;
         }
 
-        if (preview.Value.RecentlyRemovedSnapshots is > 0 and var removed
-            && !await _deps.Dialogs.ConfirmAsync(new ConfirmRequest(
+        if (preview.Value.RecentlyRemovedSnapshots is > 0 and var removed)
+        {
+            // The size is in the question when it is ready, or comes within a moment; otherwise the question does not wait for it.
+            var size = await _size.WaitAsync(_size.Start(preview.Value.Token, _deps.Settings.EstimateFreeUpSpaceAsync));
+            var message = size is { } bytes
+                ? _deps.Text.Message("settings.storage.optimizeConfirm.messageWithSize", ("count", removed), ("size", _deps.Text.FileSize(bytes)))
+                : _deps.Text.Message("settings.storage.optimizeConfirm.message", ("count", removed));
+            if (!await _deps.Dialogs.ConfirmAsync(new ConfirmRequest(
                 _deps.Text.Message("settings.storage.optimizeConfirm.title"),
-                _deps.Text.Message("settings.storage.optimizeConfirm.message", ("count", removed)),
+                message,
                 _deps.Text.Message("settings.storage.optimizeConfirm.confirm", ("count", removed)),
                 Destructive: true)))
-        {
-            return;
+            {
+                return;
+            }
         }
 
         // The run deletes the records the player was told about and none written since.

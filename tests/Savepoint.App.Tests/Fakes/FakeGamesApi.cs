@@ -331,6 +331,30 @@ public sealed class FakeGamesApi : IGamesApi
             return OperationResult.Success(State.FreeUpPreview(gameId));
         });
 
+    // A test sets this to keep every estimate waiting until it completes it, as a big store would; a cancelled wait fails as cancelled.
+    public TaskCompletionSource? EstimateHold { get; set; }
+
+    public async Task<OperationResult<long>> EstimateFreeUpSpaceAsync(string gameId, FreeUpSpaceToken token, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (EstimateHold is { } hold)
+            {
+                await hold.Task.WaitAsync(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException cancelled)
+        {
+            return OperationResult.Failure<long>(cancelled);
+        }
+
+        return await _backend.Call(_api, nameof(EstimateFreeUpSpaceAsync), [gameId, token], () =>
+        {
+            State.Game(gameId);
+            return OperationResult.Success(State.FreeUpEstimate);
+        });
+    }
+
     public Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default) =>
         _backend.Call(_api, nameof(ResolvePathAsync), [rawPath], () => OperationResult.Success(State.Resolve(rawPath)));
 

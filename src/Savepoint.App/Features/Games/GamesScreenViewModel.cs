@@ -83,7 +83,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         _shell = shell;
         _deps = dependencies;
         LayoutToggle = shell.LayoutToggle;
-        FreeUp = new FreeUpSpaceViewModel(dependencies.Games, dependencies.Jobs, dependencies.Dialogs, dependencies.Text, dependencies.Dispatcher, ShowError, RefreshStorageUsageAsync);
+        FreeUp = new FreeUpSpaceViewModel(dependencies.Games, dependencies.Jobs, dependencies.Dialogs, dependencies.Text, dependencies.Dispatcher, ShowError, RefreshStorageUsageAsync, dependencies.Clock);
         InitializeProfileSearch();
 
         _shell.PropertyChanged += OnShellChanged;
