@@ -266,7 +266,7 @@ Folder work reports one `FolderOutcome(Role, Error?)` per folder it touched. All
 - a `FolderLaunchState` per folder (`Install`, `External`, and `Mods` when the game has one). It reports:
   - whether the folder matches the target, whether it is dirty, how many files, and `DirtyNewFileCount` (D31.4).
   - the owning profile, or null when nothing can claim the changes.
-  - a `SwitchSummary` of files, mod files, bytes written, bytes removed, and an estimated duration, sized from the stored snapshot.
+  - a `SwitchSummary` of files, mod files, bytes written, bytes removed, files removed (`FilesRemoved`), whether the switch leaves the folder empty (`LeavesFolderEmpty`, which the skip setting never skips, D65), and an estimated duration, sized from the stored snapshot.
   - `HeldBy`, the held file that stands in the way of a switch (D37.5).
   - `UnfinishedSwitch` and its `UnfinishedSwitchTarget`, a `LaunchTarget` that "Switch again" starts (D31.6). For a stopped switch to the same target, `GitEngine.ReviewStoppedSwitchAsync` fills `ChangesOutsideSwitchCount` (changes that hold the finish back and withhold the target), `ReplacedFileCount` and `ReplacedFileNames` (saves folder, up to 5), and `StoppedSwitchUnchecked` when the review failed. The preview hashes candidate files to count them. Start and `CheckSwitchAsync` run only the cheap scan.
 - the current and target `InstallState`: version and mod-file count, for "going from 1.6.1170 with no mods back to 1.6.640 with 189".
@@ -304,7 +304,7 @@ Folder work reports one `FolderOutcome(Role, Error?)` per folder it touched. All
 - `GameDefinition` has `IgnorePaths` (every folder) and `InstallIgnorePaths` (the game's own folder only). Code that needs one folder's rules calls `IgnorePathsFor(role)`.
 - `OrphanedHistory` names the old game id, the folders, and each old profile with a suggested name or null (the UI supplies fallback copy). `OrphanResolution` is `StartFresh` or `Reconnect(existingGameId, profiles)`, with the names the user will see.
 - `FolderStatus` gives each folder's stored and resolved path, whether it exists (the "moved or is gone" card), and its `ConsentStatus(Confirmed, ConfirmedAt)`.
-- `CapturePreview` lists each folder's path, file count, mod-file count, and bytes, plus the bytes a capture would add after reuse.
+- `CapturePreview` lists each folder's path, file count, mod-file count, and bytes, plus the bytes a capture would add after reuse. Each folder also says whether its files are safe in a snapshot (`HeldInSnapshot`) and, when not, why (`StartEmptyBlocked`), which the new profile wizard needs for its start-empty boxes (D65).
 
 ### History
 

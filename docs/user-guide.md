@@ -36,7 +36,7 @@ The first time you open SavePoint, it offers **Add your first game** or **Start 
    - **Knowing when you've stopped playing:** the name of the game's own process, for launchers that close themselves before the game opens. When a game starts through a link, a note under How to start the game suggests the program to use.
    - **Files to leave out:** SavePoint never copies or replaces a file that matches these rules. Those files never count as changes, and a switch leaves them alone. List only files that do not matter: a rule that matches your saves stops profiles from switching them. There are two lists:
      - **Files to leave out of the game's own folder.** A new game starts with `**/*.log`, `**/*.dmp` and `**/*.mdmp`, so the logs and crash reports a game writes as it runs are left out. These rules never touch your saves folder, and you can remove them like any rule.
-     - **Files to leave out of both folders** applies to your saves folder too.
+     - **Files to leave out of every folder** applies to your saves and mods folders too.
    - **Folders that hold mods:** these only change what History counts as a mod change.
    - **Steam app ID:** see Artwork below.
 7. **Save changes**. SavePoint names every folder it will look after and asks you to confirm each one, because it takes snapshots of everything in it and makes it match the profile when you switch. It adds a small file to each folder so it remembers you picked it. A game's folders can't be the same folder or inside one another.
@@ -188,7 +188,7 @@ Help, the snapshot folder, and Free up space are covered above. The other settin
   - layout: **Sidebar** keeps every game one click away, and **Library** puts the cover art up front. You can also switch layouts from the Games screen;
   - interface size: 100%, 125%, 150%, 175%, or 200%, which makes everything in SavePoint larger on top of your screen's own scaling. Sizes that do not fit on the current screen are switched off, with the reason. A size you picked on a big screen shows smaller on a screen that cannot fit it, and comes back on the big screen;
   - **Look up game artwork online**.
-- **Before you play:** **Skip the check before playing when only your saves change**.
+- **Before you play:** **Skip the check before playing when only your saves change**. A switch that would empty a folder always asks.
 - **When you finish playing:** **Ask whether to keep the session**.
 - **Apps menu (Linux AppImage only):** "Add SavePoint to your apps menu" puts SavePoint and its icon in your apps menu, so you can pin it to the dock. "Remove SavePoint from your apps menu" takes it away. If you move the AppImage, the entry says it is out of date, and **Update** points it at the new place.
 - **Remove all data:** deletes every snapshot (the mods folder's too), SavePoint's settings, game list, artwork, and logs (except today's open log file), and its small file in each game folder. You cannot go back to any earlier version, mods, or saves after that. Your game folders and everything in them stay as they are. You confirm by typing a word.
