@@ -1,42 +1,59 @@
 #Requires -Version 7
 <#
 .SYNOPSIS
-Builds the Linux (linux-x64) package from Windows under WSL, in the dedicated Linux-only worktree, .linux-gate.
+Builds the Linux (linux-x64) package on the Linux test VM over SSH and copies it back.
 
 .DESCRIPTION
-Creates <repo>/.linux-gate as a detached worktree when it is missing and checks the commit out in it (both are done here
-because Linux git cannot follow a worktree file that holds Windows paths). Windows git then says which commit that is and
-whether the worktree is clean, and build/package.sh runs inside WSL from that worktree with the answer passed in as
---revision, so the script never asks Linux git. The SDK and caches are the main checkout's .tools. The package lands in .linux-gate/artifacts/release/linux-x64.
+The VM is a real Ubuntu on ext4, which is also what builds the package in CI. The commit is exported with git archive, uploaded
+with build/package-linux.sh, and built by build/package.sh in a fixed folder on the VM (default ~/package), where bin, obj, the
+SDK and the NuGet caches survive between runs. That folder is never the gate's (~/gate), so a package run and a gate run never
+share a tree. Nothing is pushed to Forgejo, so a local branch can be packaged. Only committed files are packaged; uncommitted
+changes in this checkout are not sent, so the build is always tied to the commit it names.
 
-It takes the machine-wide gate lock first, so it never overlaps a Windows gate.
+The package (the AppImage and the files vpk writes beside it) lands in <repo>/artifacts/release/linux-x64, the listing of its
+contents in <repo>/artifacts/release/contents-linux-x64.txt, and with -Sources the source archives in
+<repo>/artifacts/release/source. The run's log is copied to .tools/package-linux-last.log (or -LogPath), also when it fails.
+
+One package run happens on the VM at a time. A second run is refused at once, with exit code 75, and changes nothing there.
+Key authentication only: BatchMode is on, so a missing key fails instead of asking for a password.
 
 .PARAMETER Commit
-What to package: a branch, tag or commit. Defaults to HEAD, this checkout's HEAD, like build/package.ps1, which packs the
-commit it is run on.
-
-.PARAMETER Distro
-The WSL distribution to run in.
+What to package: a branch, tag or commit, resolved in this checkout. Defaults to HEAD.
 
 .PARAMETER Sources
 Also downloads and checks the source archives, as build/package.sh --sources does.
 
-.PARAMETER AllowDirty
-Packs a worktree that is not clean anyway, for a trial package. The build is then marked "-dirty". Without it the run is
-refused, because a package from such a tree cannot be tied to a commit.
+.PARAMETER VmHost
+The VM's address. Environment variable SAVEPOINT_VM_HOST; default 192.168.233.131.
+
+.PARAMETER VmUser
+The VM account. Environment variable SAVEPOINT_VM_USER; default testbench.
+
+.PARAMETER VmKey
+The private key file. Environment variable SAVEPOINT_VM_KEY; default ~/.ssh/savepoint-vm_ed25519.
+
+.PARAMETER VmDir
+The package folder on the VM, relative to the account's home. Environment variable SAVEPOINT_VM_PACKAGE_DIR; default package.
+The gate's folder (SAVEPOINT_VM_DIR, default gate) is refused.
+
+.PARAMETER LogPath
+Where the log is copied to. Defaults to .tools/package-linux-last.log under this checkout.
 #>
 [CmdletBinding()]
 param(
     [string]$Commit = 'HEAD',
-    [string]$Distro = 'Ubuntu',
     [switch]$Sources,
-    [switch]$AllowDirty
+    [string]$VmHost = $(if ($env:SAVEPOINT_VM_HOST) { $env:SAVEPOINT_VM_HOST } else { '192.168.233.131' }),
+    [string]$VmUser = $(if ($env:SAVEPOINT_VM_USER) { $env:SAVEPOINT_VM_USER } else { 'testbench' }),
+    [string]$VmKey = $(if ($env:SAVEPOINT_VM_KEY) { $env:SAVEPOINT_VM_KEY } else { Join-Path $HOME '.ssh/savepoint-vm_ed25519' }),
+    [string]$VmDir = $(if ($env:SAVEPOINT_VM_PACKAGE_DIR) { $env:SAVEPOINT_VM_PACKAGE_DIR } else { 'package' }),
+    [string]$LogPath
 )
 
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$gateTree = Join-Path $repoRoot '.linux-gate'
+if (-not $LogPath) { $LogPath = Join-Path $repoRoot '.tools/package-linux-last.log' }
 
 function Invoke-Git {
     $output = & git -C $repoRoot @args
@@ -44,78 +61,115 @@ function Invoke-Git {
     return $output
 }
 
-function ConvertTo-WslPath([string]$Path) {
-    $full = [System.IO.Path]::GetFullPath($Path)
-    if ($full -notmatch '^([A-Za-z]):\\(.*)$') { throw "WSL can only be given a path on a drive letter: $full" }
-    return "/mnt/$($Matches[1].ToLowerInvariant())/$($Matches[2].Replace('\', '/'))"
+# Quotes a value for the shell file that run.env is, so no character in it means anything to the VM's shell.
+function ConvertTo-ShellWord([string]$Value) {
+    return "'" + $Value.Replace("'", "'\''") + "'"
 }
 
-# Shares the machine-wide gate lock with build/gate.ps1, so a package build never overlaps a gate.
-$commonGitDir = (Invoke-Git rev-parse --path-format=absolute --git-common-dir | Select-Object -First 1).Trim()
-$mainCheckout = Split-Path -Parent $commonGitDir
-$lockDir = Join-Path $mainCheckout '.tools/locks'
-New-Item -ItemType Directory -Force -Path $lockDir | Out-Null
-$lockPath = Join-Path $lockDir 'gate.lock'
-$lock = $null
-$waited = $false
-while ($null -eq $lock) {
-    try {
-        $lock = [System.IO.File]::Open($lockPath, 'OpenOrCreate', 'ReadWrite', 'None')
-    }
-    catch [System.IO.IOException] {
-        if (-not $waited) {
-            Write-Host "==> waiting for another gate or package to finish ($lockPath)"
-            $waited = $true
-        }
-        Start-Sleep -Seconds 5
-    }
+if (-not (Test-Path -LiteralPath $VmKey)) { throw "The SSH key $VmKey does not exist. Set SAVEPOINT_VM_KEY or pass -VmKey." }
+if ($VmDir -notmatch '^[A-Za-z0-9_./-]+$' -or $VmDir.Contains('..')) { throw "VmDir may hold only letters, digits and . _ / - : $VmDir" }
+$gateDir = if ($env:SAVEPOINT_VM_DIR) { $env:SAVEPOINT_VM_DIR } else { 'gate' }
+if ($VmDir.Trim('/') -eq $gateDir.Trim('/')) { throw "VmDir $VmDir is the gate's folder; a package run needs one of its own." }
+
+$sshOptions = @(
+    '-i', $VmKey,
+    '-o', 'BatchMode=yes',
+    '-o', 'IdentitiesOnly=yes',
+    '-o', 'StrictHostKeyChecking=accept-new',
+    '-o', 'ConnectTimeout=15',
+    '-o', 'ServerAliveInterval=30'
+)
+$target = "$VmUser@$VmHost"
+
+$sha = (Invoke-Git rev-parse --verify "$Commit^{commit}" | Select-Object -First 1).Trim()
+$id = "$($sha.Substring(0, 12))-$([DateTime]::UtcNow.ToString('yyyyMMddHHmmss'))"
+
+$dirty = @(Invoke-Git status --porcelain)
+if ($dirty.Count -gt 0) {
+    Write-Host "==> NOTE: this checkout has uncommitted changes. Only the committed $($sha.Substring(0, 12)) is packaged." -ForegroundColor Yellow
 }
 
+$work = Join-Path ([System.IO.Path]::GetTempPath()) "savepoint-package-$id"
+$upload = Join-Path $work $id
+$fetched = Join-Path $work 'fetched'
+New-Item -ItemType Directory -Force -Path $upload, $fetched | Out-Null
+$remoteUpload = "$VmDir/incoming/$id"
+$started = $false
+$code = 1
+$clock = [System.Diagnostics.Stopwatch]::StartNew()
 try {
-    $sha = (Invoke-Git rev-parse --verify "$Commit^{commit}" | Select-Object -First 1).Trim()
+    Write-Host "==> exporting $Commit ($($sha.Substring(0, 12)))"
+    Invoke-Git -c core.autocrlf=false archive --format=tar.gz -o (Join-Path $upload 'commit.tar.gz') $sha | Out-Null
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'package-linux.sh') -Destination (Join-Path $upload 'package-linux.sh')
 
-    if (-not (Test-Path -LiteralPath (Join-Path $gateTree '.git'))) {
-        if (Test-Path -LiteralPath $gateTree) {
-            throw "$gateTree exists but is not a worktree. Delete it and run this again."
-        }
-        Write-Host "==> creating the worktree $gateTree"
-        Invoke-Git worktree add --detach $gateTree $sha | Out-Host
+    $settings = [ordered]@{
+        PACKAGE_ID      = $id
+        PACKAGE_COMMIT  = $sha
+        PACKAGE_DIR     = $VmDir
+        PACKAGE_SOURCES = $(if ($Sources) { '1' } else { '0' })
     }
+    $lines = foreach ($key in $settings.Keys) { "$key=$(ConvertTo-ShellWord ([string]$settings[$key]))" }
+    # A file written here is run.env for the VM's shell: LF endings, no byte order mark.
+    [System.IO.File]::WriteAllText((Join-Path $upload 'run.env'), (($lines -join "`n") + "`n"), [System.Text.UTF8Encoding]::new($false))
 
-    Write-Host "==> checking out $Commit ($($sha.Substring(0, 12))) in $gateTree"
-    & git -C $gateTree checkout --detach --force $sha
-    if ($LASTEXITCODE -ne 0) { throw "checkout failed with exit code $LASTEXITCODE" }
+    Write-Host "==> uploading to $target`:$remoteUpload"
+    & ssh @sshOptions $target "mkdir -p $VmDir/incoming"
+    if ($LASTEXITCODE -ne 0) { throw "Cannot reach $target over SSH with key authentication (exit code $LASTEXITCODE)." }
+    & scp @sshOptions -q -r $upload "${target}:$VmDir/incoming/"
+    if ($LASTEXITCODE -ne 0) { throw "The upload failed (scp exit code $LASTEXITCODE)." }
 
-    # Windows git answers both questions, since Linux git cannot read this worktree. A failing git is not a clean tree.
-    $revision = (& git -C $gateTree rev-parse --short=12 HEAD | Select-Object -First 1)
-    if ($LASTEXITCODE -ne 0 -or -not $revision) { throw 'git could not say which commit the worktree is at.' }
-    $revision = $revision.Trim()
-    $changes = @(& git -C $gateTree status --porcelain)
-    if ($LASTEXITCODE -ne 0) { throw 'git could not say whether the worktree has changes.' }
-    if ($changes.Count -gt 0) {
-        if (-not $AllowDirty) {
-            throw "$gateTree has $($changes.Count) uncommitted change(s), so the package could not be tied to a commit. Remove them, or pass -AllowDirty for a trial package."
-        }
-        $revision = "$revision-dirty"
-    }
-
-    $script = "$(ConvertTo-WslPath $gateTree)/build/package.sh"
-    $packageArguments = @('--revision', $revision, '--tools-dir', "$(ConvertTo-WslPath $mainCheckout)/.tools")
-    if ($Sources) { $packageArguments += '--sources' }
-    Write-Host "==> wsl -d $Distro bash $script $($packageArguments -join ' ')"
-    & wsl.exe -d $Distro -- bash $script @packageArguments
+    Write-Host "==> package.sh on $target"
+    $started = $true
+    & ssh @sshOptions $target "bash $remoteUpload/package-linux.sh $remoteUpload"
     $code = $LASTEXITCODE
+
+    # ssh itself failing (255) or being killed means the connection ended, not the build; the run may still be going.
+    if ($code -eq 255 -or $code -lt 0) {
+        Write-Host '==> the connection ended before the package did: stopping the run on the VM' -ForegroundColor Yellow
+        & ssh @sshOptions $target "kill -TERM `$(cat $VmDir/run-$id.pid)" 2>$null
+    }
+
+    if ($code -eq 75) {
+        Write-Host 'linux package refused: another package run is on the VM.' -ForegroundColor Red
+    }
+    else {
+        $logDir = Split-Path -Parent $LogPath
+        if ($logDir) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
+        & scp @sshOptions -q "${target}:$VmDir/logs/$id.log" $LogPath
+        if ($LASTEXITCODE -eq 0) { Write-Host "==> log: $LogPath" } else { Write-Host "==> the log could not be copied back from $VmDir/logs/$id.log" -ForegroundColor Yellow }
+    }
+    $started = $false
+
+    if ($code -eq 0) {
+        Write-Host '==> copying the package back'
+        & scp @sshOptions -q -r "${target}:$VmDir/out/$id/release" $fetched
+        if ($LASTEXITCODE -ne 0) { throw "The package could not be copied back (scp exit code $LASTEXITCODE)." }
+        $release = Join-Path $repoRoot 'artifacts/release'
+        New-Item -ItemType Directory -Force -Path $release | Out-Null
+        # A package is repacked from scratch, so an older one never stays beside the new one.
+        Remove-Item -LiteralPath (Join-Path $release 'linux-x64') -Recurse -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path (Join-Path $fetched 'release/*') -Destination $release -Recurse -Force
+        $appImage = Join-Path $release 'linux-x64/SavePoint.AppImage'
+        if (-not (Test-Path -LiteralPath $appImage)) { throw "The VM's package holds no SavePoint.AppImage; expected $appImage." }
+    }
 }
 catch {
     Write-Host "linux package failed: $($_.Exception.Message)" -ForegroundColor Red
-    $lock.Dispose()
-    exit 1
+    $code = 1
 }
-$lock.Dispose()
+finally {
+    # An interrupted run would otherwise go on holding the VM: ask its script to stop the whole session.
+    if ($started) {
+        Write-Host '==> interrupted: stopping the package run on the VM' -ForegroundColor Yellow
+        & ssh @sshOptions $target "kill -TERM `$(cat $VmDir/run-$id.pid)" 2>$null
+    }
+    Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 if ($code -ne 0) {
     Write-Host "linux package failed with exit code $code" -ForegroundColor Red
     exit $code
 }
 
-Write-Host "linux package done: $(Join-Path $gateTree 'artifacts/release/linux-x64')" -ForegroundColor Green
+$seconds = [int]$clock.Elapsed.TotalSeconds
+Write-Host "linux package done in ${seconds}s: $(Join-Path $repoRoot 'artifacts/release/linux-x64')" -ForegroundColor Green

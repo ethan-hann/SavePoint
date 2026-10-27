@@ -18,16 +18,15 @@
 # --allow-dirty  packs a tree with uncommitted changes anyway, for a trial package, marked "-dirty". Without it the run is
 #                refused, because a package from such a tree cannot be tied to a commit.
 # --revision     the commit to put into the informational version, as 12 or more hex digits with "-dirty" after them when the
-#                tree has changes. Given, the script asks git nothing: a Windows-made worktree cannot be read by Linux git, so
-#                build/package-linux.ps1 asks Windows git and passes the answer in. Not combined with --allow-dirty, which is
-#                the answer for a script that asks git itself.
-# --tools-dir    where the .NET SDK and the NuGet caches live, <tree>/.tools when not given. build/package-linux.ps1 points it at
-#                the main checkout's .tools, which the Linux gate uses too, so one SDK serves both.
+#                tree has changes. Given, the script asks git nothing: the tree build/package-linux.sh builds from is a git archive
+#                with no history, so build/package-linux.ps1 asks git on Windows and passes the answer in. Not combined with
+#                --allow-dirty, which is the answer for a script that asks git itself.
+# --tools-dir    where the .NET SDK and the NuGet caches live, <tree>/.tools when not given. build/package-linux.sh points it at a
+#                folder of its own on the Linux VM, so the caches survive between runs.
 #
 # Run it from a checkout that only Linux builds: Windows and Linux builds of one tree share obj/, and each restore
-# overwrites the other's. Under WSL, keep the tree on the Linux file system (not /mnt/c) for speed. Without a .NET SDK on the
-# PATH it installs one into <tools-dir>/dotnet-linux. From Windows, build/package-linux.ps1 does
-# all of this in the Linux-only worktree, .linux-gate.
+# overwrites the other's. Without a .NET SDK on the PATH it installs one into <tools-dir>/dotnet-linux. From Windows,
+# build/package-linux.ps1 does all of this on the Linux VM and copies the package back.
 #
 # Windows has its own script, build/package.ps1. macOS is not produced here: vpk has to run on a Mac, and the result has to
 # be signed and notarized before anyone else can open it.
