@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Editor;
 
@@ -31,6 +32,31 @@ public class ChipListEditViewTests
     private static ChipEntryBox OpenField(EditorViewHarness harness) =>
         harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<ChipEntryBox>()
             .Single(box => box.Name == "ChipEdit" && box.IsEffectivelyVisible);
+
+    private static ChipEntryBox? OpenFieldOrNull(EditorViewHarness harness) =>
+        harness.Find<ContentControl>("IgnoreRulesHost").GetVisualDescendants().OfType<ChipEntryBox>()
+            .SingleOrDefault(box => box.Name == "ChipEdit" && box.IsEffectivelyVisible);
+
+    // Whether two mouse clicks count as a double-click depends on the wall-clock time between them, which a loaded machine
+    // stretches, so the test raises the gesture the clicks would produce.
+    private static void DoubleTap(EditorViewHarness harness, Control target, Point point)
+    {
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+        var properties = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased);
+        var released = new PointerReleasedEventArgs(target, pointer, harness.Window, point, 0, properties, KeyModifiers.None, MouseButton.Left);
+        target.RaiseEvent(new TappedEventArgs(InputElement.DoubleTappedEvent, released) { Source = target });
+    }
+
+    // The field takes focus from work posted to the dispatcher, so the test lets the dispatcher run until that has happened.
+    private static void PumpUntil(Func<bool> done)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (!done() && DateTime.UtcNow < deadline)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(5);
+        }
+    }
 
     private static string? FocusedName(EditorViewHarness harness) =>
         harness.Window.FocusManager!.GetFocusedElement() is Control focused ? AutomationProperties.GetName(focused) : null;
@@ -157,14 +183,9 @@ public class ChipListEditViewTests
         var chip = Chips(harness)[0];
         var point = chip.TranslatePoint(new Point(chip.Bounds.Width / 2, chip.Bounds.Height / 2), harness.Window)!.Value;
 
-        for (var click = 0; click < 2; click++)
-        {
-            harness.Window.MouseDown(point, MouseButton.Left);
-            harness.Window.MouseUp(point, MouseButton.Left);
-        }
+        DoubleTap(harness, chip, point);
 
-        harness.Settle();
-
+        PumpUntil(() => OpenFieldOrNull(harness)?.IsFocused == true);
         Assert.True(OpenField(harness).IsFocused);
         Assert.Equal("**/*.log", OpenField(harness).Text);
     }
