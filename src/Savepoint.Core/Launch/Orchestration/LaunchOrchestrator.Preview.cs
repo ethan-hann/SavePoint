@@ -62,6 +62,7 @@ public sealed partial class LaunchOrchestrator
         var readings = await Task.WhenAll(resolved.Folders.Select(folder => FolderReading.ReadAsync(storage.Engine, folder, profiles, countReplaced: true, cancellationToken))).ConfigureAwait(false);
         var install = readings.Single(reading => reading.Target.Role == RepoRole.Install);
         var external = readings.FirstOrDefault(reading => reading.Target.Role == RepoRole.External);
+        var mods = readings.FirstOrDefault(reading => reading.Target.Role == RepoRole.Mods);
 
         foreach (var reading in readings.Where(reading => reading.Pending && reading.ReviewFailure is not null))
         {
@@ -72,10 +73,20 @@ public sealed partial class LaunchOrchestrator
 
         var states = await Task.WhenAll(readings.Select(reading => FolderStateAsync(storage, game, profiles, target, reading, cancellationToken))).ConfigureAwait(false);
         var currentOverride = install.Status.IsDetached ? null : profiles.FirstOrDefault(profile => profile.BranchName == install.Status.Branch)?.VersionOverride;
-        var current = await InstallStateAsync(storage, game, install.Target.Repo, install.Status.HeadCommit, currentOverride, cancellationToken).ConfigureAwait(false);
-        var after = install.Target.Leave
+        var current = await InstallStateAsync(storage, game, install.Target.Repo, install.Status.HeadCommit, currentOverride, mods?.Target.Repo, mods?.Status.HeadCommit, cancellationToken).ConfigureAwait(false);
+
+        // A folder the launch leaves alone keeps what it holds now.
+        var after = install.Target.Leave && (mods is null || mods.Target.Leave)
             ? current
-            : await InstallStateAsync(storage, game, install.Target.Repo, install.Target.Commit, resolved.Profile.VersionOverride, cancellationToken).ConfigureAwait(false);
+            : await InstallStateAsync(
+                storage,
+                game,
+                install.Target.Repo,
+                install.Target.Leave ? install.Status.HeadCommit : install.Target.Commit,
+                install.Target.Leave ? currentOverride : resolved.Profile.VersionOverride,
+                mods?.Target.Repo,
+                mods is null || mods.Target.Leave ? mods?.Status.HeadCommit : mods.Target.Commit,
+                cancellationToken).ConfigureAwait(false);
 
         return new LaunchPreview(
             game.Id,
@@ -88,8 +99,9 @@ public sealed partial class LaunchOrchestrator
             resolved.Saves,
             resolved.SelectedSave,
             ShowBanner: readings.All(reading => reading.Matches),
-            OnlySaveDiffers: install.Matches && external is { Matches: false, Dirty: false },
-            TargetIsOlderPoint: resolved.IsOlderPoint);
+            OnlySaveDiffers: install.Matches && (mods?.Matches ?? true) && external is { Matches: false, Dirty: false },
+            TargetIsOlderPoint: resolved.IsOlderPoint,
+            Mods: states.FirstOrDefault(state => state.Role == RepoRole.Mods));
     }
 
     private async Task<FolderLaunchState> FolderStateAsync(
@@ -148,17 +160,25 @@ public sealed partial class LaunchOrchestrator
         var from = SwitchOrigin(reading);
         // The files the ignore list names are left alone by the switch, so they are neither counted nor sized.
         var diff = await storage.Engine.SwitchStatAsync(repo, from, target, cancellationToken).ConfigureAwait(false);
-        var mods = repo.Role == RepoRole.Install ? diff.ChangedPaths.Count(path => GameInsights.MatchesHint(path, game.ModPathHints)) : 0;
+        var mods = repo.Role switch
+        {
+            RepoRole.Install => diff.ChangedPaths.Count(path => GameInsights.MatchesHint(path, game.ModPathHints)),
+            RepoRole.Mods => diff.ChangedPaths.Count,
+            _ => 0,
+        };
         return new SwitchSummary(diff.FilesChanged, mods, diff.BytesAtTarget, null, diff.BytesRemoved);
     }
 
-    // The version and mod-file count a commit of the install folder holds; what cannot be read is left unsaid.
+    // The version a commit of the install folder holds, and the mod-file count of that commit with the mods folder's commit beside it;
+    // what cannot be read is left unsaid.
     private async Task<InstallState> InstallStateAsync(
         StorageSnapshot storage,
         GameDefinition game,
         RepoRef install,
         string? commit,
         string? versionOverride,
+        RepoRef? modsRepo,
+        string? modsCommit,
         CancellationToken cancellationToken)
     {
         if (commit is null)
@@ -168,7 +188,7 @@ public sealed partial class LaunchOrchestrator
 
         try
         {
-            var mods = await _services.Insights.ModFileCountAsync(install, commit, game.ModPathHints, cancellationToken).ConfigureAwait(false);
+            var mods = await _services.Insights.ModFileCountAsync(install, commit, game.ModPathHints, modsRepo, modsCommit, cancellationToken).ConfigureAwait(false);
             var version = versionOverride ?? await _services.Insights.DetectedVersionAsync(install, commit, game.Launch, cancellationToken).ConfigureAwait(false);
             return new InstallState(version, mods);
         }

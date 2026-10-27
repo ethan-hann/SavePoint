@@ -29,7 +29,7 @@ public interface ILaunchApi
     IReadOnlyList<LaunchSessionInfo> ListSessions();
 
     /// <summary>
-    /// Works out what starting the game for a target would do, without changing anything: both folders are checked for unsaved
+    /// Works out what starting the game for a target would do, without changing anything: every folder is checked for unsaved
     /// changes first (D13.8) and the switch is sized. Fails, for example, with <c>error.path.missing</c> when a folder has moved.
     /// </summary>
     /// <param name="gameId">The game.</param>

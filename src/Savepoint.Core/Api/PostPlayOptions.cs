@@ -10,7 +10,7 @@ namespace Savepoint.Core.Api;
 /// </param>
 /// <param name="Default">
 /// The choice to preselect; always one of <paramref name="Choices"/>. It is <see cref="CompletionChoice.Skip"/> when the session
-/// changed nothing in either folder, since there is nothing new to keep.
+/// changed nothing in any folder, since there is nothing new to keep.
 /// </param>
 /// <param name="UpdateTarget">
 /// The save point <see cref="CompletionChoice.UpdateExisting"/> would replace; null when that choice is not offered.

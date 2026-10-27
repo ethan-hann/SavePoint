@@ -35,6 +35,10 @@ public enum LibraryAddStatus
 /// For an added game: the leave-out rules that now apply to the game's own folder only because they could hide files in its saves
 /// folder (or because that folder could not be checked); null when every rule was kept as asked.
 /// </param>
+/// <param name="ModsFolderLeftOut">
+/// For an added game: the mods folder its template names, when it was left out because that folder does not exist yet (nothing has made
+/// it), so the game was added without one. SavePoint never makes a folder in the game's places. Null otherwise.
+/// </param>
 public sealed record LibraryAddResult(
     string Key,
     string Name,
@@ -42,4 +46,5 @@ public sealed record LibraryAddResult(
     string? GameId = null,
     ErrorInfo? Error = null,
     string? SavesFolderLeftOut = null,
-    RulesLeftOff? RulesLeftOff = null);
+    RulesLeftOff? RulesLeftOff = null,
+    string? ModsFolderLeftOut = null);

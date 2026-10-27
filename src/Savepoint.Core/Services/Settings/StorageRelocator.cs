@@ -253,7 +253,7 @@ internal sealed class StorageRelocator
         {
             // Built from the folder as listed, since a folder in the storage need not be named like a game (a copy made in Explorer);
             // GitDirRemoval still refuses whatever is not a git directory SavePoint made.
-            foreach (var gitDir in new[] { Path.Combine(folder, "install.git"), Path.Combine(folder, "external.git") })
+            foreach (var gitDir in StorageSnapshot.GitDirectoryNames.Select(name => Path.Combine(folder, name)))
             {
                 try
                 {

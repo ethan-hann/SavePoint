@@ -140,6 +140,7 @@ internal static class LibraryScanner
     {
         var draft = template is null ? Plain(game) : FromTemplate(template, game, platform);
         var saves = draft.External is { } external && template is not null ? TryResolve(tokens, external.Path) : null;
+        var mods = draft.Mods is { } modsFolder && template is not null ? TryResolve(tokens, modsFolder.Path) : null;
         return new LibraryGame(
             Key: KeyOf(game),
             game.Source,
@@ -150,7 +151,9 @@ internal static class LibraryScanner
             saves,
             saves is not null && Directory.Exists(saves),
             draft,
-            addedGameId);
+            addedGameId,
+            mods,
+            mods is not null && Directory.Exists(mods));
     }
 
     private static string KeyOf(InstalledGame game) => $"{(game.Source == LibrarySource.Steam ? "steam" : "gog")}:{game.StoreId}";

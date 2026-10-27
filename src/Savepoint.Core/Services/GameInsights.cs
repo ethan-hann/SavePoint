@@ -45,6 +45,35 @@ internal sealed class GameInsights
         return false;
     }
 
+    /// <summary>
+    /// The number of mod files a profile holds: the install files at a commit that the game's hints name, plus every file of the mods
+    /// folder at its commit. Null when neither is known: the game names no mod folders and the profile has no mods commit.
+    /// </summary>
+    /// <param name="repo">The install folder's repository.</param>
+    /// <param name="commit">The install commit.</param>
+    /// <param name="hints">The game's mod path hints, relative to the install folder.</param>
+    /// <param name="mods">The mods folder's repository, or null when the game has none.</param>
+    /// <param name="modsCommit">The mods commit, or null when the profile has none in the mods folder.</param>
+    /// <param name="cancellationToken">Cancels the reads.</param>
+    public async Task<int?> ModFileCountAsync(RepoRef repo, string commit, IReadOnlyList<string> hints, RepoRef? mods, string? modsCommit, CancellationToken cancellationToken)
+    {
+        var installCount = await ModFileCountAsync(repo, commit, hints, cancellationToken).ConfigureAwait(false);
+        if (mods is null || modsCommit is null)
+        {
+            return installCount;
+        }
+
+        var key = $"{mods.GitDir}|{modsCommit}|*";
+        if (!_modCounts.TryGetValue(key, out var modsCount))
+        {
+            var listing = await RepoGit.RunAsync(_services.Runner, mods.GitDir, true, cancellationToken, null, false, ["ls-tree", "-r", "-z", "--name-only", modsCommit]).ConfigureAwait(false);
+            modsCount = listing.SplitStandardOutputOnNul().Count();
+            _modCounts[key] = modsCount;
+        }
+
+        return (installCount ?? 0) + modsCount;
+    }
+
     /// <summary>The number of mod files in the install at a commit; null when the game names no mod folders.</summary>
     public async Task<int?> ModFileCountAsync(RepoRef repo, string commit, IReadOnlyList<string> hints, CancellationToken cancellationToken)
     {

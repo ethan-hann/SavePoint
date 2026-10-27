@@ -27,7 +27,13 @@ public static class ValidationMessageIds
     /// <summary>Reported at <c>external.role</c>: the role is not a defined <see cref="ExternalRole"/>.</summary>
     public const string GameExternalRoleInvalid = "validation.game.externalRoleInvalid";
 
-    /// <summary>Reported at <c>external.path</c>: the external folder is the install folder, is inside it, or contains it.</summary>
+    /// <summary>Reported at <c>mods.path</c>: a mods folder is present but its path is empty after trimming.</summary>
+    public const string GameModsPathRequired = "validation.game.modsPathRequired";
+
+    /// <summary>
+    /// Reported at <c>external.path</c> when the saves folder is the install folder, is inside it, or contains it, and at <c>mods.path</c>
+    /// when the mods folder is the same as, inside, or around the install folder or the saves folder.
+    /// </summary>
     public const string GamePathsNested = "validation.game.pathsNested";
 
     /// <summary>Reported at <c>steamAppId</c>: the Steam app id is zero or negative.</summary>

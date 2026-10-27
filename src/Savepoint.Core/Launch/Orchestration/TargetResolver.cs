@@ -49,7 +49,7 @@ internal static class TargetResolver
     }
 
     // The target that puts a folder on this commit: a profile's tip, one of its saves (saves folder) or the point the commit belongs
-    // to (install folder). The branch the switch was heading for, when it is known, names the profile; without it the commit must be
+    // to (install and mods folders). The branch the switch was heading for, when it is known, names the profile; without it the commit must be
     // held by exactly one profile, since profiles can share points and starting the wrong one would switch the folder somewhere else.
     // Null when no profile can be named.
     public static async Task<LaunchTarget?> TargetOfCommitAsync(
@@ -110,11 +110,11 @@ internal static class TargetResolver
         {
             var lineage = await storage.Engine.ListCommitsAsync(repo, profile.BranchName, null, cancellationToken).ConfigureAwait(false);
 
-            // A saves folder the profile never saved (one added after the profile was made) is left as it is, but it is read like every
-            // other folder: another profile's unsaved changes there still block the launch. The next save starts its history (D31, D37).
+            // A saves or mods folder the profile never saved (one added after the profile was made) is left as it is, but it is read like
+            // every other folder: another profile's unsaved changes there still block the launch. The next save starts its history (D31, D37).
             if (lineage.Count == 0)
             {
-                if (repo.Role == RepoRole.External)
+                if (repo.Role != RepoRole.Install)
                 {
                     folders.Add(FolderTarget.Left(repo));
                     continue;
@@ -190,9 +190,11 @@ internal static class TargetResolver
             return null;
         }
 
-        var installHolder = Holder(RepoRole.Install);
-        var externalHolder = repos.Any(repo => repo.Role == RepoRole.External) ? Holder(RepoRole.External) : null;
-        var first = installHolder ?? externalHolder ?? throw new PointNotFoundException(pointId.Value);
+        // The install folder's commit names the point where it has one, then the mods folder's, then the saves folder's.
+        var holders = repos.ToDictionary(repo => repo.Role, repo => Holder(repo.Role));
+        var first = new[] { RepoRole.Install, RepoRole.Mods, RepoRole.External }
+            .Select(role => holders.GetValueOrDefault(role))
+            .FirstOrDefault(holder => holder is not null) ?? throw new PointNotFoundException(pointId.Value);
         var owner = first.Profile;
         var happenedAt = first.Commit.PointTime;
 
@@ -201,7 +203,7 @@ internal static class TargetResolver
         foreach (var repo in repos)
         {
             var lineage = lineages[(repo.Role, owner.Id)];
-            var held = repo.Role == RepoRole.Install ? installHolder : externalHolder;
+            var held = holders[repo.Role];
 
             // The same choice History makes for the point; a folder with no commit at or before it is left as it is (D31).
             var commit = PointCommits.For(lineage, pointId.Value, happenedAt) ?? held?.Commit;

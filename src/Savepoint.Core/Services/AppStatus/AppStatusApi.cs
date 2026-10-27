@@ -117,7 +117,7 @@ internal sealed class AppStatusApi : IAppStatusApi
                 }
 
                 // A folder someone else prepared can carry a config or a hook that names a program; nothing reads it before this.
-                foreach (var gitDir in StorageContent.Folders(root).SelectMany(folder => new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name))).Where(Directory.Exists))
+                foreach (var gitDir in StorageContent.Folders(root).SelectMany(folder => StorageSnapshot.GitDirectoryNames.Select(name => Path.Combine(folder, name))).Where(Directory.Exists))
                 {
                     AdoptedGitDirectory.MakeSafe(gitDir);
                 }
@@ -468,7 +468,7 @@ internal sealed class AppStatusApi : IAppStatusApi
                 }
 
                 var gitDirs = StorageContent.Folders(storage.Root)
-                    .SelectMany(folder => new[] { "install.git", "external.git" }.Select(name => Path.Combine(folder, name)))
+                    .SelectMany(folder => StorageSnapshot.GitDirectoryNames.Select(name => Path.Combine(folder, name)))
                     .Where(Directory.Exists)
                     .ToList();
                 foreach (var gitDir in gitDirs)

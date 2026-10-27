@@ -57,9 +57,19 @@ internal sealed partial class GamesApi
             }
         }
 
-        if (folders.Count == 2 && storage.PathSafety.PathsOverlap(folders[0].Path!, folders[1].Path!))
+        // Every pair of a game's own folders must be apart, by name and by identity; the issue goes on the folder added later.
+        for (var i = 0; i < folders.Count; i++)
         {
-            throw new ValidationException([new ValidationIssue("external.path", ValidationMessageIds.GamePathsNested)]);
+            for (var j = i + 1; j < folders.Count; j++)
+            {
+                if (storage.PathSafety.PathsOverlap(folders[i].Path!, folders[j].Path!))
+                {
+                    var later = folders[i].Role == RepoRole.Mods || folders[j].Role == RepoRole.Mods
+                        ? folders.First(folder => folder.Role == RepoRole.Mods)
+                        : folders.First(folder => folder.Role == RepoRole.External);
+                    throw new ValidationException([new ValidationIssue(later.Field, ValidationMessageIds.GamePathsNested)]);
+                }
+            }
         }
 
         foreach (var other in others.Where(existing => existing.Id != game.Id))

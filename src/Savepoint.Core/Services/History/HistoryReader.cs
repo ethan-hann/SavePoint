@@ -33,13 +33,18 @@ internal sealed class HistoryReader
 
         public Entry? Install { get; set; }
 
+        public Entry? Mods { get; set; }
+
         public Entry? External { get; set; }
 
-        public Profile Owner => (Install ?? External)!.Profile;
+        // The point is described by the install folder's commit, then the mods folder's, then the saves folder's.
+        private Entry Lead => (Install ?? Mods ?? External)!;
 
-        public DateTimeOffset At => (Install ?? External)!.Commit.PointTime;
+        public Profile Owner => Lead.Profile;
 
-        public string Name => (Install ?? External)!.Commit.Subject;
+        public DateTimeOffset At => Lead.Commit.PointTime;
+
+        public string Name => Lead.Commit.Subject;
     }
 
     public async Task<GameHistory> ReadAsync(
@@ -51,13 +56,15 @@ internal sealed class HistoryReader
     {
         var repos = GameFolders.ReposForGitDirOnly(_services, storage, game);
         var install = repos.Single(repo => repo.Role == RepoRole.Install);
+        var mods = repos.FirstOrDefault(repo => repo.Role == RepoRole.Mods);
 
         var lineages = await ReadLineagesAsync(storage, repos, profiles, cancellationToken).ConfigureAwait(false);
         var raw = Group(repos, profiles, lineages);
         var heads = await ReadHeadsAsync(storage, repos, cancellationToken).ConfigureAwait(false);
 
         var wanted = raw.Where(point => profileId is null || point.Owner.Id == profileId).ToList();
-        var installAt = wanted.ToDictionary(point => point.CaptureId, point => InstallCommitFor(point, lineages, install));
+        var installAt = wanted.ToDictionary(point => point.CaptureId, point => CommitFor(point, point.Install, lineages, install));
+        var modsAt = wanted.ToDictionary(point => point.CaptureId, point => mods is null ? null : CommitFor(point, point.Mods, lineages, mods));
         var points = new HistoryPoint[wanted.Count];
         using var slots = new SemaphoreSlim(_parallelism);
         await Task.WhenAll(wanted.Select(async (point, index) =>
@@ -65,7 +72,7 @@ internal sealed class HistoryReader
             await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                points[index] = await DescribeAsync(storage, game, install, point, installAt[point.CaptureId], heads, cancellationToken).ConfigureAwait(false);
+                points[index] = await DescribeAsync(storage, game, install, mods, point, installAt[point.CaptureId], modsAt[point.CaptureId], heads, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -157,13 +164,17 @@ internal sealed class HistoryReader
                     }
 
                     var entry = new Entry(repo.Role, profile, commit, i + 1 < points.Count ? points[i + 1].Id : null);
-                    if (repo.Role == RepoRole.Install)
+                    switch (repo.Role)
                     {
-                        point.Install ??= entry;
-                    }
-                    else
-                    {
-                        point.External ??= entry;
+                        case RepoRole.Install:
+                            point.Install ??= entry;
+                            break;
+                        case RepoRole.Mods:
+                            point.Mods ??= entry;
+                            break;
+                        default:
+                            point.External ??= entry;
+                            break;
                     }
                 }
             }
@@ -197,46 +208,57 @@ internal sealed class HistoryReader
         }
     }
 
-    // The install commit that describes the point: its own, or for a save-only point the profile's install point current when it was made.
-    private static string? InstallCommitFor(
+    // The commit of one folder that describes the point: its own, or for a point that folder did not record the profile's point in that
+    // folder current when it was made.
+    private static string? CommitFor(
         RawPoint point,
+        Entry? own,
         Dictionary<(RepoRole, string), IReadOnlyList<CommitInfo>> lineages,
-        RepoRef install)
+        RepoRef repo)
     {
-        if (point.Install is { } own)
+        if (own is not null)
         {
             return own.Commit.Id;
         }
 
-        return PointCommits.For(lineages[(install.Role, point.Owner.Id)], point.CaptureId, point.At)?.Id;
+        return PointCommits.For(lineages[(repo.Role, point.Owner.Id)], point.CaptureId, point.At)?.Id;
     }
 
     private async Task<HistoryPoint> DescribeAsync(
         StorageSnapshot storage,
         GameDefinition game,
         RepoRef install,
+        RepoRef? mods,
         RawPoint point,
         string? installCommit,
+        string? modsCommit,
         Dictionary<RepoRole, string?> heads,
         CancellationToken cancellationToken)
     {
-        var kind = (point.Install, point.External) switch
+        // A change only the mods folder recorded is still "mods changed" to the player, so it is not a kind of its own.
+        var kind = (point.Install ?? point.Mods, point.External) switch
         {
             (not null, not null) => HistoryPointKind.VersionModsAndSave,
             (not null, null) => HistoryPointKind.VersionAndMods,
             _ => HistoryPointKind.SaveOnly,
         };
 
-        var state = await InstallStateAsync(game, install, point.Owner.VersionOverride, installCommit, cancellationToken).ConfigureAwait(false);
+        var state = await InstallStateAsync(game, install, point.Owner.VersionOverride, installCommit, mods, modsCommit, cancellationToken).ConfigureAwait(false);
 
-        // The mod-file count is only meaningful where the game names mod folders; a first point has nothing to compare with.
-        int? modsChanged = point.Install is { Previous: { } before } own && game.ModPathHints.Count > 0
+        // The mod-file count is only meaningful where the game names mod folders or has a mods folder; a first point has nothing to compare with.
+        int? installChanged = point.Install is { Previous: { } before } own && game.ModPathHints.Count > 0
             ? await ModFilesChangedAsync(storage, install, before, own.Commit.Id, game.ModPathHints, cancellationToken).ConfigureAwait(false)
             : null;
+        int? modsChangedInFolder = mods is not null && point.Mods is { Previous: { } modsBefore } modsOwn
+            ? await FilesChangedInModsAsync(storage, mods, modsBefore, modsOwn.Commit.Id, cancellationToken).ConfigureAwait(false)
+            : null;
+        int? modsChanged = installChanged is null && modsChangedInFolder is null ? null : (installChanged ?? 0) + (modsChangedInFolder ?? 0);
 
         // A save-only point recorded no install of its own, so it has no size to show beside a version.
         var bytes = point.Install is { } recorded ? await InstallBytesAsync(install, recorded.Commit.Id, cancellationToken).ConfigureAwait(false) : null;
 
+        // A folder the point did not record does not decide whether it is in use, but a point of the game's own folders needs one that did.
+        var recordsGame = point.Install is not null || point.Mods is not null;
         return new HistoryPoint(
             new HistoryPointId(point.CaptureId),
             kind,
@@ -247,16 +269,21 @@ internal sealed class HistoryReader
             state,
             modsChanged,
             bytes,
-            InUse: point.Install is { } held && heads.GetValueOrDefault(RepoRole.Install) == held.Commit.Id,
+            InUse: recordsGame
+                && (point.Install is not { } heldInstall || heads.GetValueOrDefault(RepoRole.Install) == heldInstall.Commit.Id)
+                && (point.Mods is not { } heldMods || heads.GetValueOrDefault(RepoRole.Mods) == heldMods.Commit.Id),
             LoadedNow: point.External is { } loaded && heads.GetValueOrDefault(RepoRole.External) == loaded.Commit.Id);
     }
 
-    // What the install folder held at a commit: the owner's version override, else the version read from the game's program, and the mod-file count.
+    // What the game's own folders held at a commit: the owner's version override, else the version read from the game's program, and the
+    // mod-file count of the install commit with the mods folder's commit beside it.
     internal async Task<InstallState> InstallStateAsync(
         GameDefinition game,
         RepoRef install,
         string? versionOverride,
         string? commit,
+        RepoRef? modsRepo,
+        string? modsCommit,
         CancellationToken cancellationToken)
     {
         if (commit is null)
@@ -266,7 +293,7 @@ internal sealed class HistoryReader
 
         try
         {
-            var mods = await _services.Insights.ModFileCountAsync(install, commit, game.ModPathHints, cancellationToken).ConfigureAwait(false);
+            var mods = await _services.Insights.ModFileCountAsync(install, commit, game.ModPathHints, modsRepo, modsCommit, cancellationToken).ConfigureAwait(false);
             var version = versionOverride ?? await _services.Insights.DetectedVersionAsync(install, commit, game.Launch, cancellationToken).ConfigureAwait(false);
             return new InstallState(version, mods);
         }
@@ -296,6 +323,27 @@ internal sealed class HistoryReader
         {
             var diff = await storage.Engine.DiffStatAsync(repo, from, to, cancellationToken).ConfigureAwait(false);
             var count = diff.ChangedPaths.Count(path => GameInsights.MatchesHint(path, hints));
+            _modsChanged[key] = count;
+            return count;
+        }
+        catch (GitOperationException)
+        {
+            return null;
+        }
+    }
+
+    // Every file that changed between two points of the mods folder is a mod file; null when the comparison cannot be made.
+    private async Task<int?> FilesChangedInModsAsync(StorageSnapshot storage, RepoRef repo, string from, string to, CancellationToken cancellationToken)
+    {
+        var key = $"{repo.GitDir}|{from}|{to}|all";
+        if (_modsChanged.TryGetValue(key, out var known))
+        {
+            return known;
+        }
+
+        try
+        {
+            var count = (await storage.Engine.DiffStatAsync(repo, from, to, cancellationToken).ConfigureAwait(false)).ChangedPaths.Count();
             _modsChanged[key] = count;
             return count;
         }

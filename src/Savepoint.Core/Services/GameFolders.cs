@@ -16,18 +16,36 @@ internal sealed record GameFolder(RepoRole Role, string Raw, string? Path, strin
 /// <summary>Turns a game's definition into folders and repository references; the one place the storage layout is applied.</summary>
 internal static class GameFolders
 {
-    /// <summary>The folders a definition names, install first.</summary>
-    public static IReadOnlyList<(RepoRole Role, string Raw, string Field)> Named(GameDefinition game) =>
-        game.External is { } external
-            ? [(RepoRole.Install, game.Install.Path, "install.path"), (RepoRole.External, external.Path, "external.path")]
-            : [(RepoRole.Install, game.Install.Path, "install.path")];
+    /// <summary>
+    /// The folders a definition names, in the order a switch writes them: the install first, because the game's program has to be in
+    /// place before the folders it reads, then the mods folder, then the saves.
+    /// </summary>
+    public static IReadOnlyList<(RepoRole Role, string Raw, string Field)> Named(GameDefinition game)
+    {
+        var named = new List<(RepoRole, string, string)> { (RepoRole.Install, game.Install.Path, "install.path") };
+        if (game.Mods is { } mods)
+        {
+            named.Add((RepoRole.Mods, mods.Path, "mods.path"));
+        }
 
-    /// <summary>How the log names a folder: "install" or "saves".</summary>
-    public static string LogName(RepoRole role) => role == RepoRole.Install ? "install" : "saves";
+        if (game.External is { } external)
+        {
+            named.Add((RepoRole.External, external.Path, "external.path"));
+        }
 
-    /// <summary>The roles a definition has folders for.</summary>
-    public static IReadOnlyList<RepoRole> RolesOf(GameDefinition game) =>
-        game.External is null ? [RepoRole.Install] : [RepoRole.Install, RepoRole.External];
+        return named;
+    }
+
+    /// <summary>How the log names a folder: "install", "mods" or "saves".</summary>
+    public static string LogName(RepoRole role) => role switch
+    {
+        RepoRole.Install => "install",
+        RepoRole.Mods => "mods",
+        _ => "saves",
+    };
+
+    /// <summary>The roles a definition has folders for, in the order of <see cref="Named"/>.</summary>
+    public static IReadOnlyList<RepoRole> RolesOf(GameDefinition game) => [.. Named(game).Select(folder => folder.Role)];
 
     /// <summary>Resolves every folder, leaving a folder whose token this OS lacks with a null path.</summary>
     public static IReadOnlyList<GameFolder> ResolveLoosely(PathTokenResolver resolver, GameDefinition game) =>
@@ -64,12 +82,12 @@ internal static class GameFolders
     public static IReadOnlyList<RepoRef> ReposForGitDirOnly(BackendServices services, StorageSnapshot storage, GameDefinition game) =>
         [.. ResolveLoosely(services.PathTokens, game).Select(folder => Repo(storage, game.Id, folder) with { IgnorePatterns = game.IgnorePathsFor(folder.Role) })];
 
-    /// <summary>The repository references of a game whose folders must all resolve, install first. Each carries the ignore patterns its own folder leaves out now.</summary>
+    /// <summary>The repository references of a game whose folders must all resolve, in the order of <see cref="Named"/>. Each carries the ignore patterns its own folder leaves out now.</summary>
     public static IReadOnlyList<RepoRef> Repos(BackendServices services, StorageSnapshot storage, GameDefinition game) =>
         [.. ResolveStrictly(services.PathTokens, game).Select(folder => Repo(storage, game.Id, folder) with { IgnorePatterns = game.IgnorePathsFor(folder.Role) })];
 
     private static string Unresolved(StorageSnapshot storage, string gameId, RepoRole role) =>
-        Path.Combine(storage.GameDirectory(gameId), role == RepoRole.Install ? "unresolved-install" : "unresolved-external");
+        Path.Combine(storage.GameDirectory(gameId), "unresolved-" + (role == RepoRole.External ? "external" : LogName(role)));
 
     private static string? TryResolve(PathTokenResolver resolver, string raw, string field)
     {

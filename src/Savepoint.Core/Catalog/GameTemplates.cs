@@ -51,6 +51,7 @@ public static class GameTemplates
         GogIds = [.. hints.GogIds],
         GogFolders = [.. hints.GogFolders],
         SavesByOs = hints.SavesByOs.ToFrozenDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value),
+        ModsByOs = hints.ModsByOs.ToFrozenDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value),
     };
 
     // Drafts copy the definition but share its lists, so the lists must not be changeable through a draft.

@@ -1,7 +1,7 @@
 namespace Savepoint.Core.Errors;
 
 /// <summary>
-/// The profile is the active one (both folders hold its latest points), which blocks deleting it
+/// The profile is the active one (every folder holds its latest points), which blocks deleting it
 /// (<c>error.gameService.profileActive</c>). Args: <c>profileId</c>.
 /// </summary>
 public sealed class ProfileActiveException : SavepointException

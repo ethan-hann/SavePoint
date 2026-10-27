@@ -33,7 +33,7 @@ public sealed class StorageSnapshot
 
     private StorageSnapshot? _lockHolder;
 
-    /// <summary>The folder that holds both git directories of a game: <c>&lt;root&gt;/&lt;gameId&gt;</c>.</summary>
+    /// <summary>The folder that holds the git directories of a game: <c>&lt;root&gt;/&lt;gameId&gt;</c>.</summary>
     /// <param name="gameId">The game's id.</param>
     /// <exception cref="ArgumentException">The id is not one the catalog accepts, so it could name a place outside the root: a rooted path, a separator, a dot segment.</exception>
     public string GameDirectory(string gameId) =>
@@ -41,14 +41,27 @@ public sealed class StorageSnapshot
             ? Path.Combine(Root, gameId)
             : throw new ArgumentException("A game id is a name in the storage root and cannot be a path.", nameof(gameId));
 
-    /// <summary>The git directory of one folder of a game: <c>&lt;root&gt;/&lt;gameId&gt;/install.git</c> or <c>external.git</c>.</summary>
+    /// <summary>
+    /// The git directory of one folder of a game: <c>&lt;root&gt;/&lt;gameId&gt;/install.git</c>, <c>mods.git</c>, or <c>external.git</c>.
+    /// </summary>
     /// <param name="gameId">The game's id.</param>
     /// <param name="role">Which of the game's folders.</param>
     /// <exception cref="ArgumentException">The id is not one the catalog accepts.</exception>
     public string GitDirectory(string gameId, RepoRole role) =>
-        Path.Combine(GameDirectory(gameId), role == RepoRole.Install ? "install.git" : "external.git");
+        Path.Combine(GameDirectory(gameId), GitDirectoryName(role));
 
-    // Waits for a reclaim a SavePoint that was killed left running in either folder of the game, before anything writes there.
+    // The names of the git directories a game's folder under the storage root can hold, one per role.
+    internal static IReadOnlyList<string> GitDirectoryNames { get; } = [.. Enum.GetValues<RepoRole>().Select(GitDirectoryName)];
+
+    internal static string GitDirectoryName(RepoRole role) => role switch
+    {
+        RepoRole.Install => "install.git",
+        RepoRole.Mods => "mods.git",
+        RepoRole.External => "external.git",
+        _ => throw new ArgumentOutOfRangeException(nameof(role), role, "Not one of a game's folders."),
+    };
+
+    // Waits for a reclaim a SavePoint that was killed left running in any folder of the game, before anything writes there.
     internal async Task SettleReclaimsAsync(string gameId, CancellationToken ct)
     {
         if (!CatalogValidator.IsValidGameId(gameId))
@@ -56,7 +69,9 @@ public sealed class StorageSnapshot
             return;
         }
 
-        await Engine.SettleReclaimAsync(GitDirectory(gameId, RepoRole.Install), ct).ConfigureAwait(false);
-        await Engine.SettleReclaimAsync(GitDirectory(gameId, RepoRole.External), ct).ConfigureAwait(false);
+        foreach (var role in Enum.GetValues<RepoRole>())
+        {
+            await Engine.SettleReclaimAsync(GitDirectory(gameId, role), ct).ConfigureAwait(false);
+        }
     }
 }

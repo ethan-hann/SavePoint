@@ -7,15 +7,17 @@ using Savepoint.Core.Git;
 namespace Savepoint.Core.Services.Storage;
 
 // A note in a game's storage folder, written before a free-up deletes its first record and removed after the last: every ref and value it
-// is about to delete in both folders. The folders are two repositories and a ref transaction covers one, so a run that is cut off between
+// is about to delete in every folder. The folders are separate repositories and a ref transaction covers one, so a run that is cut off between
 // them would leave half a snapshot behind. The note is what lets the next start finish the clear (the player confirmed it), and until it
 // has, the listing treats what the note names as gone.
 internal static class FreeUpIntent
 {
     public const string FileName = "savepoint-free-up.json";
 
-    private const string _install = "install";
-    private const string _external = "external";
+    // A note written before the mods folder existed has the first two keys only, and still finishes.
+    private static readonly (string Key, RepoRole Role)[] _keys = [("install", RepoRole.Install), ("external", RepoRole.External), ("mods", RepoRole.Mods)];
+
+    private static string KeyOf(RepoRole role) => _keys.Single(entry => entry.Role == role).Key;
 
     public static string PathIn(string gameDirectory) => Path.Combine(gameDirectory, FileName);
 
@@ -27,7 +29,7 @@ internal static class FreeUpIntent
             writer.WriteStartObject();
             foreach (var (role, list) in refs.OrderBy(pair => pair.Key))
             {
-                writer.WriteStartArray(role == RepoRole.Install ? _install : _external);
+                writer.WriteStartArray(KeyOf(role));
                 foreach (var item in list)
                 {
                     writer.WriteStartObject();
@@ -57,7 +59,7 @@ internal static class FreeUpIntent
         {
             using var document = JsonDocument.Parse(text);
             var refs = new Dictionary<RepoRole, IReadOnlyList<ClearedRef>>();
-            foreach (var (name, role) in new[] { (_install, RepoRole.Install), (_external, RepoRole.External) })
+            foreach (var (name, role) in _keys)
             {
                 if (document.RootElement.TryGetProperty(name, out var array))
                 {

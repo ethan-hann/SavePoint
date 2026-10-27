@@ -16,11 +16,22 @@
         "path": "{userHome}/Library/Application Support/7DaysToDie/Saves",
         "role": "saves"
       }
+    },
+    "modsByOs": {
+      "linux": {
+        "path": "{userHome}/.local/share/7DaysToDie/Mods"
+      },
+      "macos": {
+        "path": "{userHome}/Library/Application Support/7DaysToDie/Mods"
+      }
     }
   },
   "external": {
     "path": "{appData}\\7DaysToDie\\Saves",
     "role": "saves"
+  },
+  "mods": {
+    "path": "{appData}\\7DaysToDie\\Mods"
   },
   "launch": {
     "method": "exe",
@@ -29,6 +40,8 @@
     "processNameForExitDetection": "7DaysToDie"
   },
   "ignorePaths": [],
-  "modPathHints": [],
+  "modPathHints": [
+    "Mods"
+  ],
   "notes": "Uses anti-cheat; don't use SavePoint with its online mode."
 }

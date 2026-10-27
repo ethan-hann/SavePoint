@@ -35,9 +35,12 @@ internal sealed partial class GamesApi
         var rules = game.IgnorePathsFor(repo.Role);
         var candidates = await storage.Engine.ListCaptureCandidatesAsync(repo, rules, cancellationToken).ConfigureAwait(false);
         var newBytes = await storage.Engine.EstimateNewBytesAsync(repo, candidates, rules, cancellationToken).ConfigureAwait(false);
-        var mods = repo.Role == RepoRole.Install
-            ? candidates.Count(candidate => GameInsights.MatchesHint(candidate.Path, game.ModPathHints))
-            : 0;
+        var mods = repo.Role switch
+        {
+            RepoRole.Install => candidates.Count(candidate => GameInsights.MatchesHint(candidate.Path, game.ModPathHints)),
+            RepoRole.Mods => candidates.Count,
+            _ => 0,
+        };
         return (new FolderCapturePreview(repo.Role, repo.WorkTree, candidates.Count, mods, candidates.Sum(candidate => candidate.Bytes)), newBytes);
     }
 }
