@@ -8,7 +8,6 @@ using Savepoint.App.Theme;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
-using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.App.Features.Settings;
 
