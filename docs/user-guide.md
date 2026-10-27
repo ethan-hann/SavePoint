@@ -99,18 +99,19 @@ If the program SavePoint started closes right away with an error, the running ca
 
 ### When you finish
 
-SavePoint asks what to do with the session:
+SavePoint asks what to do with the session. Each choice is a card: pick one, and the one button at the bottom does what that card says. Escape closes the dialog, the same as Not now.
 
 - **Keep this session as a new snapshot** (recommended). Your earlier snapshots stay as they are.
 - **Replace "&lt;snapshot&gt;" with this session.** That snapshot holds this session instead, and what it held before goes to History's **Recently removed**. This choice appears only when the session changed something and started from the profile's own newest snapshot.
 - **Not now.** Nothing is lost. Your saves stay in your game folders as new changes, and SavePoint asks again before you switch profiles.
 
-![You played for 2 hours 14 minutes: 3 files in the saves folder are new or changed. The choices are Keep this session as a new snapshot (recommended, named "Session - 7-8-26"), Replace "Session - 7-7-26" with this session, and Not now, with the Not now and Keep it buttons.](images/after-play.png)
+![You played for 2 hours 14 minutes: 3 files in the saves folder are new or changed. The choices are cards: Keep this session as a new snapshot (recommended, named "Session - Jul 8, 2026"), Replace "Session - Jul 7, 2026" with this session, and Not now, with one button at the bottom.](images/after-play.png)
 
 If you played from an older snapshot, the session cannot go on the end of the profile, so your choices are:
 
 - **Keep this session as a new profile** (recommended). The original profile stays as it is, newer snapshots and all. Use this to split a playthrough, for example to replay a choice and keep both stories.
 - **Continue "&lt;profile&gt;" from this session**, offered when every folder started the session from that profile's own snapshots. The session becomes the profile's latest snapshot, and its newer snapshots go to History's **Recently removed**.
+- **Not now**, as above.
 
 If files in the game's own folder changed while you played, the way an update changes them, SavePoint tells you. It also says when your mods changed. If the only changes are logs or crash reports, it says so and offers **Leave these out from now on**. That adds a rule for the game's own folder, so those files stop counting as changes there.
 
@@ -118,7 +119,7 @@ To never be asked, turn off **Ask whether to keep the session** in Settings. Sav
 
 ## Go back to an earlier snapshot
 
-**History** shows the snapshots you can go back to, newest first, grouped into the last 7 days and earlier. Each snapshot holds **Version, mods and saves**, **Version and mods**, or **Saves only**. Switch between the **List** and **Cards** views, and filter by profile. History's search also finds a snapshot by its profile, what it holds, or a date such as `2026-09` or a month name, and you can show only **Saves** or only **Game and mods**. The snapshot your game folders hold right now is marked **Loaded now**.
+**History** shows the snapshots you can go back to, newest first, grouped into the last 7 days and earlier. Each snapshot holds **Version, mods and saves**, **Version and mods**, or **Saves only**. Switch between the **List** and **Cards** views, and filter by profile. History's search also finds a snapshot by its profile, what it holds, or a date such as `2026-09` or a month name, and you can show only **Saves** or only **Game and mods**. The snapshot your game folders hold right now is marked **Loaded now**. History opens quickly even when a game has thousands of snapshots. Tab reaches every card, and SavePoint keeps your place after a search.
 
 - **Go back and play** on a card, or on a version in the list, puts that whole snapshot back and starts the game. Next to a save snapshot, it puts those saves back in the profile they belong to.
 - **Go back without playing** puts the snapshot back and stops there.
@@ -129,7 +130,7 @@ Both show the same check as Play.
 
 ### Recently removed
 
-**Recently removed** lists the snapshots that "Replace" or "Continue" took off a profile. Each one stays until the next time you free up space. **Bring back as a new profile** starts a profile from it and leaves the profile it came from as it is.
+**Recently removed** lists the snapshots that "Replace" or "Continue" took off a profile, and a long list scrolls in its own area. Each one stays until the next time you free up space. **Bring back as a new profile** starts a profile from it and leaves the profile it came from as it is.
 
 ![History with Recently removed open at the bottom: one session snapshot from "Vanilla 1.4", removed when it was continued from a session, with a Bring back as a new profile button and a note that these are deleted for good the next time you free up space.](images/recently-removed.png)
 
@@ -148,7 +149,7 @@ The row's menu has **Edit** (name, notes, version), **Take a snapshot**, **Dupli
 
 **New profile** works the same way as your first one (see Take your first snapshot). On its first step you can tick **Start with no saves** and, when the game has a mods folder, **Start with no mods**, to try a fresh setup. A box is off, with the reason, until that folder's current files are in a snapshot of one of the game's profiles, so nothing is lost. Nothing on disk changes when the profile is made. The next time you switch to it, SavePoint asks before it empties that folder and says how much it will remove. The game folder can't start empty.
 
-The games list, a game's profile table, and its History each have a search box. Type any words from a name or a profile's notes. Initials work too, as in "skyrim se". Ctrl+F (Cmd+F on a Mac) jumps to the search on the screen in front, and Escape clears it. While a search narrows the profile table, its header says how many profiles show. The narrow icon list of games has no search box.
+The games list, a game's profile table, and its History each have a search box. Type any words from a name or a profile's notes. Initials work too, as in "skyrim se", and accents and punctuation don't matter. Add a game's **Name** field and the template list match games the same way. Ctrl+F (Cmd+F on a Mac) jumps to the search on the screen in front, and Escape clears it. While a search narrows the profile table, its header says how many profiles show. The narrow icon list of games has no search box.
 
 ## Activity
 
@@ -158,7 +159,7 @@ Each task shows its profile, its progress, and when it started and finished. A f
 
 Finished tasks stay listed after you close SavePoint: the newest 100, for up to 30 days, and up to five per game. A task from before SavePoint last closed keeps its title and result, but not its steps. **Remove all data** also clears the list.
 
-Right after a snapshot, SavePoint may run "Compacting snapshot files for &lt;game&gt;". It packs the stored snapshot files tighter on disk and deletes nothing, so it is not Free up space.
+Right after a snapshot, SavePoint may run "Compacting snapshot files for &lt;game&gt;". It packs the stored snapshot files tighter on disk and deletes nothing, so it is not Free up space. If you play the game or take a snapshot of it meanwhile, compacting stops to let that go first, and Activity says it was stopped, not canceled. Free up space stops the same way when you start the game, until it begins deleting.
 
 ![Activity for Grounded: a snapshot of Modded in progress at 2.7 GB of 10.8 GB with about 5 minutes left, above five finished snapshots, and, on the right, the first snapshot of Vanilla 1.4, done, 12.1 GB of 12.1 GB, with its details listing the folders copied and the files that were new, and a Copy button.](images/activity.png)
 
@@ -168,7 +169,7 @@ Snapshots no profile uses anymore, like a deleted profile's, still take up space
 
 You find **Free up space** in three places:
 
-- **Settings**, under Free up space, with **Run now**.
+- **Settings**, under Free up space, with a **Free up space** button. Before you press it, a line says how many snapshots in Recently removed it will delete for good, or that Recently removed is empty.
 - The footer under the profile table in the Sidebar layout, which also shows how much space this game's snapshots use and how big the drive is.
 - The game's menu in the Library layout.
 
@@ -178,7 +179,7 @@ To put the snapshots on another drive, use **Change** under **Where SavePoint ke
 
 ## Settings
 
-![The top of Settings: Help with How SavePoint works and Show the tour again; where SavePoint keeps your snapshots, with the folder, 16.4 GB used by 1 game, 145.7 GB free and a Change button; Free up space with Run now; and Appearance with the theme (Match Windows, Light or Dark) and the Sidebar and Library layouts.](images/settings.png)
+![The top of Settings: Help with How SavePoint works and Show the tour again; where SavePoint keeps your snapshots, with the folder, 16.4 GB used by 1 game, 145.7 GB free and a Change button; Free up space with its button; and Appearance with the theme (Match Windows, Light or Dark) and the Sidebar and Library layouts.](images/settings.png)
 
 Help, the snapshot folder, and Free up space are covered above. The other settings:
 
