@@ -81,15 +81,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         _shell = shell;
         _deps = dependencies;
         LayoutToggle = shell.LayoutToggle;
-        ShowHistoryCommand = new RelayCommand(() => _shell.Navigate(NavDestination.History));
-        ShowActivityCommand = new RelayCommand(() => _shell.ShowActivity(_shell.SelectedGame?.Id));
         FreeUp = new FreeUpSpaceViewModel(dependencies.Games, dependencies.Jobs, dependencies.Dialogs, dependencies.Text, dependencies.Dispatcher, ShowError, RefreshStorageUsageAsync);
-        EditGameCommand = new RelayCommand(OpenEditor);
-        NewProfileCommand = new AsyncRelayCommand(NewProfileAsync);
-        DeleteGameCommand = new AsyncRelayCommand(DeleteGameAsync);
-        TakeSnapshotCommand = new AsyncRelayCommand(
-            () => LoadedProfile?.TakeSnapshotCommand.ExecuteAsync(null) ?? Task.CompletedTask,
-            () => LoadedProfile?.TakeSnapshotCommand.CanExecute(null) == true);
 
         _shell.PropertyChanged += OnShellChanged;
         _shell.LibraryRefreshed += OnLibraryRefreshed;
@@ -165,10 +157,12 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     private bool ScrollsWithProfiles => InlineContent is ErrorCardViewModel || _cardsScroll;
 
     /// <summary>Switches to the History destination for the selected game.</summary>
-    public IRelayCommand ShowHistoryCommand { get; }
+    [RelayCommand]
+    private void ShowHistory() => _shell.Navigate(NavDestination.History);
 
     /// <summary>Opens Activity on the selected game, from the Activity chip.</summary>
-    public IRelayCommand ShowActivityCommand { get; }
+    [RelayCommand]
+    private void ShowActivity() => _shell.ShowActivity(_shell.SelectedGame?.Id);
 
     /// <summary>The storage footer's Free up space for the selected game.</summary>
     public FreeUpSpaceViewModel FreeUp { get; }
@@ -184,7 +178,10 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     /// the row's menu entry is and does: off while the game has a session or a snapshot is being taken, and a confirmation for a
     /// profile whose first snapshot this would be.
     /// </summary>
-    public IAsyncRelayCommand TakeSnapshotCommand { get; }
+    [RelayCommand(CanExecute = nameof(CanTakeSnapshot))]
+    private Task TakeSnapshotAsync() => LoadedProfile?.TakeSnapshotCommand.ExecuteAsync(null) ?? Task.CompletedTask;
+
+    private bool CanTakeSnapshot => LoadedProfile?.TakeSnapshotCommand.CanExecute(null) == true;
 
     // The loaded profile, or else the one profile that has no snapshot yet (its first one is whatever the folders hold, which the
     // row confirms). With several such profiles there is no telling which the player means, so none is offered.
@@ -193,15 +190,6 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         ?? (Profiles.Count(row => row.SnapshotNow == SnapshotNowAvailability.FirstSnapshot) == 1
             ? Profiles.Single(row => row.SnapshotNow == SnapshotNowAvailability.FirstSnapshot)
             : null);
-
-    /// <summary>Opens the game editor pane for the selected game.</summary>
-    public IRelayCommand EditGameCommand { get; }
-
-    /// <summary>Opens the New profile wizard.</summary>
-    public IAsyncRelayCommand NewProfileCommand { get; }
-
-    /// <summary>Deletes the selected game once its name has been typed to confirm.</summary>
-    public IAsyncRelayCommand DeleteGameCommand { get; }
 
     /// <inheritdoc />
     public void OnShown()
@@ -426,7 +414,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             _ = ReloadAsync();
         });
 
-    private void OpenEditor()
+    /// <summary>Opens the game editor pane for the selected game.</summary>
+    [RelayCommand]
+    private void EditGame()
     {
         if (_game is { } game)
         {

@@ -8,8 +8,11 @@ namespace Savepoint.App.Features.Help;
 /// The "How SavePoint works" page: the few ideas the app uses, in the order a player meets them, each in a short topic with a
 /// picture. It is a full pane that replaces the screen it was opened from until Back or Escape closes it.
 /// </summary>
-public sealed class HowItWorksViewModel : ObservableObject
+public sealed partial class HowItWorksViewModel : ObservableObject
 {
+    private readonly Action _close;
+    private readonly Action? _showTour;
+
     /// <param name="text">Formats the page's copy.</param>
     /// <param name="close">Closes the page and shows the screen it was opened from.</param>
     /// <param name="showTour">Closes the page and shows the first-run tour; null leaves the page without its closing button.</param>
@@ -17,11 +20,12 @@ public sealed class HowItWorksViewModel : ObservableObject
     /// <param name="section">The topic the page opens at; null opens it at the top.</param>
     public HowItWorksViewModel(UiFormatter text, Action close, Action? showTour = null, Func<bool>? canShowTour = null, HowItWorksSection? section = null)
     {
+        _close = close;
+        _showTour = showTour;
         Section = section;
         TourLabel = text.Message("help.page.tour");
         HasTour = showTour is not null;
         CanShowTour = canShowTour?.Invoke() ?? HasTour;
-        ShowTourCommand = new RelayCommand(() => showTour?.Invoke(), () => CanShowTour);
         Title = text.Message("help.page.title");
         BackName = text.Message("help.page.back");
         Intro = text.Message("help.page.intro");
@@ -59,7 +63,6 @@ public sealed class HowItWorksViewModel : ObservableObject
                 HowItWorksSection.CloudSaves),
             PermanentTopic(text),
         ];
-        BackCommand = new RelayCommand(close);
     }
 
     /// <summary>Raised when the page should move to <see cref="Section"/> while it is already open.</summary>
@@ -89,7 +92,8 @@ public sealed class HowItWorksViewModel : ObservableObject
     public IReadOnlyList<HowItWorksTopic> Topics { get; }
 
     /// <summary>Closes the page.</summary>
-    public IRelayCommand BackCommand { get; }
+    [RelayCommand]
+    private void Back() => _close();
 
     /// <summary>The text of the button at the end of the page that shows the tour again.</summary>
     public string TourLabel { get; }
@@ -101,7 +105,8 @@ public sealed class HowItWorksViewModel : ObservableObject
     public bool CanShowTour { get; }
 
     /// <summary>Closes the page and shows the first-run tour from its first step.</summary>
-    public IRelayCommand ShowTourCommand { get; }
+    [RelayCommand(CanExecute = nameof(CanShowTour))]
+    private void ShowTour() => _showTour?.Invoke();
 
     // The last topic is a plain list with no picture: what a player cannot take back, and what they can.
     private static HowItWorksTopic PermanentTopic(UiFormatter text) =>

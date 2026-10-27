@@ -63,6 +63,8 @@ public sealed partial class NewProfileWizardViewModel
         Track(started.Value.JobId);
     }
 
+    /// <summary>Asks the running capture to stop.</summary>
+    [RelayCommand(CanExecute = nameof(CanStopSave))]
     private async Task StopSaveAsync()
     {
         if (_jobId is not { } jobId || _stopRequested)

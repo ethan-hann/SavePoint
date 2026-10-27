@@ -19,6 +19,7 @@ public sealed partial class TourViewModel : ObservableObject
 
     /// <summary>True while the tour is on a step.</summary>
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(BackCommand))]
     private bool _isActive;
 
     /// <param name="text">Formats the tour's copy.</param>
@@ -26,9 +27,6 @@ public sealed partial class TourViewModel : ObservableObject
     {
         _text = text;
         Current = StepAt(0);
-        NextCommand = new RelayCommand(Next);
-        BackCommand = new RelayCommand(Back, () => IsActive && _index > 0);
-        SkipCommand = new RelayCommand(End);
     }
 
     /// <summary>Raised when the tour ends, by Done, Skip tour or Escape; focus goes back to the Play button.</summary>
@@ -40,14 +38,7 @@ public sealed partial class TourViewModel : ObservableObject
     /// <summary>What the card says now.</summary>
     public TourStepViewModel Current { get; private set; }
 
-    /// <summary>Moves to the next step, or ends the tour on the last one.</summary>
-    public IRelayCommand NextCommand { get; }
-
-    /// <summary>Moves to the step before; off on the first.</summary>
-    public IRelayCommand BackCommand { get; }
-
-    /// <summary>Ends the tour from any step.</summary>
-    public IRelayCommand SkipCommand { get; }
+    private bool CanGoBack => IsActive && _index > 0;
 
     /// <summary>Starts the tour at its first step; a tour that is already running begins again.</summary>
     /// <param name="gameName">The game the first step names.</param>
@@ -60,6 +51,12 @@ public sealed partial class TourViewModel : ObservableObject
         IsActive = true;
     }
 
+    /// <summary>Ends the tour from any step.</summary>
+    [RelayCommand]
+    private void Skip() => End();
+
+    /// <summary>Moves to the next step, or ends the tour on the last one.</summary>
+    [RelayCommand]
     private void Next()
     {
         if (!IsActive)
@@ -77,9 +74,11 @@ public sealed partial class TourViewModel : ObservableObject
         Show();
     }
 
+    /// <summary>Moves to the step before; off on the first.</summary>
+    [RelayCommand(CanExecute = nameof(CanGoBack))]
     private void Back()
     {
-        if (IsActive && _index > 0)
+        if (CanGoBack)
         {
             _index--;
             Show();
@@ -94,7 +93,6 @@ public sealed partial class TourViewModel : ObservableObject
         }
 
         IsActive = false;
-        BackCommand.NotifyCanExecuteChanged();
         Ended?.Invoke(this, EventArgs.Empty);
     }
 

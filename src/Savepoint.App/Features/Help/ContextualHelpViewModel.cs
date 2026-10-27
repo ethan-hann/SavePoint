@@ -10,6 +10,8 @@ namespace Savepoint.App.Features.Help;
 /// </summary>
 public sealed partial class ContextualHelpViewModel : ObservableObject
 {
+    private readonly Action? _openHowItWorks;
+
     /// <summary>True while the answer shows.</summary>
     [ObservableProperty]
     private bool _isOpen;
@@ -28,11 +30,7 @@ public sealed partial class ContextualHelpViewModel : ObservableObject
         Answer = answer;
         MoreLabel = moreLabel;
         HasLink = openHowItWorks is not null && moreLabel.Length > 0;
-        OpenHowItWorksCommand = new RelayCommand(() =>
-        {
-            IsOpen = false;
-            openHowItWorks?.Invoke();
-        });
+        _openHowItWorks = openHowItWorks;
     }
 
     /// <summary>Raised when the question button should take focus, because the answer that had it closed.</summary>
@@ -60,7 +58,12 @@ public sealed partial class ContextualHelpViewModel : ObservableObject
     public bool HasLink { get; }
 
     /// <summary>Closes the answer and opens the "How SavePoint works" page.</summary>
-    public IRelayCommand OpenHowItWorksCommand { get; }
+    [RelayCommand]
+    private void OpenHowItWorks()
+    {
+        IsOpen = false;
+        _openHowItWorks?.Invoke();
+    }
 
     /// <summary>Closes an open answer and gives focus back to the question button, which is what Escape does; does nothing when it is closed.</summary>
     public void Close()

@@ -42,7 +42,8 @@ public sealed partial class JobStatusViewModel : ObservableObject
     private string _openName = string.Empty;
 
     /// <summary>Opens Activity on what the pill stands for: the one running job's game, or all games.</summary>
-    public IRelayCommand OpenCommand { get; }
+    [RelayCommand]
+    private void Open() => _showActivity?.Invoke(_opens);
 
     /// <param name="text">Formats the pill and toast copy.</param>
     /// <param name="toasts">Receives a toast for each finished job.</param>
@@ -56,7 +57,6 @@ public sealed partial class JobStatusViewModel : ObservableObject
         _toasts = toasts;
         _gameName = gameName;
         _showActivity = showActivity;
-        OpenCommand = new RelayCommand(() => _showActivity?.Invoke(_opens));
     }
 
     /// <summary>Takes the jobs that exist when the shell starts. Running ones show in the pill; finished ones are history and get no toast.</summary>

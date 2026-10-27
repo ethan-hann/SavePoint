@@ -43,8 +43,6 @@ public sealed partial class JobDetailsViewModel : ObservableObject
         _dialogs = dialogs;
         _text = text;
         _announce = announce;
-        CancelCommand = new AsyncRelayCommand(CancelAsync, () => CanCancel);
-        CopyCommand = new RelayCommand(Copy, () => HasLines);
         Apply(row.Job);
     }
 
@@ -122,12 +120,6 @@ public sealed partial class JobDetailsViewModel : ObservableObject
 
     /// <summary>The accessible name of the list of lines, which says which job they belong to.</summary>
     public string LinesAutomationName => _text.Message("activity.details.linesName", ("title", _row.Title));
-
-    /// <summary>Stops the job.</summary>
-    public IAsyncRelayCommand CancelCommand { get; }
-
-    /// <summary>Puts the selected lines, or every line when none is selected, on the clipboard.</summary>
-    public IRelayCommand CopyCommand { get; }
 
     /// <summary>Every line as text, one per line.</summary>
     public string AllText => string.Join('\n', Lines.Select(line => line.Text));
@@ -219,6 +211,8 @@ public sealed partial class JobDetailsViewModel : ObservableObject
         _error = reason is null ? null : new ErrorCardViewModel(reason, _text, operation: ErrorOperations.Of(job.Kind));
     }
 
+    /// <summary>Stops the job.</summary>
+    [RelayCommand(CanExecute = nameof(CanCancel))]
     private async Task CancelAsync()
     {
         var id = _row.JobId;
@@ -246,6 +240,8 @@ public sealed partial class JobDetailsViewModel : ObservableObject
         }
     }
 
+    /// <summary>Puts the selected lines, or every line when none is selected, on the clipboard.</summary>
+    [RelayCommand(CanExecute = nameof(HasLines))]
     private void Copy()
     {
         var chosen = _selection.Where(Lines.Contains).OrderBy(line => line.Number).ToList();
