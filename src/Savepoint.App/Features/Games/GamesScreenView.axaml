@@ -261,9 +261,9 @@
                                        Text="{Binding NotesText}" />
                           </StackPanel>
                         </Grid>
-                        <TextBlock Grid.Column="1" Width="84" Margin="14,0,0,0" VerticalAlignment="Center" IsVisible="{Binding Columns.ShowVersion}" Text="{Binding VersionText}" />
-                        <TextBlock Grid.Column="2" Width="76" Margin="14,0,0,0" VerticalAlignment="Center" IsVisible="{Binding Columns.ShowModFiles}" Text="{Binding ModFilesText}" />
-                        <TextBlock Grid.Column="3" Width="86" Margin="14,0,0,0" VerticalAlignment="Center" Text="{Binding LastPlayedText}" />
+                        <TextBlock Grid.Column="1" Width="84" Margin="14,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding Columns.ShowVersion}" Text="{Binding VersionText}" />
+                        <TextBlock Grid.Column="2" Width="76" Margin="14,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" IsVisible="{Binding Columns.ShowModFiles}" Text="{Binding ModFilesText}" />
+                        <TextBlock Grid.Column="3" Width="86" Margin="14,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding LastPlayedText}" />
                         <Grid Grid.Column="4" Margin="14,0,0,0" HorizontalAlignment="Right" ColumnDefinitions="Auto,Auto">
                           <Button x:Name="PlayButton"
                                   Grid.Column="0"

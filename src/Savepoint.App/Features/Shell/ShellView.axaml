@@ -13,13 +13,29 @@
   -->
   <UserControl.Styles>
     <Style Selector="ListBox.shelf">
-      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
       <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
       <Setter Property="ItemsPanel">
         <ItemsPanelTemplate>
-          <StackPanel Orientation="Horizontal" Spacing="12" />
+          <WrapPanel ItemSpacing="12" LineSpacing="12" />
         </ItemsPanelTemplate>
       </Setter>
+    </Style>
+    <!-- A row and a half of cards at most, so the next row shows and the page keeps its room. A short window drops the art and shows one compact row. -->
+    <Style Selector="ScrollViewer#ShelfScroll">
+      <Setter Property="MaxHeight" Value="204" />
+    </Style>
+    <Style Selector="Grid.short ScrollViewer#ShelfScroll">
+      <Setter Property="MaxHeight" Value="60" />
+    </Style>
+    <Style Selector="Grid.short Border#ShelfDivider">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="Button#ShelfAddTile">
+      <Setter Property="MinHeight" Value="128" />
+    </Style>
+    <Style Selector="Grid.short Button#ShelfAddTile">
+      <Setter Property="MinHeight" Value="56" />
     </Style>
     <Style Selector="ListBox.shelf ListBoxItem">
       <Setter Property="Padding" Value="0" />
@@ -47,6 +63,16 @@
       <Setter Property="Padding" Value="12,4" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
+    <!-- The icon rail is 44 wide inside its padding; the list's scrollbar takes 16 of it, so a tile's row keeps only the room the tile needs. -->
+    <Style Selector="Border.rail.compact ListBox#RailGames ListBoxItem">
+      <Setter Property="Padding" Value="2,7" />
+    </Style>
+    <Style Selector="Border.rail.compact Panel#NoGamesNote">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="Grid.short StackPanel#RailBrand, Grid.short StackPanel#RailGamesHeading">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
     <!-- The wide rail gives the label room from the button's edge; the icon rail has none to spare. -->
     <Style Selector="Button.rail-library">
       <Setter Property="Padding" Value="16,8" />
@@ -61,13 +87,13 @@
     <!-- Sidebar layout: the rail. Below 900px it collapses to icons; names become tooltips and automation names. -->
     <Border x:Name="Rail"
             Classes="rail"
+            Classes.compact="{Binding IsCompact}"
             Width="{Binding RailWidth}"
             Padding="10,14,10,12"
             IsVisible="{Binding IsSidebarLayout}"
             AutomationProperties.LandmarkType="Navigation">
-      <Grid RowDefinitions="*,Auto">
-        <!-- The list of games scrolls with the rest of the rail's top part, so a long library never pushes Add a game out of the window. -->
-        <ScrollViewer x:Name="RailScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <Grid RowDefinitions="Auto,*,Auto">
+        <!-- The destinations, the search and the buttons stay put; only the list of games scrolls, so a long library never moves them or pushes Add a game out of the window. -->
           <StackPanel Spacing="4">
             <StackPanel x:Name="RailBrand" Orientation="Horizontal" Spacing="9" Margin="8,2,8,8">
               <shell:BrandMark />
@@ -95,9 +121,15 @@
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
-            <Border Classes="divider" Margin="8,6,8,4" />
-            <TextBlock x:Name="YourGamesLabel" Classes="overline-small" Margin="8,6,8,2" IsVisible="{Binding !IsCompact}" Text="{theme:Upper {loc:Loc shell.yourGames}}" />
-            <TextBlock x:Name="NoGamesLabel" Classes="body subtle" Margin="8,2" IsVisible="{Binding ShowFirstRun}" Text="{loc:Loc shell.noGamesYet}" />
+            <!-- A short window gives this heading up so the list of games below keeps room to scroll. -->
+            <StackPanel x:Name="RailGamesHeading" Spacing="4">
+              <Border Classes="divider" Margin="8,6,8,0" />
+              <TextBlock x:Name="YourGamesLabel" Classes="overline-small" Margin="8,6,8,2" IsVisible="{Binding !IsCompact}" Text="{theme:Upper {loc:Loc shell.yourGames}}" />
+            </StackPanel>
+            <!-- The icon rail has no room to say it; its highlighted Add a game button does. -->
+            <Panel x:Name="NoGamesNote">
+              <TextBlock x:Name="NoGamesLabel" Classes="body subtle" Margin="8,2" TextWrapping="Wrap" IsVisible="{Binding ShowFirstRun}" Text="{loc:Loc shell.noGamesYet}" />
+            </Panel>
             <!-- The search box has no room in the icon rail, so it hides there. -->
             <Panel IsVisible="{Binding ShowRailSearch}" Margin="0,2,0,4">
               <search:SearchBoxView x:Name="RailSearch" DataContext="{Binding GameSearch}" />
@@ -106,34 +138,37 @@
               <TextBlock Classes="body subtle" TextWrapping="Wrap" Text="{Binding NoGameMatchesText}" />
               <Button x:Name="RailClearSearchButton" Classes="text pill" HorizontalAlignment="Left" Padding="10,4" Command="{Binding GameSearch.ClearCommand}" Content="{loc:Loc search.clear}" />
             </StackPanel>
-            <shell:GameListBox x:Name="RailGames"
+          </StackPanel>
+        <!-- The scrollbar always takes its own strip beside the list, so it never sits over a title. -->
+        <ScrollViewer x:Name="RailScroll" Grid.Row="1" Margin="0,4,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AllowAutoHide="False">
+          <shell:GameListBox x:Name="RailGames"
                      Classes="rows"
                      ScrollViewer.VerticalScrollBarVisibility="Disabled"
                      AutomationProperties.Name="{loc:Loc shell.yourGames}"
                      ItemsSource="{Binding VisibleGames}"
                      SelectedItem="{Binding SelectedGameRow, Mode=TwoWay}">
-              <shell:GameListBox.Styles>
-                <Style Selector="ListBoxItem" x:DataType="shell:GameRowViewModel">
-                  <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
-                  <Setter Property="ToolTip.Tip" Value="{Binding ToolTipText}" />
-                </Style>
-              </shell:GameListBox.Styles>
-              <shell:GameListBox.ItemTemplate>
-                <DataTemplate x:DataType="shell:GameRowViewModel">
-                  <StackPanel Orientation="Horizontal" Spacing="9">
-                    <art:ArtTile Size="24" GameName="{Binding Name}" Art="{Binding Art}" ShowInitials="{Binding !ShowLabels}" />
-                    <StackPanel VerticalAlignment="Center" IsVisible="{Binding ShowLabels}">
-                      <TextBlock Classes="body" FontWeight="Medium" FontSize="12.5" LineHeight="16" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
-                      <TextBlock Classes="overline-small" FontWeight="Normal" LetterSpacing="0" Text="{Binding ProfileCountText}" />
-                    </StackPanel>
+            <shell:GameListBox.Styles>
+              <Style Selector="ListBoxItem" x:DataType="shell:GameRowViewModel">
+                <Setter Property="AutomationProperties.Name" Value="{Binding AutomationName}" />
+                <Setter Property="ToolTip.Tip" Value="{Binding ToolTipText}" />
+              </Style>
+            </shell:GameListBox.Styles>
+            <shell:GameListBox.ItemTemplate>
+              <DataTemplate x:DataType="shell:GameRowViewModel">
+                <!-- A grid, so a long name is trimmed to the rail's width instead of running past it. -->
+                <Grid ColumnDefinitions="Auto,*">
+                  <art:ArtTile Size="24" GameName="{Binding Name}" Art="{Binding Art}" ShowInitials="{Binding !ShowLabels}" />
+                  <StackPanel Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center" IsVisible="{Binding ShowLabels}">
+                    <TextBlock Classes="body" FontWeight="Medium" FontSize="12.5" LineHeight="16" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                    <TextBlock Classes="overline-small" FontWeight="Normal" LetterSpacing="0" TextTrimming="CharacterEllipsis" Text="{Binding ProfileCountText}" />
                   </StackPanel>
-                </DataTemplate>
-              </shell:GameListBox.ItemTemplate>
-            </shell:GameListBox>
-          </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </shell:GameListBox.ItemTemplate>
+          </shell:GameListBox>
         </ScrollViewer>
         <!-- Declared after the lists so Tab reaches it after them, where it is drawn. -->
-        <StackPanel Grid.Row="1" Spacing="6" Margin="0,10,0,0">
+        <StackPanel Grid.Row="2" Spacing="6" Margin="0,10,0,0">
           <Button x:Name="RailLibrariesButton"
                   Classes="pill rail-library"
                   Classes.compact="{Binding IsCompact}"
@@ -210,11 +245,13 @@
               <Button Classes="text" Padding="8,4" Command="{Binding AddGameCommand}" Content="{loc:Loc shell.addGame}" />
             </StackPanel>
           </Grid>
-          <StackPanel x:Name="ShelfNoMatches" Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowNoGameMatches}">
-            <TextBlock Classes="body subtle" VerticalAlignment="Center" Text="{Binding NoGameMatchesText}" />
+          <WrapPanel x:Name="ShelfNoMatches" ItemSpacing="8" LineSpacing="4" IsVisible="{Binding ShowNoGameMatches}">
+            <TextBlock Classes="body subtle" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding NoGameMatchesText}" />
             <Button x:Name="ShelfClearSearchButton" Classes="text pill" Padding="10,4" Command="{Binding GameSearch.ClearCommand}" Content="{loc:Loc search.clear}" />
-          </StackPanel>
-          <Grid ColumnDefinitions="Auto,Auto,*">
+          </WrapPanel>
+          <!-- The cards and the add tile wrap to the next row when the window narrows. A tall shelf scrolls in its own area so the page below keeps its room. -->
+          <ScrollViewer x:Name="ShelfScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AllowAutoHide="False">
+          <WrapPanel ItemSpacing="12" LineSpacing="12">
             <shell:GameListBox x:Name="ShelfGames"
                      Classes="shelf"
                      AutomationProperties.Name="{loc:Loc shell.yourGames}"
@@ -238,10 +275,9 @@
               </shell:GameListBox.ItemTemplate>
             </shell:GameListBox>
             <Button x:Name="ShelfAddTile"
-                    Grid.Column="1"
                     Classes="dashed tile"
-                    Margin="12,0,0,0"
                     Width="202"
+                    VerticalAlignment="Stretch"
                     Command="{Binding AddGameCommand}"
                     AutomationProperties.Name="{loc:Loc shell.addGame}">
               <StackPanel Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -249,8 +285,9 @@
                 <TextBlock FontWeight="Normal" FontSize="13" Text="{loc:Loc shell.addGame}" />
               </StackPanel>
             </Button>
-          </Grid>
-          <Border Classes="divider" Margin="0,6,0,0" />
+          </WrapPanel>
+          </ScrollViewer>
+          <Border x:Name="ShelfDivider" Classes="divider" Margin="0,6,0,0" />
         </StackPanel>
       </Border>
 

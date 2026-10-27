@@ -63,6 +63,43 @@ public class AuditsCanFailTests
     }
 
     [AvaloniaFact]
+    public void The_sideways_audit_names_what_spills_out_of_the_window_or_its_scroll_area_and_what_a_scroll_area_hides()
+    {
+        var outside = Placed("OutsideWindow", 360, 250);
+        var inside = Placed("Fits", 20, 250);
+
+        var wide = new TextBlock { Name = "WideLine", Text = "A line that is far too long for the area it is drawn in", FontSize = 14 };
+        var clipped = new ScrollViewer { Name = "Clips", Width = 120, Height = 60, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, Content = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { wide } } };
+        Canvas.SetLeft(clipped, 0);
+        Canvas.SetTop(clipped, 0);
+
+        var wraps = new TextBlock { Name = "WrappedLine", Text = "A line that is far too long for the area it is drawn in", TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        var wrapArea = new ScrollViewer { Name = "Wraps", Width = 120, Height = 60, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, Content = wraps };
+        Canvas.SetLeft(wrapArea, 150);
+        Canvas.SetTop(wrapArea, 0);
+
+        var sideways = new ScrollViewer { Name = "ScrollsAcross", Width = 120, Height = 60, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto, Content = new Border { Width = 400, Height = 20 } };
+        Canvas.SetLeft(sideways, 0);
+        Canvas.SetTop(sideways, 100);
+
+        var squeezedText = new TextBlock { Name = "SqueezedLine", Text = "Far more words than the column holds", TextWrapping = Avalonia.Media.TextWrapping.NoWrap };
+        var column = new Grid { Name = "Column", Width = 40, ColumnDefinitions = { new ColumnDefinition(GridLength.Star) }, Children = { squeezedText } };
+        Canvas.SetLeft(column, 150);
+        Canvas.SetTop(column, 100);
+
+        using var host = new ThemeHost(new Canvas { Children = { outside, inside, clipped, wrapArea, sideways, column } }, width: 400, height: 300);
+
+        var problems = LayoutAudit.HorizontalProblems(host.Window);
+
+        var all = string.Join(Environment.NewLine, problems);
+        Assert.True(problems.Any(problem => problem.Contains("Button #OutsideWindow", StringComparison.Ordinal)), all);
+        Assert.True(problems.Any(problem => problem.Contains("TextBlock #WideLine", StringComparison.Ordinal)), all);
+        Assert.True(problems.Any(problem => problem.Contains("ScrollViewer #ScrollsAcross", StringComparison.Ordinal)), all);
+        Assert.True(problems.Any(problem => problem.Contains("TextBlock #SqueezedLine", StringComparison.Ordinal)), all);
+        Assert.DoesNotContain(problems, problem => problem.Contains("Fits", StringComparison.Ordinal) || problem.Contains("WrappedLine", StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
     public void The_automation_audit_names_each_control_a_screen_reader_cannot_use()
     {
         var nameless = new Button { Name = "Nameless" };

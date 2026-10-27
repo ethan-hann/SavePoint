@@ -30,12 +30,20 @@
         <Border x:Name="PathSurface" Classes="recessed" IsVisible="{Binding HasPath}">
           <SelectableTextBlock FontFamily="{DynamicResource RobotoMonoFont}" FontSize="12" Foreground="{DynamicResource Md3OnSurfaceVariantBrush}" TextWrapping="Wrap" Text="{Binding Path}" />
         </Border>
-        <ContentControl x:Name="SupplementHost" Content="{Binding Supplement}" IsVisible="{Binding Supplement, Converter={x:Static ObjectConverters.IsNotNull}}" />
-        <StackPanel Orientation="Horizontal" Spacing="8">
+        <ContentControl x:Name="SupplementHost" Content="{Binding Supplement}" IsVisible="{Binding Supplement, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <!-- Plain words wrap inside the card; a view model draws its own view. -->
+          <ContentControl.DataTemplates>
+            <DataTemplate x:DataType="x:String">
+              <TextBlock TextWrapping="Wrap" Text="{Binding}" />
+            </DataTemplate>
+          </ContentControl.DataTemplates>
+        </ContentControl>
+        <!-- The actions wrap to the next line when the card is too narrow for them side by side. -->
+        <WrapPanel ItemSpacing="8" LineSpacing="8">
           <ItemsControl ItemsSource="{Binding Actions}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <StackPanel Orientation="Horizontal" Spacing="8" />
+                <WrapPanel ItemSpacing="8" LineSpacing="8" />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
@@ -56,7 +64,7 @@
                         IsVisible="{Binding HasSupportText}"
                         IsChecked="{Binding ShowDetails, Mode=TwoWay}"
                         Content="{Binding DetailsToggleLabel}" />
-        </StackPanel>
+        </WrapPanel>
         <Border x:Name="DetailsSurface" Classes="recessed" IsVisible="{Binding ShowDetails}">
           <StackPanel Spacing="10">
             <TextBlock x:Name="DetailsExplanation" Classes="body muted" TextWrapping="Wrap" Text="{Binding DetailsExplanation}" />
