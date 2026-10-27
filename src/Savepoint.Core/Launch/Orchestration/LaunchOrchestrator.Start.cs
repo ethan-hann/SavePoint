@@ -14,7 +14,7 @@ public sealed partial class LaunchOrchestrator
     private sealed record Prepared(GameDefinition Game, string InstallPath, ResolvedTarget Resolved);
 
     /// <inheritdoc />
-    public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target) =>
+    public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false) =>
         ApiGuard.RunAsync(_services.Log, async () =>
         {
             ArgumentNullException.ThrowIfNull(target);
@@ -39,7 +39,7 @@ public sealed partial class LaunchOrchestrator
 
                 // The work waits until the session exists, so its first change always finds it.
                 var sessionOpen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                var jobId = _services.Jobs.Start(JobKind.Launch, gameId, cancellable: true, context => RunLaunchAsync(context, gameId, target, sessionOpen.Task), new JobProfile(profile.Id, profile.Name));
+                var jobId = _services.Jobs.Start(JobKind.Launch, gameId, cancellable: true, context => RunLaunchAsync(context, gameId, target, startSteam, sessionOpen.Task), new JobProfile(profile.Id, profile.Name));
                 _book.Open(gameId, profileId, target, older, jobId);
                 opened = true;
                 sessionOpen.SetResult();
@@ -130,7 +130,7 @@ public sealed partial class LaunchOrchestrator
         }).ConfigureAwait(false);
     }
 
-    private async Task<JobResult?> RunLaunchAsync(JobContext context, string gameId, LaunchTarget target, Task sessionOpen)
+    private async Task<JobResult?> RunLaunchAsync(JobContext context, string gameId, LaunchTarget target, bool startSteam, Task sessionOpen)
     {
         await sessionOpen.ConfigureAwait(false);
 

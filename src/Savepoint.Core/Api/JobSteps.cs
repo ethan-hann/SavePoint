@@ -53,6 +53,9 @@ public static class JobSteps
     /// <summary>A folder is left as it is, because the snapshot being gone back to holds nothing of it. Arguments: <c>folder</c>.</summary>
     public const string LaunchFolderNotIncluded = "activity.step.launch.folderNotIncluded";
 
+    /// <summary>The Steam client was started at the player's request and the launch waits for it to sign in, before anything is switched. Arguments: <c>game</c>.</summary>
+    public const string LaunchWaitingForSteam = "activity.step.launch.waitingForSteam";
+
     /// <summary>The game is about to start. Arguments: <c>game</c>.</summary>
     public const string LaunchStarting = "activity.step.launch.starting";
 
