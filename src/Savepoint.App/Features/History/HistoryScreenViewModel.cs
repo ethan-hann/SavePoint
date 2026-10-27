@@ -420,7 +420,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         IsRemovedOpen = false;
         Clear();
         ResetSearch();
-        var all =new ProfileFilter(null, _deps.Text.Message("history.filter.all"));
+        var all = new ProfileFilter(null, _deps.Text.Message("history.filter.all"));
         Restore(() =>
         {
             Filters = [all];

@@ -173,7 +173,8 @@ public class TabOrderTests
 
         var stops = TabStops(app);
 
-        Assert.Equal(["Row: Tour, step 1 of 4: This is a profile", "Skip tour", "Next"], stops.Take(3));        app.Shell.Tour.NextCommand.Execute(null);
+        Assert.Equal(["Row: Tour, step 1 of 4: This is a profile", "Skip tour", "Next"], stops.Take(3));
+        app.Shell.Tour.NextCommand.Execute(null);
         app.Settle();
         Assert.Equal(["Row: Tour, step 2 of 4: Play puts the right files in place", "Skip tour", "Back", "Next"], TabStops(app).Take(4));
     }
