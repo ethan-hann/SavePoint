@@ -77,6 +77,188 @@ public sealed class CaptureSpaceTests : IDisposable
         Assert.Equal(300_008, reported);
     }
 
+    private static byte[] Filled(int length, byte value) => Enumerable.Repeat(value, length).ToArray();
+
+    // Same length, different bytes from Filled(length, 7): every value differs, so no stored file can share its content.
+    private static byte[] Ramp(int length, int seed) => Enumerable.Range(0, length).Select(i => (byte)((i * 31 + seed) % 251)).ToArray();
+
+    [Fact]
+    public async Task Switching_back_to_a_known_snapshot_leaves_nothing_for_the_next_snapshot_to_add()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        var first = (await _ws.CaptureAsync(repo, "profile-1", "First")).TipCommitId!;
+        _ws.Write(repo, "big.bin", Ramp(310_000, 2));
+        var fork = new CaptureRequest("profile-2", "Other", Guid.NewGuid().ToString()) { Mode = CaptureMode.Fork, ExpectedStartCommit = first };
+        await _ws.Engine.CaptureAsync(repo, fork, null, Ct);
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-1", ct: Ct);
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-2", ct: Ct);
+        await _ws.Engine.CheckoutBranchAsync(repo, "profile-1", ct: Ct);
+        _ws.Write(repo, "small.txt", "x");
+
+        Assert.Equal(1, await ReportedBytesAsync(repo, "profile-1"));
+    }
+
+    [Fact]
+    public async Task A_file_edited_and_put_back_as_it_was_recorded_does_not_count()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        await _ws.CaptureAsync(repo, "profile-1", "First");
+        _ws.Write(repo, "big.bin", Ramp(300_000, 2));
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+
+        Assert.Equal(0, await ReportedBytesAsync(repo, "profile-1"));
+    }
+
+    [Fact]
+    public async Task A_file_put_back_as_an_older_snapshot_held_it_does_not_count_even_when_its_length_differs_from_the_current_one()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        await _ws.CaptureAsync(repo, "profile-1", "First");
+        _ws.Write(repo, "big.bin", Ramp(310_000, 2));
+        await _ws.CaptureAsync(repo, "profile-1", "Second");
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+
+        // Files are only read for stored content when the raw size does not fit.
+        _ws.Space.Free = _floor + 100_000;
+
+        Assert.Equal(0, await ReportedBytesAsync(repo, "profile-1"));
+    }
+
+    [Fact]
+    public async Task A_new_file_whose_content_is_already_stored_under_another_name_does_not_count()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        await _ws.CaptureAsync(repo, "profile-1", "First");
+        _ws.Write(repo, "copy.bin", Ramp(300_000, 1));
+        _ws.Space.Free = _floor + 100_000;
+
+        Assert.Equal(0, await ReportedBytesAsync(repo, "profile-1"));
+    }
+
+    [Fact]
+    public async Task A_changed_file_of_the_same_length_but_different_content_counts_in_full()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        await _ws.CaptureAsync(repo, "profile-1", "First");
+        _ws.Write(repo, "big.bin", Ramp(300_000, 2));
+
+        Assert.Equal(300_000, await ReportedBytesAsync(repo, "profile-1"));
+    }
+
+    // A stored file put back over a newer one, which the space check can only know about by reading it.
+    private async Task<long?> ReportedAfterPuttingBackAsync(EngineWorkspace ws)
+    {
+        var repo = await ws.InitializedRepoAsync();
+        ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        await ws.CaptureAsync(repo, "profile-1", "First");
+        ws.Write(repo, "big.bin", Ramp(310_000, 2));
+        await ws.CaptureAsync(repo, "profile-1", "Second");
+        ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        long? reported = null;
+        var request = new CaptureRequest("profile-1", "Third", Guid.NewGuid().ToString())
+        {
+            BeforeWriting = (bytes, _) =>
+            {
+                reported = bytes;
+                return Task.CompletedTask;
+            },
+        };
+        await ws.Engine.CaptureAsync(repo, request, null, Ct);
+        return reported;
+    }
+
+    // Counts the files the space check reads in full while putting a stored file back over a newer one.
+    private async Task<int> ReadsWithFreeSpaceAsync(long? freeAboveFloor)
+    {
+        var reads = 0;
+        using var counting = new EngineWorkspace(options => options with { MinFreeBytesForStorageWrites = _floor, FileHashed = _ => Interlocked.Increment(ref reads) });
+        var repo = await counting.InitializedRepoAsync();
+        counting.Write(repo, "big.bin", Ramp(300_000, 1));
+        await counting.CaptureAsync(repo, "profile-1", "First");
+        counting.Write(repo, "big.bin", Ramp(310_000, 2));
+        await counting.CaptureAsync(repo, "profile-1", "Second");
+        counting.Write(repo, "big.bin", Ramp(300_000, 1));
+        if (freeAboveFloor is { } room)
+        {
+            counting.Space.Free = _floor + room;
+        }
+
+        var before = Volatile.Read(ref reads);
+        await counting.CaptureAsync(repo);
+        return Volatile.Read(ref reads) - before;
+    }
+
+    [Fact]
+    public async Task A_snapshot_that_fits_without_looking_at_what_is_stored_reads_no_file_content()
+    {
+        Assert.Equal(0, await ReadsWithFreeSpaceAsync(freeAboveFloor: null));
+        Assert.Equal(0, await ReadsWithFreeSpaceAsync(freeAboveFloor: 1_000_000));
+    }
+
+    [Fact]
+    public async Task A_snapshot_that_does_not_fit_by_its_raw_size_reads_files_to_find_what_is_stored()
+    {
+        Assert.Equal(1, await ReadsWithFreeSpaceAsync(freeAboveFloor: 100_000));
+    }
+
+    [Fact]
+    public async Task Files_past_the_read_limit_count_in_full_even_when_their_content_is_stored()
+    {
+        using var limited = new EngineWorkspace(options => options with { MinFreeBytesForStorageWrites = _floor, StoredContentReadBytes = 100_000 });
+
+        Assert.Equal(300_000, await ReportedAfterPuttingBackAsync(limited));
+    }
+
+    [Fact]
+    public async Task Files_git_streams_into_a_pack_count_in_full_even_when_their_content_is_stored()
+    {
+        using var streaming = new EngineWorkspace(options => options with
+        {
+            MinFreeBytesForStorageWrites = _floor,
+            StagingLimits = new StagingLimits(BatchBytes: 100_000, BatchFiles: 50, BigBytes: 50_000),
+        });
+
+        Assert.Equal(300_000, await ReportedAfterPuttingBackAsync(streaming));
+    }
+
+    [Fact]
+    public async Task A_new_file_next_to_files_already_stored_counts_in_full_and_a_snapshot_that_cannot_hold_it_is_refused()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        await _ws.CaptureAsync(repo, "profile-1", "First");
+        _ws.Write(repo, "big.bin", Ramp(310_000, 2));
+        await _ws.CaptureAsync(repo, "profile-1", "Second");
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        _ws.Write(repo, "fresh.bin", Ramp(200_000, 3));
+        _ws.Space.Free = _floor + 150_000;
+
+        var error = await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.CaptureAsync(repo));
+
+        Assert.Equal(_floor + 200_000, error.Args["requiredBytes"]);
+    }
+
+    [Fact]
+    public async Task A_snapshot_of_files_already_stored_is_not_refused_on_a_nearly_full_drive()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        await _ws.CaptureAsync(repo, "profile-1", "First");
+        _ws.Write(repo, "big.bin", Ramp(310_000, 2));
+        await _ws.CaptureAsync(repo, "profile-1", "Second");
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        _ws.Space.Free = _floor + 100;
+
+        var outcome = await _ws.CaptureAsync(repo);
+
+        Assert.True(outcome.Changed);
+    }
+
     [Fact]
     public async Task A_capture_with_nothing_to_store_still_reports_nothing_to_add()
     {
