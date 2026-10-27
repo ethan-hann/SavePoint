@@ -45,6 +45,9 @@ internal static class AppStates
         "launch-progress",
         "launch-post-play",
         "launch-post-play-older-point",
+        "launch-steam-card",
+        "launch-steam-waiting",
+        "launch-checking-closed",
         "post-play-from-older-snapshot",
         "post-play-from-older-snapshot-again",
         "history-cards",
@@ -254,6 +257,25 @@ internal static class AppStates
                 _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
                 app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
                 app.Backend.Launch.ReportExited(_skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
+                break;
+            case "launch-steam-card":
+                // Steam is closed for a Steam game: the card asks before anything is read or switched.
+                var steamTarget = new LaunchTarget.ProfileTip(SampleScenario.ModdedId);
+                var steamPreview = FakeAssert.Ok(await app.Backend.Launch.GetPreviewAsync(_skyrim, steamTarget));
+                app.Backend.State.LaunchPreviews[(_skyrim, steamTarget)] = steamPreview with { SteamNeeded = ErrorInfo.From(new SteamNotRunningException(_skyrim)) };
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                break;
+            case "launch-steam-waiting":
+                await Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).WaitAsync(TimeSpan.FromSeconds(5));
+                app.Backend.Jobs.ReportStep(FakeAssert.Session(app.Backend, _skyrim).LaunchJobId, JobSteps.LaunchWaitingForSteam, ("game", "Skyrim Special Edition"));
+                break;
+            case "launch-checking-closed":
+                // The check for a game started again never answers, so the card that says it is checking stays on screen.
+                _ = Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null);
+                app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
+                app.Backend.Launch.ReportExited(_skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
+                app.Backend.Launch.CompleteGate = () => new TaskCompletionSource().Task;
+                _ = app.Dialog<PostPlayDialogViewModel>().SaveCommand.ExecuteAsync(null);
                 break;
             case "launch-post-play-older-point":
                 app.History.Groups.SelectMany(group => group.Cards).Single(card => card.Name == "Cleared Blackreach").GoBackCommand.Execute(null);

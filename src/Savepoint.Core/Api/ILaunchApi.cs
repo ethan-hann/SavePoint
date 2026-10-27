@@ -56,9 +56,11 @@ public interface ILaunchApi
     /// library; a Steam app id alone does not. A game started from a link, or one that is not a Steam game, never asks.
     /// </para>
     /// <para>
-    /// Once Steam is up, the job reads the game's Steam manifest (read only) before anything starts. If Steam changed it while the launch
-    /// ran, or is updating the game, the job fails with <c>error.launch.steamUpdatingGame</c> and the program is not started, because
-    /// the update may have written over the version that was just loaded.
+    /// Once Steam is up, the job reads the game's Steam manifest (read only) before any folder is switched. If Steam is updating the game,
+    /// or changed its build since the launch began, the job fails with <c>error.launch.steamUpdatingBeforeSwitch</c>; nothing was
+    /// switched and the program is not started. The manifest is read again right before the program starts, and if an update began
+    /// meanwhile the job fails with <c>error.launch.steamUpdatingGame</c>: the folders were switched and may have changed, and the
+    /// program is not started.
     /// </para>
     /// <para>
     /// Passing <paramref name="withoutSteam"/> skips every Steam check and starts the program as it is, for a game that does not need
