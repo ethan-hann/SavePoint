@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <!-- The one version: assembly versions, the About section and the package version all read it. Pre-1.0 until the 1.0 release. -->
-    <Version>0.9.19</Version>
+    <Version>0.9.20</Version>
     <!-- The one pack id: the Windows setup's folder (%LOCALAPPDATA%\<pack id>, cleared on install and uninstall, so no data lives there), the AppImage's name, its desktop entry, and the window class the shell shows. -->
 
     <SavepointPackId>SavePoint</SavepointPackId>
