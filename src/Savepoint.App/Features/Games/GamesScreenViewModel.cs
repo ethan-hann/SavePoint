@@ -96,6 +96,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         _shell.LaunchFlow.InlineContentChanged += OnInlineContentChanged;
         _shell.LaunchFlow.EditGameRequested += OnEditGameRequested;
         _deps.Jobs.JobChanged += OnJobChanged;
+        _deps.Window.Changed += OnWindowActivityChanged;
 
         ShowGame(_shell.SelectedGame);
     }
@@ -398,6 +399,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         _shell.LaunchFlow.InlineContentChanged -= OnInlineContentChanged;
         _shell.LaunchFlow.EditGameRequested -= OnEditGameRequested;
         _deps.Jobs.JobChanged -= OnJobChanged;
+        _deps.Window.Changed -= OnWindowActivityChanged;
     }
 
     // Jobs raise their events from any thread. Only a snapshot of this game matters here: while one runs, no second one starts.

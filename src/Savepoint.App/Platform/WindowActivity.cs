@@ -14,3 +14,20 @@ public interface IWindowActivitySource
     /// <summary>Raised on the UI thread after <see cref="Current"/> changed.</summary>
     event EventHandler? Changed;
 }
+
+/// <summary>A window that is always in front; the answer where no real window is supplied, as in tests.</summary>
+public sealed class AlwaysActiveWindow : IWindowActivitySource
+{
+    /// <summary>The one instance.</summary>
+    public static AlwaysActiveWindow Instance { get; } = new();
+
+    /// <inheritdoc />
+    public WindowActivity Current { get; } = new(true, false);
+
+    /// <inheritdoc />
+    public event EventHandler? Changed
+    {
+        add { }
+        remove { }
+    }
+}

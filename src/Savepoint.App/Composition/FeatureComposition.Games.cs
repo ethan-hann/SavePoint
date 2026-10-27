@@ -24,5 +24,6 @@ public static partial class FeatureComposition
             context.Clock,
             editor,
             context.Services.FileRevealer ?? new FileManagerRevealer(FileManager.CreateForCurrentOs()),
-            context.Services.FolderWatcher ?? NullFolderWatcher.Instance));
+            context.Services.FolderWatcher ?? NullFolderWatcher.Instance,
+            context.Window ?? AlwaysActiveWindow.Instance));
 }

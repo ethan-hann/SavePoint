@@ -15,7 +15,8 @@ namespace Savepoint.App.Composition;
 /// <param name="Dispatcher">Brings Api events to the UI thread.</param>
 /// <param name="Time">What "now" means to the features; the system clock when null.</param>
 /// <param name="Attention">Calls the player back when a session ends behind another window; does nothing when null.</param>
-public sealed record FeatureContext(AppServices Services, IDialogs Dialogs, UiFormatter Text, ToastHostViewModel Toasts, IUiDispatcher Dispatcher, TimeProvider? Time = null, ISessionAttention? Attention = null)
+/// <param name="Window">Says whether the main window is in front; a window that always is when null.</param>
+public sealed record FeatureContext(AppServices Services, IDialogs Dialogs, UiFormatter Text, ToastHostViewModel Toasts, IUiDispatcher Dispatcher, TimeProvider? Time = null, ISessionAttention? Attention = null, IWindowActivitySource? Window = null)
 {
     /// <summary>What "now" means to the features, and what their timers run on.</summary>
     public TimeProvider Clock => Time ?? TimeProvider.System;

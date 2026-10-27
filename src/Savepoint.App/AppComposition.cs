@@ -28,6 +28,7 @@ public static class AppComposition
     /// <param name="settingsEnvironment">Replaces what Settings reads from the machine, for tests; the running app's when null.</param>
     /// <param name="exitWait">How long closing waits for cancelled jobs to end, for tests; the exit guard's default when null.</param>
     /// <param name="attention">Calls the player back when a session ends behind another window; does nothing when null.</param>
+    /// <param name="window">Says whether the main window is in front; a window that always is when null.</param>
     public static MainWindowViewModel Create(
         AppServices services,
         UiFormatter text,
@@ -38,7 +39,8 @@ public static class AppComposition
         IDialogs? dialogs = null,
         SettingsEnvironment? settingsEnvironment = null,
         TimeSpan? exitWait = null,
-        ISessionAttention? attention = null)
+        ISessionAttention? attention = null,
+        IWindowActivitySource? window = null)
     {
         var ui = dispatcher ?? new AvaloniaUiDispatcher();
         var toasts = new ToastHostViewModel(clock ?? TimeProvider.System, ui);
@@ -50,7 +52,7 @@ public static class AppComposition
 
         ShellViewModel CreateShell()
         {
-            var feature = new FeatureContext(services, pickers, text, toasts, ui, clock, attention);
+            var feature = new FeatureContext(services, pickers, text, toasts, ui, clock, attention, window);
             return new(new ShellDependencies(
                 services.Games,
                 services.Profiles,

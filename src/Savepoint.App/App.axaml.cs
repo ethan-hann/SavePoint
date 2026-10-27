@@ -69,12 +69,15 @@ public partial class App : Application
             Theme.SetUiScale(StartupUiScale.Read(services.Settings));
             var window = new MainWindow();
             var attention = new SessionAttentionRelay();
+            var activity = new WindowActivityTracker(window);
+            desktop.Exit += (_, _) => activity.Dispose();
             var main = AppComposition.Create(
                 services,
                 text,
                 new ThemeServiceApplier(Theme),
                 () => window.StorageProvider,
-                attention: attention);
+                attention: attention,
+                window: activity);
             window.DataContext = main;
             window.Opened += (_, _) => _ = main.InitializeAsync();
             desktop.MainWindow = window;

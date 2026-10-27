@@ -24,6 +24,7 @@ internal sealed class GamesRig
     {
         Backend = backend;
         Watcher = new FakeFolderWatcher();
+        Window = new FakeWindowActivity();
         Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         Dialogs = new FakeDialogs();
         UiDialogs = dialogs?.Invoke(Text) ?? Dialogs;
@@ -43,7 +44,8 @@ internal sealed class GamesRig
             clock ?? backend.Clock,
             Editor,
             Revealer,
-            Watcher)));
+            Watcher,
+            Window)));
         Factory = factory;
         Shell = new ShellViewModel(new ShellDependencies(
             backend.Games,
@@ -80,6 +82,8 @@ internal sealed class GamesRig
     public RecordingFileRevealer Revealer { get; }
 
     public FakeFolderWatcher Watcher { get; }
+
+    public FakeWindowActivity Window { get; }
 
     public CapturingScreenFactory Factory { get; }
 

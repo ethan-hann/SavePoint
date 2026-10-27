@@ -21,17 +21,25 @@ public sealed partial class GamesScreenViewModel
         StopWatching();
     }
 
-    /// <summary>
-    /// Tells the screen the window came to the front again. Folders that cannot be watched, and changes a watch missed, show up here, so it
-    /// reads the profiles' status once more.
-    /// </summary>
-    public void OnWindowActivated() => _statusReads.Request();
+    // Nothing is read while the window is behind another or minimized: a game started elsewhere writes all the time, and a scan of its
+    // install would compete with it for the disk. The window coming back reads once, which also covers folders that cannot be watched
+    // and changes a watch missed.
+    private void OnWindowActivityChanged(object? sender, EventArgs e)
+    {
+        if (IsWindowInFront())
+        {
+            _statusReads.Request();
+        }
+    }
+
+    private bool IsWindowInFront() => _deps.Window.Current is { IsActive: true, IsMinimized: false };
 
     // Signals while a session or a job of the game runs are the game's or SavePoint's own writes. A session ends in the after-play flow,
     // which reads the status itself, and a job's end refreshes the library; reading in between would only compete with them for the disk.
     private bool StatusReadsBlocked() =>
         _disposed
         || !_shown
+        || !IsWindowInFront()
         || _game is not { } game
         || FlowOwns(game)
         || _deps.Jobs.List().Any(job => job.GameId == game.Id && job.Status == JobStatus.Running);

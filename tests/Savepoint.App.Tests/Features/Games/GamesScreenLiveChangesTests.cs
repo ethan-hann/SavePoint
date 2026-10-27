@@ -1,5 +1,6 @@
 using Savepoint.App.Features.Games;
 using Savepoint.App.Features.Shell;
+using Savepoint.App.Tests.Features.Common;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
@@ -29,6 +30,13 @@ public class GamesScreenLiveChangesTests
     {
         var state = rig.Backend.State;
         rig.Backend.Script(() => state.RowStats[profileId] = state.StatsFor(state.Profiles.Single(profile => profile.Id == profileId)) with { UnsavedChanges = [RepoRole.Install] });
+    }
+
+    // The player switches to another window and comes back.
+    private static void BringWindowBack(GamesRig rig)
+    {
+        rig.Window.Become(active: false);
+        rig.Window.Become(active: true);
     }
 
     private static ProfileRowViewModel Modded(GamesRig rig) => rig.Screen.Profiles.Single(row => row.Id == SampleScenario.ModdedId);
@@ -112,7 +120,6 @@ public class GamesScreenLiveChangesTests
         clock.Advance(_settle);
         watch.RaiseChanged();
         watch.RaiseChanged();
-        clock.Advance(_settle * 3);
 
         // The gate holds the first read before the fake records it, so nothing is counted until it is let go.
         Assert.Equal(reads, StatusReads(rig));
@@ -228,6 +235,7 @@ public class GamesScreenLiveChangesTests
         first.RaiseChanged();
         await SettledAsync(rig, clock, _settle * 2);
 
+        Assert.False(first.HasListeners);
         Assert.Equal(reads, StatusReads(rig));
     }
 
@@ -252,6 +260,7 @@ public class GamesScreenLiveChangesTests
         rig.Shell.Navigate(NavDestination.History);
 
         Assert.True(first.Disposed);
+        Assert.False(first.HasListeners);
         Assert.Empty(rig.Watcher.Running);
         var reads = StatusReads(rig);
         first.RaiseChanged();
@@ -285,7 +294,7 @@ public class GamesScreenLiveChangesTests
         var reads = StatusReads(rig);
         EditOutsideSavePoint(rig);
 
-        rig.Screen.OnWindowActivated();
+        BringWindowBack(rig);
         await SettledAsync(rig, clock, _settle);
 
         Assert.Equal(reads + 1, StatusReads(rig));
@@ -299,7 +308,7 @@ public class GamesScreenLiveChangesTests
         rig.LaunchFlow.SetActive(SampleScenario.SkyrimId, true);
         var reads = StatusReads(rig);
 
-        rig.Screen.OnWindowActivated();
+        BringWindowBack(rig);
         await SettledAsync(rig, clock, _settle * 2);
 
         Assert.Equal(reads, StatusReads(rig));
@@ -312,7 +321,109 @@ public class GamesScreenLiveChangesTests
         rig.Shell.Navigate(NavDestination.History);
         var reads = StatusReads(rig);
 
-        rig.Screen.OnWindowActivated();
+        BringWindowBack(rig);
+        await SettledAsync(rig, clock, _settle * 2);
+
+        Assert.Equal(reads, StatusReads(rig));
+    }
+
+    [Fact]
+    public async Task Changes_while_the_window_is_in_the_background_are_not_read()
+    {
+        var (rig, clock) = await StartAsync();
+        var reads = StatusReads(rig);
+        rig.Window.Become(active: false);
+
+        Assert.Single(rig.Watcher.Running).RaiseChanged();
+        await SettledAsync(rig, clock, _settle * 2);
+
+        Assert.Equal(reads, StatusReads(rig));
+    }
+
+    [Fact]
+    public async Task Coming_back_to_the_window_reads_what_changed_in_the_meantime_once()
+    {
+        var (rig, clock) = await StartAsync();
+        var reads = StatusReads(rig);
+        var watch = Assert.Single(rig.Watcher.Running);
+        rig.Window.Become(active: false);
+        EditOutsideSavePoint(rig);
+        watch.RaiseChanged();
+        watch.RaiseChanged();
+        await SettledAsync(rig, clock, _settle * 2);
+        Assert.Equal(reads, StatusReads(rig));
+
+        rig.Window.Become(active: true);
+        await SettledAsync(rig, clock, _settle);
+
+        Assert.Equal(reads + 1, StatusReads(rig));
+        Assert.True(Modded(rig).HasUnsavedChanges);
+    }
+
+    [Fact]
+    public async Task A_minimized_window_that_is_still_reported_active_reads_nothing()
+    {
+        var (rig, clock) = await StartAsync();
+        var reads = StatusReads(rig);
+        rig.Window.Become(active: true, minimized: true);
+
+        Assert.Single(rig.Watcher.Running).RaiseChanged();
+        await SettledAsync(rig, clock, _settle * 2);
+
+        Assert.Equal(reads, StatusReads(rig));
+    }
+
+    [Fact]
+    public async Task A_read_that_was_waiting_when_the_window_went_to_the_back_is_made_when_the_player_returns()
+    {
+        var (rig, clock) = await StartAsync();
+        var reads = StatusReads(rig);
+        Assert.Single(rig.Watcher.Running).RaiseChanged();
+
+        rig.Window.Become(active: false);
+        await SettledAsync(rig, clock, _settle * 2);
+        Assert.Equal(reads, StatusReads(rig));
+
+        rig.Window.Become(active: true);
+        await SettledAsync(rig, clock, _settle);
+
+        Assert.Equal(reads + 1, StatusReads(rig));
+    }
+
+    [Fact]
+    public async Task A_change_raised_on_another_thread_reaches_the_scheduler_only_on_the_UI_thread()
+    {
+        var dispatcher = new ManualDispatcher();
+        var clock = new ManualTimeProvider();
+        var rig = await GamesRig.StartAsync(dispatcher: dispatcher, clock: clock);
+        var watch = Assert.Single(rig.Watcher.Running);
+        var timers = clock.ActiveTimers;
+        dispatcher.PostsImmediately = false;
+
+        await Task.Run(watch.RaiseChanged, TestContext.Current.CancellationToken);
+
+        Assert.Equal(timers, clock.ActiveTimers);
+
+        dispatcher.RunPosted();
+
+        Assert.Equal(timers + 1, clock.ActiveTimers);
+    }
+
+    [Fact]
+    public async Task A_change_queued_from_the_old_games_watch_before_picking_another_game_reads_nothing()
+    {
+        var dispatcher = new ManualDispatcher();
+        var clock = new ManualTimeProvider();
+        var rig = await GamesRig.StartAsync(dispatcher: dispatcher, clock: clock);
+        var first = Assert.Single(rig.Watcher.Running);
+        dispatcher.PostsImmediately = false;
+        first.RaiseChanged();
+        dispatcher.PostsImmediately = true;
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
+        await rig.Screen.ReloadAsync();
+        var reads = StatusReads(rig);
+
+        dispatcher.RunPosted();
         await SettledAsync(rig, clock, _settle * 2);
 
         Assert.Equal(reads, StatusReads(rig));
