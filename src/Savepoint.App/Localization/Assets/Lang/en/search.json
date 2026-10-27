@@ -4,6 +4,7 @@
   "search.games.label": "Search games",
   "search.games.noMatch": "No games match.",
   "search.history.count": "{shownText} of {total, plural, one {{totalText} snapshot} other {{totalText} snapshots}}",
+  "search.history.countWithRemoved": "{shownText} of {total, plural, one {{totalText} snapshot} other {{totalText} snapshots}}, plus {removedShownText} of {removedTotalText} in Recently removed",
   "search.history.label": "Search snapshots",
   "search.history.noMatch": "No snapshots match.",
   "search.history.removedHeading": "Recently removed ({shownText} of {totalText})",
