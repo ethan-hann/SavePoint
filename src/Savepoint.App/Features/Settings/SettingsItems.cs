@@ -20,6 +20,11 @@ public sealed record LayoutChoice(ShellLayout Layout, string Label, string Descr
     public bool IsLibrary => Layout == ShellLayout.Library;
 }
 
+/// <summary>One step of the interface-size control.</summary>
+/// <param name="Percent">How large the interface is drawn, 100 to 200.</param>
+/// <param name="Label">Its name ("125%"), also its accessible name.</param>
+public sealed record ScaleOption(int Percent, string Label);
+
 /// <summary>One accent swatch.</summary>
 /// <param name="Accent">The accent it selects; its swatch is drawn in the preset's own seed color.</param>
 /// <param name="Label">Its name ("Blue"), used as the swatch's accessible name.</param>

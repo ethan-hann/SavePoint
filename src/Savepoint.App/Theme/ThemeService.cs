@@ -9,7 +9,7 @@ namespace Savepoint.App.Theme;
 /// <summary>
 /// Turns a theme preference and an accent into the application's color resources: a <c>Color</c> and a
 /// <c>SolidColorBrush</c> for every role (see <see cref="ThemeKeys"/>), plus the Fluent keys in
-/// <see cref="FluentBridge"/> and the motion resources. Views bind with <c>DynamicResource</c>, so switching repaints
+/// <see cref="FluentBridge"/>, the motion resources and the UI scale transform (<see cref="SetUiScale"/>). Views bind with <c>DynamicResource</c>, so switching repaints
 /// them without rebuilding anything. Like the controls it themes it belongs to the UI thread; create it and call it there.
 /// </summary>
 public sealed class ThemeService : IDisposable
@@ -36,6 +36,7 @@ public sealed class ThemeService : IDisposable
         _systemTheme = systemTheme;
         _setRequestedVariant = setRequestedVariant;
         _motion = new MotionResources(resources);
+        PublishUiScale();
         _systemTheme.Changed += OnSystemThemeChanged;
     }
 
@@ -74,6 +75,29 @@ public sealed class ThemeService : IDisposable
             }
         }
     }
+
+    /// <summary>Raised when <see cref="UiScalePercent"/> changes, after the scale resource holds its new value.</summary>
+    public event EventHandler? UiScaleChanged;
+
+    /// <summary>How large the interface is drawn on top of the operating system's own scaling, as one of the <see cref="UiScale.Steps"/>.</summary>
+    public int UiScalePercent { get; private set; } = UiScale.Default;
+
+    /// <summary>Draws every window and popup at a scale; a number that is not a step becomes the nearest step. Takes effect at once.</summary>
+    public void SetUiScale(int percent)
+    {
+        var step = UiScale.Nearest(percent);
+        if (step == UiScalePercent)
+        {
+            return;
+        }
+
+        UiScalePercent = step;
+        PublishUiScale();
+        UiScaleChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // A new transform each time, so bound content sees a changed value instead of a mutated one.
+    private void PublishUiScale() => _resources[ThemeKeys.UiScale] = new ScaleTransform(UiScalePercent / 100.0, UiScalePercent / 100.0);
 
     /// <summary>The service the app uses: the application's resources, the platform's light/dark setting, and Fluent's variant.</summary>
     public static ThemeService CreateForApplication(Application application) =>

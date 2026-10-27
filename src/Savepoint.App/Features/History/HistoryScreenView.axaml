@@ -108,18 +108,24 @@
           <Button.Flyout>
             <Flyout Placement="BottomEdgeAlignedRight" Opened="OnFilterOpened">
               <!-- Arrow keys only move through the list: the choice is made by a click or Enter, which closes it. -->
-              <ListBox x:Name="FilterList"
+              <a11y:ChoiceListBox x:Name="FilterList"
                        Classes="rows"
                        MinWidth="220"
                        ItemsSource="{Binding Filters}"
                        SelectedItem="{Binding SelectedFilter, Mode=OneWay}"
+                       AutomationProperties.Name="{loc:Loc history.filter.listName}"
                        PointerReleased="OnFilterPointerReleased">
-                <ListBox.ItemTemplate>
+                <a11y:ChoiceListBox.Styles>
+                  <Style Selector="ListBoxItem" x:DataType="history:ProfileFilter">
+                    <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                  </Style>
+                </a11y:ChoiceListBox.Styles>
+                <a11y:ChoiceListBox.ItemTemplate>
                   <DataTemplate x:DataType="history:ProfileFilter">
                     <TextBlock Classes="body" Text="{Binding Label}" />
                   </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
+                </a11y:ChoiceListBox.ItemTemplate>
+              </a11y:ChoiceListBox>
             </Flyout>
           </Button.Flyout>
           <StackPanel Orientation="Horizontal" Spacing="8">

@@ -560,6 +560,7 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
         FirstRun.SetStorageRoot(settings.StorageRoot);
         FirstRun.SetArtworkLookUp(settings.LookUpArtworkOnline);
         _deps.Theme.Apply(settings.Theme, settings.AccentColorId);
+        _deps.Theme.ApplyScale(settings.UiScalePercent);
         StartTourIfDue();
     }
 

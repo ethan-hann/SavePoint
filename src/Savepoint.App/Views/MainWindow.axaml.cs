@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using Savepoint.App.Features.Shell;
@@ -14,6 +15,54 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Icon = AppIcon.Load();
+        FollowUiScale();
+    }
+
+    // The smallest size set in the XAML holds at 100%; a larger scale makes the content larger, so the smallest size grows with it.
+    private void FollowUiScale()
+    {
+        if (Application.Current is not App { Theme: { } theme })
+        {
+            return;
+        }
+
+        var baseSize = new Size(MinWidth, MinHeight);
+        void Apply()
+        {
+            var screen = Screens.ScreenFromWindow(this);
+            var size = ScaledMinimum(baseSize, theme.UiScalePercent, screen?.WorkingArea, screen?.Scaling ?? 1);
+            MinWidth = size.Width;
+            MinHeight = size.Height;
+        }
+
+        void OnScaleChanged(object? sender, EventArgs e) => Apply();
+        theme.UiScaleChanged += OnScaleChanged;
+        Closed += (_, _) => theme.UiScaleChanged -= OnScaleChanged;
+        Opened += (_, _) => Apply();
+        Apply();
+    }
+
+    /// <summary>
+    /// The window's smallest size at a UI scale: the size at 100% times the scale, but never more than the room the screen leaves,
+    /// since a window that does not fit its screen cannot be used at all.
+    /// </summary>
+    /// <param name="baseSize">The smallest size at 100%.</param>
+    /// <param name="percent">The UI scale in percent.</param>
+    /// <param name="workArea">The screen's working area in device pixels, or null when the window's screen is not known.</param>
+    /// <param name="screenScaling">The screen's own display scaling, to turn the working area into the window's units.</param>
+    internal static Size ScaledMinimum(Size baseSize, int percent, PixelRect? workArea, double screenScaling)
+    {
+        var scaled = new Size(baseSize.Width * percent / 100.0, baseSize.Height * percent / 100.0);
+        if (workArea is not { } area || screenScaling <= 0)
+        {
+            return scaled;
+        }
+
+        // The title bar and frame are not part of the client size the minimum applies to.
+        const double frame = 40;
+        return new Size(
+            Math.Max(baseSize.Width, Math.Min(scaled.Width, (area.Width / screenScaling) - frame)),
+            Math.Max(baseSize.Height, Math.Min(scaled.Height, (area.Height / screenScaling) - frame)));
     }
 
     private MainWindowViewModel? _followed;

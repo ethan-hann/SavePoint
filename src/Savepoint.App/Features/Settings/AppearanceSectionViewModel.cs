@@ -2,13 +2,14 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Shell;
+using Savepoint.App.Theme;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Features.Settings;
 
 /// <summary>
-/// The Appearance section: theme, layout, accent and whether game artwork may be looked up online. A theme
-/// or accent choice is saved and the shell follows at once; a layout choice goes through the shell, which saves it, and the
+/// The Appearance section: theme, interface size, layout, accent and whether game artwork may be looked up online. A theme,
+/// size or accent choice is saved and the shell follows at once; a layout choice goes through the shell, which saves it, and the
 /// selection follows the shell when the layout changes on the Games screen. The artwork switch is saved when it is flipped and
 /// has the tiles read their artwork again. A choice that fails to save goes back to what is stored.
 /// </summary>
@@ -19,6 +20,7 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
     private ThemeOption _currentTheme;
     private LayoutChoice _currentLayout;
     private AccentOption _currentAccent;
+    private ScaleOption _currentScale;
     private bool _currentLookUp = true;
     private bool _restoring;
 
@@ -33,6 +35,10 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
     /// <summary>The accent swatch that is selected; choosing another saves it.</summary>
     [ObservableProperty]
     private AccentOption? _selectedAccent;
+
+    /// <summary>The interface-size step that is selected; choosing another saves it.</summary>
+    [ObservableProperty]
+    private ScaleOption? _selectedScale;
 
     /// <summary>Whether SavePoint may fetch game artwork from Steam's servers when it is not on this computer; flipping it saves it.</summary>
     [ObservableProperty]
@@ -62,10 +68,21 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
             new AccentOption(AccentColorId.Crimson, text.Message("settings.accent.crimson")),
         ];
 
+        ScaleOptions =
+        [
+            new ScaleOption(100, text.Message("settings.scale.p100")),
+            new ScaleOption(125, text.Message("settings.scale.p125")),
+            new ScaleOption(150, text.Message("settings.scale.p150")),
+            new ScaleOption(175, text.Message("settings.scale.p175")),
+            new ScaleOption(200, text.Message("settings.scale.p200")),
+        ];
+
         var defaults = AppSettings.Defaults(string.Empty);
         _currentTheme = ThemeFor(defaults.Theme);
         _currentLayout = LayoutFor(defaults.Layout);
         _currentAccent = AccentFor(defaults.AccentColorId);
+        _currentScale = ScaleFor(defaults.UiScalePercent);
+        _selectedScale = _currentScale;
         _selectedTheme = _currentTheme;
         _selectedLayout = _currentLayout;
         _selectedAccent = _currentAccent;
@@ -79,6 +96,9 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
 
     /// <summary>The Sidebar and Library previews, in that order.</summary>
     public IReadOnlyList<LayoutChoice> LayoutChoices { get; }
+
+    /// <summary>The interface sizes, smallest first: 100%, 125%, 150%, 175% and 200%.</summary>
+    public IReadOnlyList<ScaleOption> ScaleOptions { get; }
 
     /// <summary>The five accent presets, in the order the spec draws them.</summary>
     public IReadOnlyList<AccentOption> AccentOptions { get; }
@@ -133,6 +153,26 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
         }
     }
 
+    partial void OnSelectedScaleChanged(ScaleOption? value)
+    {
+        if (_restoring)
+        {
+            return;
+        }
+
+        if (value is null)
+        {
+            Restore(() => SelectedScale = _currentScale);
+            return;
+        }
+
+        if (value != _currentScale)
+        {
+            _currentScale = value;
+            _ = SaveAsync(settings => settings with { UiScalePercent = value.Percent });
+        }
+    }
+
     partial void OnSelectedLayoutChanged(LayoutChoice? value)
     {
         if (_restoring)
@@ -181,10 +221,12 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
             _currentTheme = ThemeFor(settings.Theme);
             _currentAccent = AccentFor(settings.AccentColorId);
             _currentLayout = LayoutFor(settings.Layout);
+            _currentScale = ScaleFor(settings.UiScalePercent);
             _currentLookUp = settings.LookUpArtworkOnline;
             LookUpArtworkOnline = _currentLookUp;
             SelectedTheme = _currentTheme;
             SelectedAccent = _currentAccent;
+            SelectedScale = _currentScale;
             SelectedLayout = _currentLayout;
         });
 
@@ -203,6 +245,9 @@ public sealed partial class AppearanceSectionViewModel : ObservableObject
     private ThemeOption ThemeFor(ThemePreference preference) => ThemeOptions.First(option => option.Preference == preference);
 
     private LayoutChoice LayoutFor(ShellLayout layout) => LayoutChoices.First(choice => choice.Layout == layout);
+
+    // A number a hand-edited file holds that is no step shows as the nearest one.
+    private ScaleOption ScaleFor(int percent) => ScaleOptions.First(option => option.Percent == UiScale.Nearest(percent));
 
     private AccentOption AccentFor(AccentColorId accent) => AccentOptions.First(option => option.Accent == accent);
 

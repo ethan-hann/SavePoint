@@ -14,6 +14,7 @@
   "history.empty.title": "Nothing to go back to yet",
   "history.filter.all": "All profiles",
   "history.filter.automationName": "Filter by profile: {profile}",
+  "history.filter.listName": "Filter by profile",
   "history.footer": "This game's snapshots use {size}. Snapshots in Recently removed stay until you free up space.",
   "history.group.earlier": "Earlier",
   "history.group.thisWeek": "Last 7 days",
