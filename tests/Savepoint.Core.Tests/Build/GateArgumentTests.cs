@@ -29,6 +29,9 @@ public sealed class GateArgumentTests : IDisposable
         info.WorkingDirectory = _root;
         info.Environment["SAVEPOINT_TEST_ARGS"] = testArgs;
         info.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+        // The temp folder sits inside the checkout, where git would find the real repository and the script would wait on the
+        // machine-wide gate lock, which the gate running these tests holds.
+        info.Environment["GIT_CEILING_DIRECTORIES"] = Path.GetDirectoryName(_root);
 
         Process? process = null;
         try
@@ -101,6 +104,7 @@ public sealed class GateArgumentTests : IDisposable
     {
         var run = await RunGateAsync("gate.ps1", "--report-trx");
 
+        Assert.Contains("==> extra test arguments (SAVEPOINT_TEST_ARGS): --report-trx", run.Output, StringComparison.Ordinal);
         Assert.DoesNotContain("gate refused", run.Output, StringComparison.Ordinal);
     }
 
@@ -111,6 +115,7 @@ public sealed class GateArgumentTests : IDisposable
 
         var run = await RunGateAsync("gate.sh", "--report-trx");
 
+        Assert.Contains("==> extra test arguments (SAVEPOINT_TEST_ARGS): --report-trx", run.Output, StringComparison.Ordinal);
         Assert.DoesNotContain("gate refused", run.Output, StringComparison.Ordinal);
     }
 }
