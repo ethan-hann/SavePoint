@@ -22,6 +22,9 @@ public sealed partial class GamesScreenViewModel
     /// </summary>
     public const double PinnedSearchMinBodyHeight = 240;
 
+    /// <summary>The room a pinned search takes from the area for the profiles: its box and the gaps around it.</summary>
+    public const double PinnedSearchRowHeight = 60;
+
     /// <summary>True when the profile search stays above the table while the profiles scroll under it: it shows and there is room for both.</summary>
     public bool ShowPinnedSearch => ShowSearch && !_searchScrolls;
 

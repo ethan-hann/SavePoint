@@ -35,6 +35,38 @@ public partial class SearchBoxView : UserControl
         return true;
     }
 
+    /// <summary>
+    /// Takes the cursor from another box that shows the same text, leaving the text unselected with the cursor where it was in
+    /// <paramref name="from"/>, so the next keystroke adds to the search instead of replacing it. Does nothing, and says so, when
+    /// this box is not showing.
+    /// </summary>
+    /// <param name="from">The box the cursor was in; its text must be this box's text.</param>
+    /// <returns>True when the box took focus.</returns>
+    public bool FocusSearchFrom(SearchBoxView from)
+    {
+        if (!IsEffectivelyVisible || !IsEffectivelyEnabled)
+        {
+            return false;
+        }
+
+        // Already holding the cursor means a second move for the same change; the player's place in the text stays.
+        if (Field.IsFocused)
+        {
+            return true;
+        }
+
+        if (!Field.Focus(NavigationMethod.Tab))
+        {
+            return false;
+        }
+
+        var caret = Math.Min(from.Field.CaretIndex, Field.Text?.Length ?? 0);
+        Field.SelectionStart = caret;
+        Field.SelectionEnd = caret;
+        Field.CaretIndex = caret;
+        return true;
+    }
+
     // Escape empties a box that has text; on an empty box it passes on, so it still closes whatever it would have closed.
     private void OnFieldKeyDown(object? sender, KeyEventArgs e)
     {

@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -186,6 +187,30 @@ public class GamesPinnedSearchViewTests
         app.Settle();
 
         Assert.Same(FieldOf(app, "ProfileSearchBox"), app.Focused);
+    }
+
+    [AvaloniaFact]
+    public async Task The_next_keystroke_after_the_search_moves_adds_to_the_text_at_the_caret_instead_of_replacing_it()
+    {
+        using var app = await StartAsync(height: 660);
+        app.Games.ProfileSearch.Text = "extra";
+        app.Settle();
+        app.Press(Key.F, PhysicalKey.F, RawInputModifiers.Control);
+        var pinned = FieldOf(app, "ProfileSearchBox");
+        pinned.CaretIndex = 2;
+        pinned.SelectionStart = 2;
+        pinned.SelectionEnd = 2;
+
+        app.Games.SetBodyHeight(150);
+        app.Settle();
+
+        var scrolling = FieldOf(app, "ScrollingProfileSearchBox");
+        Assert.Same(scrolling, app.Focused);
+        Assert.Equal(2, scrolling.CaretIndex);
+        Assert.Equal(scrolling.SelectionStart, scrolling.SelectionEnd);
+        app.Window.KeyTextInput("x");
+        app.Settle();
+        Assert.Equal("exxtra", app.Games.ProfileSearch.Text);
     }
 
     [AvaloniaFact]

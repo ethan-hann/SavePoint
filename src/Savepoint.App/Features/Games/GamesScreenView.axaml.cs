@@ -24,6 +24,7 @@ public partial class GamesScreenView : UserControl
         Table.SizeChanged += OnTableSizeChanged;
         Root.SizeChanged += OnRootSizeChanged;
         ProfilesBody.SizeChanged += OnBodySizeChanged;
+        ScrollingContentHost.SizeChanged += OnScrollingCardSizeChanged;
         foreach (var host in new[] { PinnedSearchHost, ScrollingSearchHost })
         {
             host.AddHandler(GotFocusEvent, OnSearchGotFocus);
@@ -94,12 +95,19 @@ public partial class GamesScreenView : UserControl
 
     private void OnBodySizeChanged(object? sender, SizeChangedEventArgs e) => FeedBody();
 
+    private void OnScrollingCardSizeChanged(object? sender, SizeChangedEventArgs e) => FeedBody();
+
     // A pinned launch card takes its room from this area, so the search folds into the scrolling profiles while a card leaves the table too little.
+    // A card below the table is as tall as it is wherever the search sits, and the search yields when the area cannot hold both.
     private void FeedBody()
     {
-        if (DataContext is GamesScreenViewModel screen && ProfilesBody.Bounds.Height > 0)
+        if (DataContext is GamesScreenViewModel screen)
         {
-            screen.SetBodyHeight(ProfilesBody.Bounds.Height);
+            screen.SetScrollingCardHeight(ScrollingContentHost.IsVisible ? ScrollingContentHost.Bounds.Height : 0);
+            if (ProfilesBody.Bounds.Height > 0)
+            {
+                screen.SetBodyHeight(ProfilesBody.Bounds.Height);
+            }
         }
     }
 
@@ -147,7 +155,8 @@ public partial class GamesScreenView : UserControl
         }
 
         // A second move for the same change finds the box already focused, which raises no focus event, so the flag is set here.
-        _searchHadFocus = (_screen.ShowPinnedSearch ? ProfileSearchBox : ScrollingProfileSearchBox).FocusSearch();
+        var (target, previous) = _screen.ShowPinnedSearch ? (ProfileSearchBox, ScrollingProfileSearchBox) : (ScrollingProfileSearchBox, ProfileSearchBox);
+        _searchHadFocus = target.FocusSearchFrom(previous);
     }
 
     // The table is hidden when there is nothing to list, and a hidden table measures nothing worth reacting to.
