@@ -2,5 +2,8 @@
   "search.clear": "Clear search",
   "search.games.count": "{shownText} of {total, plural, one {{totalText} game} other {{totalText} games}}",
   "search.games.label": "Search games",
-  "search.games.noMatch": "No games match."
+  "search.games.noMatch": "No games match.",
+  "search.profiles.count": "{shownText} of {total, plural, one {{totalText} profile} other {{totalText} profiles}}",
+  "search.profiles.label": "Search profiles",
+  "search.profiles.noMatch": "No profiles match."
 }

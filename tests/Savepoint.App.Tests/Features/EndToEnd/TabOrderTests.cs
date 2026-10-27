@@ -63,7 +63,7 @@ public class TabOrderTests
             [
                 "Games", "Search games", "Skyrim Special Edition, 3 profiles", "Add games from your libraries", "Add a game",
                 "Edit game", "New profile", "More actions for Skyrim Special Edition", "Sidebar",
-                "Profiles", "History", "Activity", "Take a snapshot",
+                "Profiles", "History", "Activity", "Take a snapshot", "Search profiles",
                 .. ProfileRows(_modded), .. ProfileRows(_vanilla, "Switch and play"), .. ProfileRows(_survival, "Switch and play"),
                 "Free up space for Skyrim Special Edition",
             ],
@@ -79,7 +79,7 @@ public class TabOrderTests
             [
                 "Games", "Library", "Search games",
                 "Add games from your libraries", "Add a game", "Skyrim Special Edition, 3 profiles", "Add a game",
-                "Edit game", "New profile", "More actions for Skyrim Special Edition", "Take a snapshot",
+                "Edit game", "New profile", "More actions for Skyrim Special Edition", "Take a snapshot", "Search profiles",
                 .. ProfileRows(_modded), .. ProfileRows(_vanilla, "Switch and play"), .. ProfileRows(_survival, "Switch and play"),
             ],
             TabStops(app));

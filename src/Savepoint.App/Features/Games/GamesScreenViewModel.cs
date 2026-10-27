@@ -83,6 +83,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         _deps = dependencies;
         LayoutToggle = shell.LayoutToggle;
         FreeUp = new FreeUpSpaceViewModel(dependencies.Games, dependencies.Jobs, dependencies.Dialogs, dependencies.Text, dependencies.Dispatcher, ShowError, RefreshStorageUsageAsync);
+        InitializeProfileSearch();
 
         _shell.PropertyChanged += OnShellChanged;
         _shell.LibraryRefreshed += OnLibraryRefreshed;
@@ -226,6 +227,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
         if (switched)
         {
+            ClearProfileSearch();
             ClearRows();
             StorageFooterText = string.Empty;
             LoadError = null;
@@ -332,6 +334,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     {
         _disposed = true;
         _loadCts?.Cancel();
+        ProfileSearch.Dispose();
         FreeUp.Dispose();
         _shell.PropertyChanged -= OnShellChanged;
         _shell.LibraryRefreshed -= OnLibraryRefreshed;
@@ -474,11 +477,13 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         OnPropertyChanged(nameof(ShowTable));
         OnPropertyChanged(nameof(ShowEmptyState));
         OnPropertyChanged(nameof(ShowLoading));
+        RaiseSearchState();
     }
 
     private void ClearRows()
     {
         Profiles.Clear();
+        RefilterProfiles();
         RaiseTableState();
         RefreshSnapshotHeader();
     }
@@ -532,6 +537,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             }
         }
 
+        RefilterProfiles();
         RefreshSnapshotHeader();
     }
 
