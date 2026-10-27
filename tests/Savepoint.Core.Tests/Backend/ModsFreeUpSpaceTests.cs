@@ -152,7 +152,61 @@ public class ModsFreeUpSpaceTests
 
         public HistoryPointId ModsOnly { get; }
 
+        private static readonly Lock _templateGate = new();
+        private static Task<World>? _template;
+
+        // The world costs about a hundred git processes, so it is built once for the whole run and each test gets its own copy of it.
         public static async Task<World> CreateAsync()
+        {
+            World template;
+            try
+            {
+                template = await TemplateAsync();
+            }
+            catch (OperationCanceledException) when (!Ct.IsCancellationRequested)
+            {
+                // The test that started the shared build was cancelled; this one is not, so it builds the template again.
+                template = await TemplateAsync();
+            }
+
+            var workspace = BackendWorkspace.CopyOf(template.Workspace);
+            try
+            {
+                var game = Assert.Single((await workspace.Games.ListAsync(workspace.Token)).Value!);
+                var profile = Assert.Single((await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!);
+                return new World(workspace, game, profile, template.ModsOnly);
+            }
+            catch
+            {
+                workspace.Dispose();
+                throw;
+            }
+        }
+
+        // A build that failed (or was canceled with the test that started it) is not kept, so the next test builds it again.
+        private static Task<World> TemplateAsync()
+        {
+            lock (_templateGate)
+            {
+                if (_template is null or { IsFaulted: true } or { IsCanceled: true })
+                {
+                    _template = BuildTemplateAsync();
+                }
+
+                return _template;
+            }
+        }
+
+        private static async Task<World> BuildTemplateAsync()
+        {
+            var world = await BuildAsync();
+            await world.Workspace.WaitForIdleAsync();
+            var folder = world.Workspace.Root;
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(folder);
+            return world;
+        }
+
+        private static async Task<World> BuildAsync()
         {
             var workspace = new BackendWorkspace();
             try
