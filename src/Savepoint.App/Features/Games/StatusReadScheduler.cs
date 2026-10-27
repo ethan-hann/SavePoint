@@ -16,8 +16,13 @@ internal sealed class StatusReadScheduler : IDisposable
     private readonly TimeSpan _settle;
     private readonly TimeSpan _longestWait;
 
+    // The next read starts no sooner than this many times the last read's duration after it ended.
+    private const int _spacingFactor = 2;
+
     private ITimer? _timer;
     private bool _waiting;
+    private DateTimeOffset _due;
+    private DateTimeOffset _notBefore = DateTimeOffset.MinValue;
     private DateTimeOffset? _firstSignal;
     private bool _reading;
     private bool _again;
@@ -55,8 +60,26 @@ internal sealed class StatusReadScheduler : IDisposable
 
         var now = _clock.GetUtcNow();
         _firstSignal ??= now;
-        var untilCap = _firstSignal.Value + _longestWait - now;
-        var wait = untilCap < _settle ? (untilCap < TimeSpan.Zero ? TimeSpan.Zero : untilCap) : _settle;
+        var due = now + _settle;
+        var capped = _firstSignal.Value + _longestWait;
+        if (capped < due)
+        {
+            due = capped;
+        }
+
+        // A slow read pushes the next one back past the longest wait: back-to-back scans of a big install would compete with the game for the disk.
+        if (due < _notBefore)
+        {
+            due = _notBefore;
+        }
+
+        _due = due;
+        var wait = due - now;
+        if (wait < TimeSpan.Zero)
+        {
+            wait = TimeSpan.Zero;
+        }
+
         _waiting = true;
 
         // One timer for the scheduler's life: moving it is cheaper than making a new one for every burst of signals.
@@ -76,6 +99,7 @@ internal sealed class StatusReadScheduler : IDisposable
         _waiting = false;
         _firstSignal = null;
         _again = false;
+        _notBefore = DateTimeOffset.MinValue;
         _timer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
@@ -96,6 +120,15 @@ internal sealed class StatusReadScheduler : IDisposable
             return;
         }
 
+        // A tick that was queued before a newer signal moved the wait arrives early, and a timer can fire a hair before its time: either
+        // way the wait is armed again for what is left of it.
+        var started = _clock.GetUtcNow();
+        if (started < _due)
+        {
+            _timer?.Change(_due - started, Timeout.InfiniteTimeSpan);
+            return;
+        }
+
         _waiting = false;
         _firstSignal = null;
         if (_blocked())
@@ -112,6 +145,13 @@ internal sealed class StatusReadScheduler : IDisposable
         finally
         {
             _reading = false;
+        }
+
+        if (ran)
+        {
+            var ended = _clock.GetUtcNow();
+            var took = ended - started;
+            _notBefore = took > TimeSpan.Zero ? ended + (took * _spacingFactor) : DateTimeOffset.MinValue;
         }
 
         if (_disposed)
