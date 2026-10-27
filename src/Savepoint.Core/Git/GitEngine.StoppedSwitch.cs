@@ -211,9 +211,15 @@ public sealed partial class GitEngine
     // right size are read.
     private Holding HoldsTarget(RepoRef repo, TreeChange change, Dictionary<string, long> sizes, bool trustMode, CancellationToken ct)
     {
-        if (change.NewMode is not ("100644" or "100755") || !sizes.TryGetValue(change.NewId, out var size))
+        if (change.NewMode is not ("100644" or "100755" or "120000") || !sizes.TryGetValue(change.NewId, out var size))
         {
             return Holding.Nothing;
+        }
+
+        // On Windows git writes a link as a plain file holding its text, which is compared like any other file below.
+        if (change.NewMode == "120000" && HoldsLink(repo, change.Path, size) is { } link)
+        {
+            return link;
         }
 
         var full = FullPath(repo, change.Path);
@@ -247,6 +253,33 @@ public sealed partial class GitEngine
             HashOutcome.Hashed => string.Equals(id, change.NewId, StringComparison.Ordinal) ? Holding.Target : Holding.Other,
             _ => Holding.Nothing,
         };
+    }
+
+    // What stands where the target wants a link, or null when it is a plain file on Windows, which the caller compares. A link is stored
+    // as the text of its target, so the target's length is what is compared (a link is never read through). A link of the right length
+    // is the stopped switch's own write and a folder is the old point's, neither of which is anyone's content; the finish writes the link
+    // again either way. Anything else standing there is content the finish replaces: a file, or a link to somewhere else.
+    private static Holding? HoldsLink(RepoRef repo, string path, long size)
+    {
+        try
+        {
+            var info = new FileInfo(FullPath(repo, path));
+            if (info.LinkTarget is { } linked)
+            {
+                return System.Text.Encoding.UTF8.GetByteCount(linked) == size ? Holding.Nothing : Holding.Other;
+            }
+
+            if (!info.Exists)
+            {
+                return Holding.Nothing;
+            }
+
+            return OperatingSystem.IsWindows() ? null : Holding.Other;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return Holding.Nothing;
+        }
     }
 
     // A switch that was killed while git wrote files leaves HEAD and the index at the old point and some files already at the new one, so a
@@ -283,9 +316,10 @@ public sealed partial class GitEngine
         }
     }
 
-    // Takes away the files that stand where the point being left has a folder (see FinishScan); the checkout that follows writes each one
-    // from the target. A file that is no longer a plain file in the approved folder (a folder above it became a link after the scan, or
-    // another file now has its name in other letter case) is not ours to remove.
+    // Takes away the files and links that stand where the point being left has a folder (see FinishScan); the checkout that follows
+    // writes each one from the target. An entry that is not a file or a link in the approved folder (a folder above it became a link after
+    // the scan, or another file now has its name in other letter case) is not ours to remove. A link is removed as the link, never
+    // through it, so what it leads to is untouched.
     private void RemoveStanding(RepoRef repo, IReadOnlyList<string> standing)
     {
         if (standing.Count == 0)
@@ -298,7 +332,8 @@ public sealed partial class GitEngine
         foreach (var path in standing)
         {
             var full = FullPath(approved, path);
-            if (!File.Exists(full))
+            var isLink = IsLinkEntry(full);
+            if (!isLink && !File.Exists(full))
             {
                 continue;
             }
@@ -308,13 +343,54 @@ public sealed partial class GitEngine
                 throw new DirtyWorkingTreeException(repo.Role);
             }
 
-            TryDeleteReadOnly(full);
-            if (File.Exists(full))
+            if (isLink)
             {
-                throw FileLockProbe.Probe(full) is { } kind
+                TryDeleteLink(full);
+            }
+            else
+            {
+                TryDeleteReadOnly(full);
+            }
+
+            if (File.Exists(full) || IsLinkEntry(full))
+            {
+                throw !isLink && FileLockProbe.Probe(full) is { } kind
                     ? new HeldFile(FullPath(repo, path), kind).ToException(HeldFileOperation.Switch)
                     : new GitOperationException(FullPath(repo, path), NotUpdatedMessage(FileStep.RemoveStanding, [path]));
             }
+        }
+    }
+
+    // True for a link to a file or a folder, a dangling one included.
+    private static bool IsLinkEntry(string full)
+    {
+        try
+        {
+            return new FileInfo(full).LinkTarget is not null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    // Deletes the link itself. Unix unlinks any link; Windows takes a link to a folder away as a folder.
+    private static void TryDeleteLink(string full)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows() && Directory.Exists(full))
+            {
+                Directory.Delete(full, recursive: false);
+            }
+            else
+            {
+                File.Delete(full);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Still in use; the check after it reports the link as still there.
         }
     }
 
