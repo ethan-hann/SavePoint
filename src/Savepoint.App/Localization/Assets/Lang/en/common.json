@@ -72,6 +72,7 @@
   "errorCard.title.recordDamaged": "SavePoint's record of this game is damaged",
   "errorCard.title.removeFailed": "SavePoint couldn't remove something",
   "errorCard.title.sameNameDifferentCase": "Two names differ only in upper and lower case",
+  "errorCard.title.snapshotHasLinks": "This snapshot can't be put back on Windows",
   "errorCard.title.storageReachable": "Your snapshot folder is there",
   "errorCard.title.storageUnreachable": "SavePoint can't reach your snapshots",
   "errorCard.title.storageUnreadable": "SavePoint couldn't read part of its snapshot folder",

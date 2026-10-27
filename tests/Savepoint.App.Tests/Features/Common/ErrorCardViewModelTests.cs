@@ -78,8 +78,32 @@ public class ErrorCardViewModelTests
         Assert.Equal(ErrorTone.Warning, card.Tone);
         Assert.Contains("Cool Mod.esp", card.Body);
         Assert.Contains("mod manager", card.Body);
-        Assert.Contains("hardlink or move deployment", card.Body);
+        Assert.Contains("hardlink or move", card.Body);
         Assert.Equal(file, card.Path);
+    }
+
+    [Fact]
+    public void A_snapshot_with_a_link_card_names_the_file_and_says_the_other_profiles_still_work()
+    {
+        var file = PathOnThisSystem("Games", "Alpha", "Mods", "Cool Mod.esp");
+
+        var card = new ErrorCardViewModel(ErrorInfo.From(new SnapshotHasLinksException(file)), _text);
+
+        Assert.Equal("This snapshot can't be put back on Windows", card.Title);
+        Assert.Equal(ErrorTone.Warning, card.Tone);
+        Assert.Contains("Cool Mod.esp", card.Body);
+        Assert.Contains("Nothing changed", card.Body);
+        Assert.Contains("other profiles still work", card.Body);
+        Assert.Equal(file, card.Path);
+    }
+
+    [Fact]
+    public void A_file_link_card_reads_right_for_a_link_made_by_hand_and_offers_the_leave_out_list()
+    {
+        var card = new ErrorCardViewModel(ErrorInfo.From(new LinkedFileException(PathOnThisSystem("Games", "Alpha", "Mods", "Cool Mod.esp"))), _text);
+
+        Assert.Contains("made it yourself", card.Body, StringComparison.Ordinal);
+        Assert.Contains("Files to leave out", card.Body, StringComparison.Ordinal);
     }
 
     [Fact]
