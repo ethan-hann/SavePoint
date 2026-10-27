@@ -647,6 +647,10 @@ public sealed partial class GitEngine
     private Task<InterruptedSwitch?> ReadNoteAsync(RepoRef repo, CancellationToken ct) =>
         SwitchJournal.ReadAsync(repo.GitDir, _options.SwitchNoteDelay, ct);
 
+    // For a caller that only reports: a note held at this moment shows as unfinished with no known target, and nothing waits for it.
+    private Task<InterruptedSwitch?> ReadNoteWithoutWaitingAsync(RepoRef repo, CancellationToken ct) =>
+        SwitchJournal.ReadAsync(repo.GitDir, static (_, _) => Task.CompletedTask, ct);
+
     private Task<bool> ClearNoteAsync(RepoRef repo) =>
         SwitchJournal.ClearAsync(repo.GitDir, _options.SwitchNoteDelay);
 

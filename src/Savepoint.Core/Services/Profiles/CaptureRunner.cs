@@ -255,7 +255,7 @@ internal sealed class CaptureRunner
         foreach (var repo in repos.Where(repo => plans.GetValueOrDefault(repo.Role) is { Mode: CaptureMode.Amend }))
         {
             var plan = plans[repo.Role];
-            var status = await storage.Engine.GetStatusAsync(repo, cancellationToken).ConfigureAwait(false);
+            var status = await storage.Engine.GetStatusAsync(repo, cancellationToken, waitForNote: false).ConfigureAwait(false);
             var leftAlone = plan.LeftAtLaunch && (status.IsDetached || !string.Equals(status.Branch, profile.BranchName, StringComparison.Ordinal))
                 && await storage.Engine.BranchExistsAsync(repo, profile.BranchName, cancellationToken).ConfigureAwait(false);
             if (leftAlone || (status.IsClean && status.HeldFile is null))
@@ -385,7 +385,7 @@ internal sealed class CaptureRunner
 
         if (plan is { SkipWhenClean: true } or { LeftAtLaunch: true })
         {
-            var status = await storage.Engine.GetStatusAsync(repo, cancellationToken).ConfigureAwait(false);
+            var status = await storage.Engine.GetStatusAsync(repo, cancellationToken, waitForNote: false).ConfigureAwait(false);
 
             // Decided before anything is written, so a folder that cannot take the point is never a half-failed save.
             if (plan.LeftAtLaunch && branchExists && !finishing && (status.IsDetached || !string.Equals(status.Branch, branch, StringComparison.Ordinal)))

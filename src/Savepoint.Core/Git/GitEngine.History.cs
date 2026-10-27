@@ -17,11 +17,16 @@ public sealed partial class GitEngine
     /// </summary>
     /// <param name="repo">The folder.</param>
     /// <param name="ct">Cancels the call.</param>
+    /// <param name="waitForNote">
+    /// True (the default) to wait up to about 2.5 seconds for a switch note another program holds open before calling it unreadable, which a
+    /// caller that acts on the note's target needs. False reads the note once without waiting, so a note held at that moment shows as an
+    /// unfinished switch with no known target; right for a caller that reads only the state of the files.
+    /// </param>
     /// <exception cref="Savepoint.Core.Errors.PathSafetyException">The work tree is a protected location.</exception>
     /// <exception cref="Savepoint.Core.Errors.PathMissingException">The work tree does not exist.</exception>
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">git failed.</exception>
-    public async Task<RepoStatus> GetStatusAsync(RepoRef repo, CancellationToken ct = default)
+    public async Task<RepoStatus> GetStatusAsync(RepoRef repo, CancellationToken ct = default, bool waitForNote = true)
     {
         repo = Normalize(repo);
         ct.ThrowIfCancellationRequested();
@@ -48,7 +53,7 @@ public sealed partial class GitEngine
             changedPaths = [];
         }
 
-        var note = await ReadNoteAsync(repo, ct).ConfigureAwait(false);
+        var note = waitForNote ? await ReadNoteAsync(repo, ct).ConfigureAwait(false) : await ReadNoteWithoutWaitingAsync(repo, ct).ConfigureAwait(false);
         return new RepoStatus(
             changedPaths.Count == 0 && untrackedPaths.Count == 0,
             head.Branch,

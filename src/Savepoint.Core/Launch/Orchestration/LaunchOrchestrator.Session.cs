@@ -120,7 +120,7 @@ public sealed partial class LaunchOrchestrator
     // choices, and its files are not on offer.
     private static async Task<ChangedFiles> ChangedFilesAsync(StorageSnapshot storage, RepoRef repo, Profile? profile, FolderStart? skipped)
     {
-        var status = await storage.Engine.GetStatusAsync(repo).ConfigureAwait(false);
+        var status = await storage.Engine.GetStatusAsync(repo, waitForNote: false).ConfigureAwait(false);
         if (skipped is { Left: true } && profile is not null
             && (status.IsDetached || !string.Equals(status.Branch, profile.BranchName, StringComparison.Ordinal))
             && await storage.Engine.BranchExistsAsync(repo, profile.BranchName).ConfigureAwait(false))
