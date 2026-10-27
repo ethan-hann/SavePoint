@@ -229,6 +229,22 @@ public class HistoryRecentlyRemovedViewTests
     }
 
     [AvaloniaFact]
+    public async Task A_short_list_is_drawn_in_full_so_the_screen_is_as_long_wherever_it_is_scrolled()
+    {
+        using var harness = await StartAsync(width: 640, height: 420);
+        Screen(harness).SnapshotHelp.IsOpen = true;
+        Open(harness);
+        var page = Named<ScrollViewer>(harness, "PageScroll");
+        var before = page.Extent.Height;
+
+        page.ScrollToEnd();
+        harness.Settle();
+
+        Assert.Equal(before, page.Extent.Height);
+        Assert.Equal(2, Named<ItemsControl>(harness, "RemovedList").GetVisualDescendants().OfType<Border>().Count(border => AutomationProperties.GetControlTypeOverride(border) == AutomationControlType.ListItem));
+    }
+
+    [AvaloniaFact]
     public async Task A_closed_explanation_takes_no_room_between_the_header_and_the_search_row_or_the_search_row_and_the_snapshots()
     {
         using var harness = await StartAsync(width: 910, height: 432);

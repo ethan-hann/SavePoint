@@ -42,7 +42,7 @@ public class ReflowTests
         app.Settle();
         app.Render("reflow", $"history-cards-{width}");
 
-        var cards = app.All<UniformGrid>().Where(grid => grid.IsEffectivelyVisible && grid.Rows == 0).SelectMany(grid => grid.Children).ToList();
+        var cards = app.Find<ItemsControl>("GroupList").GetVisualDescendants().OfType<UniformGrid>().Where(grid => grid.IsEffectivelyVisible).SelectMany(grid => grid.Children).ToList();
         Assert.NotEmpty(cards);
         var narrowest = cards.Min(card => card.Bounds.Width);
         Assert.True(narrowest >= 200, $"At {width}px the narrowest card is {narrowest:0}px wide.");

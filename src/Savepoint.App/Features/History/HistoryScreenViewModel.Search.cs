@@ -58,6 +58,16 @@ public sealed partial class HistoryScreenViewModel
     /// <summary>The card view's groups, "Last 7 days" first; a group with no cards is left out.</summary>
     public ObservableCollection<PointGroupViewModel> Groups { get; } = [];
 
+    /// <summary>
+    /// The card view as the one list it scrolls: each group's heading, then its cards in rows of <see cref="CardColumns"/>. The view draws only
+    /// the lines near the screen, so thousands of cards cost no more than a screenful.
+    /// </summary>
+    public ObservableCollection<CardListEntry> CardEntries { get; } = [];
+
+    /// <summary>How many cards fit side by side at the width the view has; the view sets it as the window is resized.</summary>
+    [ObservableProperty]
+    private int _cardColumns = 3;
+
     /// <summary>The kind chosen; the choice lasts for the session and goes back to All when another game opens.</summary>
     [ObservableProperty]
     private KindOption? _selectedKindOption;
@@ -89,6 +99,15 @@ public sealed partial class HistoryScreenViewModel
     /// <summary>True when removed snapshots exist but the search leaves none of them.</summary>
     public bool ShowRemovedNoMatches => RemovedTotal > 0 && Removed.Count == 0 && !HasRemovedError;
 
+    /// <summary>How many recently removed rows the section draws in full; a longer list draws only the rows in view.</summary>
+    public const int RemovedRowsDrawnInFull = 30;
+
+    /// <summary>
+    /// True when the section lists more rows than it draws in full. A list that is drawn in full is as tall as its rows, so the section
+    /// does not change height while the screen scrolls; a long one fills its fixed height, which any number of rows exceeds.
+    /// </summary>
+    public bool IsRemovedLong => Removed.Count > RemovedRowsDrawnInFull;
+
     /// <summary>"No removed snapshots match.", inside the Recently removed section.</summary>
     public string RemovedNoMatchesText { get; private set; } = string.Empty;
 
@@ -110,6 +129,18 @@ public sealed partial class HistoryScreenViewModel
         RemovedNoMatchesText = text.Message("search.history.removedNoMatch");
     }
 
+    /// <summary>
+    /// Raised just before the lists change under the view (a search, a refresh, or cards re-flowing to a new width), so the view can
+    /// note what has keyboard focus and put it back on the same snapshot afterwards.
+    /// </summary>
+    public event EventHandler? EntriesChanging;
+
+    partial void OnCardColumnsChanged(int value)
+    {
+        EntriesChanging?.Invoke(this, EventArgs.Empty);
+        ShowCardEntries();
+    }
+
     partial void OnSelectedKindOptionChanged(KindOption? value)
     {
         if (_restoring)
@@ -128,8 +159,8 @@ public sealed partial class HistoryScreenViewModel
         ApplySearch();
     }
 
-    // Typing narrows at once while the list is short. A long history draws a card for every snapshot, so each narrowing waits for a
-    // pause in the typing and a word is one redraw, not one per letter.
+    // Typing narrows at once while the list is short. A long history matches and re-lists thousands of entries each time, so each
+    // narrowing waits for a pause in the typing and a word is one pass, not one per letter.
     private void OnSearchChanged(object? sender, EventArgs e)
     {
         StopTypingPause();
@@ -212,6 +243,7 @@ public sealed partial class HistoryScreenViewModel
         Timeline.Clear();
         Saves.Clear();
         Groups.Clear();
+        CardEntries.Clear();
         ShowRemovedEntries();
     }
 
@@ -226,6 +258,7 @@ public sealed partial class HistoryScreenViewModel
     // same objects, so a card a person has focused keeps its focus while the ones around it come and go.
     private void ShowEntries()
     {
+        EntriesChanging?.Invoke(this, EventArgs.Empty);
         var visible = _entries.Where(entry => Shown(entry.Point.Kind, entry.Target)).ToList();
         _visibleCount = visible.Count;
 
@@ -238,6 +271,8 @@ public sealed partial class HistoryScreenViewModel
 
         ListSync.To(Timeline, onTimeline);
         ListSync.To(Saves, [.. visible.Where(entry => entry.Save is not null).Select(entry => entry.Save!)]);
+        ListedItemViewModel.Number(Timeline);
+        ListedItemViewModel.Number(Saves);
         ShowGroups(visible);
         OnPropertyChanged(nameof(IsSearchEmpty));
         OnPropertyChanged(nameof(ShowPoints));
@@ -268,6 +303,32 @@ public sealed partial class HistoryScreenViewModel
         }
 
         ListSync.To(Groups, groups);
+        ListedItemViewModel.Number(_thisWeekGroup.Cards);
+        ListedItemViewModel.Number(_earlierGroup.Cards);
+        ShowCardEntries();
+    }
+
+    // The groups' cards laid out in rows for the one list the view scrolls. A row the search leaves as it was is kept as it was.
+    private void ShowCardEntries()
+    {
+        var columns = Math.Max(1, CardColumns);
+        List<CardListEntry> wanted = [];
+        foreach (var group in Groups)
+        {
+            wanted.Add(new CardGroupHeadingViewModel(group));
+            for (var first = 0; first < group.Cards.Count; first += columns)
+            {
+                var row = new PointCardViewModel[Math.Min(columns, group.Cards.Count - first)];
+                for (var at = 0; at < row.Length; at++)
+                {
+                    row[at] = group.Cards[first + at];
+                }
+
+                wanted.Add(new CardRowViewModel(row, columns));
+            }
+        }
+
+        ListSync.To(CardEntries, wanted);
     }
 
     private void SetRemoved(List<RemovedEntry> entries)
@@ -279,9 +340,11 @@ public sealed partial class HistoryScreenViewModel
     private void ShowRemovedEntries()
     {
         Removed = [.. _removedEntries.Where(entry => Shown(entry.Snapshot.Kind, entry.Target)).Select(entry => entry.Row)];
+        ListedItemViewModel.Number(Removed);
 
         // The list can stay the same empty list while the section's total changes.
         OnPropertyChanged(nameof(RemovedTotal));
+        OnPropertyChanged(nameof(IsRemovedLong));
         OnPropertyChanged(nameof(HasRemoved));
         OnPropertyChanged(nameof(ShowRemoved));
         OnPropertyChanged(nameof(RemovedHeading));
@@ -310,7 +373,10 @@ public sealed partial class HistoryScreenViewModel
                     text.Message("history.card.goBackAutomation", ("name", point.Name)),
                     BeginCommand(game.Id, new LaunchTarget.Point(point.Id)),
                     text.Message("history.card.switchAutomation", ("name", point.Name)),
-                    BeginCommand(game.Id, new LaunchTarget.Point(point.Id), switchOnly: true));
+                    BeginCommand(game.Id, new LaunchTarget.Point(point.Id), switchOnly: true))
+                {
+                    FocusKey = point.Id.Value,
+                };
             }
 
             SaveRowViewModel? save = null;
@@ -324,7 +390,10 @@ public sealed partial class HistoryScreenViewModel
                     _words.ItemName(point.Name, saveDetail, point.LoadedNow ? text.Message("history.save.loaded") : string.Empty),
                     BeginCommand(game.Id, new LaunchTarget.Save(point.ProfileId, point.Id)),
                     text.Message("history.save.switchAutomation", ("name", point.Name)),
-                    BeginCommand(game.Id, new LaunchTarget.Save(point.ProfileId, point.Id), switchOnly: true));
+                    BeginCommand(game.Id, new LaunchTarget.Save(point.ProfileId, point.Id), switchOnly: true))
+                {
+                    FocusKey = point.Id.Value,
+                };
             }
 
             var contains = _words.Contains(point);
@@ -338,7 +407,10 @@ public sealed partial class HistoryScreenViewModel
                 _words.ItemName(point.Name, contains, date, point.LoadedNow ? text.Message("history.card.loadedNow") : string.Empty),
                 BeginCommand(game.Id, new LaunchTarget.Point(point.Id)),
                 text.Message("history.card.switchAutomation", ("name", point.Name)),
-                BeginCommand(game.Id, new LaunchTarget.Point(point.Id), switchOnly: true));
+                BeginCommand(game.Id, new LaunchTarget.Point(point.Id), switchOnly: true))
+            {
+                FocusKey = point.Id.Value,
+            };
 
             // A snapshot is found by its name, its profile, what it holds, and its date in the forms the screen shows and in ISO order.
             entries.Add(new PointEntry(point, SearchTarget.Of(point.Name, point.ProfileName, contains, date, text.DateSearchText(point.CapturedAt)), timeline, save, card));

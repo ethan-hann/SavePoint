@@ -33,6 +33,17 @@ public class HistorySearchViewTests
     private static List<string?> CardNames(ComposedApp app) =>
         [.. app.Find<ItemsControl>("GroupList").GetVisualDescendants().OfType<Border>().Where(border => border.Classes.Contains("card")).Select(border => AutomationAudit.NameOf(border))];
 
+    // Only the cards in view are drawn: they are the first of the snapshots the screen holds, and the screen holds `total`.
+    private static void AssertTopOfTheListIsDrawn(ComposedApp app, int total)
+    {
+        var all = app.History.Groups.SelectMany(group => group.Cards).Select(card => card.ItemAutomationName).ToList();
+        var drawn = CardNames(app);
+
+        Assert.Equal(total, all.Count);
+        Assert.NotEmpty(drawn);
+        Assert.Equal(all.Take(drawn.Count).Order(), drawn.Order());
+    }
+
     private static void Type(ComposedApp app, string text)
     {
         app.Window.KeyTextInput(text);
@@ -72,7 +83,7 @@ public class HistorySearchViewTests
         Assert.Single(CardNames(app));
 
         app.Press(Key.Escape, PhysicalKey.Escape);
-        Assert.Equal(8, CardNames(app).Count);
+        AssertTopOfTheListIsDrawn(app, 8);
         Assert.Same(Field(app), app.Focused);
     }
 
@@ -123,7 +134,7 @@ public class HistorySearchViewTests
         app.Settle();
 
         Assert.False(state.IsEffectivelyVisible);
-        Assert.Equal(8, CardNames(app).Count);
+        AssertTopOfTheListIsDrawn(app, 8);
     }
 
     [AvaloniaFact]

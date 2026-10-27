@@ -4,18 +4,98 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Savepoint.App.Features.Common;
 
 namespace Savepoint.App.Features.History;
 
 /// <summary>The History screen's view.</summary>
 public partial class HistoryScreenView : UserControl
 {
+    private readonly VirtualizedFocusRestore[] _focus;
+    private HistoryScreenViewModel? _screen;
     private bool _filterKeysWired;
 
     /// <summary>Creates the view; its data context is a <see cref="HistoryScreenViewModel"/>.</summary>
     public HistoryScreenView()
     {
         InitializeComponent();
+        foreach (var list in new[] { GroupList, TimelineList, SavesList, RemovedList })
+        {
+            VirtualizedTabNavigation.Attach(list);
+        }
+
+        _focus =
+        [
+            new VirtualizedFocusRestore(GroupList, key => CardEntryHolding(key)),
+            new VirtualizedFocusRestore(TimelineList, key => IndexOfKey(_screen?.Timeline, key)),
+            new VirtualizedFocusRestore(SavesList, key => IndexOfKey(_screen?.Saves, key)),
+        ];
+        CardsRegion.SizeChanged += (_, _) => FitCardColumns();
+        DataContextChanged += OnScreenChanged;
+    }
+
+    private void OnScreenChanged(object? sender, EventArgs e)
+    {
+        if (_screen is not null)
+        {
+            _screen.EntriesChanging -= OnEntriesChanging;
+        }
+
+        _screen = DataContext as HistoryScreenViewModel;
+        if (_screen is not null)
+        {
+            _screen.EntriesChanging += OnEntriesChanging;
+        }
+
+        FitCardColumns();
+    }
+
+    // Keyboard focus follows its snapshot through a search, a refresh and a change of width.
+    private void OnEntriesChanging(object? sender, EventArgs e)
+    {
+        foreach (var focus in _focus)
+        {
+            focus.Capture();
+        }
+    }
+
+    // The line of the card list that holds the snapshot's card: a row of cards.
+    private int CardEntryHolding(string key)
+    {
+        var entries = _screen?.CardEntries;
+        for (var index = 0; entries is not null && index < entries.Count; index++)
+        {
+            if (entries[index] is CardRowViewModel row && row.Cards.Any(card => card.FocusKey == key))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int IndexOfKey<T>(IReadOnlyList<T>? items, string key)
+        where T : ListedItemViewModel
+    {
+        for (var index = 0; items is not null && index < items.Count; index++)
+        {
+            if (items[index].FocusKey == key)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    // As many cards side by side as fit at 210 px each, from one to three, measured on the scroll area, which does not change
+    // when its scroll bar comes and goes. The list's margins take 30 px of its width, and the cards' own margins give back none.
+    private void FitCardColumns()
+    {
+        if (DataContext is HistoryScreenViewModel screen && CardsRegion.Bounds.Width > 0)
+        {
+            screen.CardColumns = (int)Math.Clamp(Math.Floor((CardsRegion.Bounds.Width - 30) / 210), 1, 3);
+        }
     }
 
     // Each opening starts from the filter in force, whatever the arrow keys did the last time, and puts focus in the list.

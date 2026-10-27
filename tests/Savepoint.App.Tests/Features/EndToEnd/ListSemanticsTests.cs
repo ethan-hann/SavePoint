@@ -83,18 +83,19 @@ public class ListSemanticsTests
     }
 
     [AvaloniaFact]
-    public async Task The_cards_are_lists_named_by_their_group_with_a_named_item_for_each_card()
+    public async Task The_cards_are_one_named_list_with_a_named_item_for_each_card()
     {
-        using var app = await ComposedApp.StartWithViewAsync();
+        // Tall enough for every card to be drawn, since only the cards in view get an item.
+        using var app = await ComposedApp.StartWithViewAsync(height: 1500);
         app.Shell.Navigate(NavDestination.History);
         app.Settle();
-        var groups = app.All<ItemsControl>().Where(list => list.DataContext is Savepoint.App.Features.History.PointGroupViewModel).ToList();
+        var cards = app.Find<ItemsControl>("GroupList");
 
-        Assert.Equal(["Last 7 days", "Earlier"], groups.Select(group => PeerOf(group).GetName()));
-        Assert.All(groups, group => Assert.Equal(AutomationControlType.List, PeerOf(group).GetAutomationControlType()));
-        var thisWeek = Items(groups[0], AutomationControlType.ListItem);
-        Assert.Equal(app.History.Groups[0].Cards.Count, thisWeek.Count);
-        Assert.Equal("Before the final boss, Saves only · 1.6.640 with 212 mod files, Sun Jul 5, 11:42 PM, Loaded now", thisWeek[0].GetName());
-        Assert.Equal("Cleared Blackreach, Saves only · 1.6.640 with 212 mod files, Sat Jul 4, 8:15 PM", thisWeek[1].GetName());
+        Assert.Equal(AutomationControlType.List, PeerOf(cards).GetAutomationControlType());
+        Assert.Equal("Snapshots you can go back to", PeerOf(cards).GetName());
+        var items = Items(cards, AutomationControlType.ListItem);
+        Assert.Equal(app.History.Groups.Sum(group => group.Cards.Count), items.Count);
+        Assert.Equal("Before the final boss, Saves only · 1.6.640 with 212 mod files, Sun Jul 5, 11:42 PM, Loaded now", items[0].GetName());
+        Assert.Equal("Cleared Blackreach, Saves only · 1.6.640 with 212 mod files, Sat Jul 4, 8:15 PM", items[1].GetName());
     }
 }
