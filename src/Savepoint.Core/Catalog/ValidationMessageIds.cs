@@ -75,8 +75,11 @@ public static class ValidationMessageIds
     /// <summary>Reported at <c>startEmpty</c>: a folder asked to start empty holds files that no snapshot of any profile of the game has, so starting it empty could lose them.</summary>
     public const string ProfileStartEmptyUnsaved = "validation.profile.startEmptyUnsaved";
 
-    /// <summary>Reported at <c>startEmpty</c>: a folder asked to start empty cannot be checked now (a file is held or unreadable, or a switch of it stopped), so it cannot be told whether a snapshot holds its files. A snapshot is not the way out.</summary>
+    /// <summary>Reported at <c>startEmpty</c>: a folder asked to start empty cannot be checked now (a file is held or unreadable, the folder could not be read, a switch of it stopped, or it is on an older snapshot), so it cannot be told whether a snapshot holds its files. A snapshot is not the way out.</summary>
     public const string ProfileStartEmptyUnchecked = "validation.profile.startEmptyUnchecked";
+
+    /// <summary>Reported at <c>startEmpty</c>: SavePoint has no marker in a folder asked to start empty, so the player has to confirm the folder in Edit game before a snapshot of it can be taken.</summary>
+    public const string ProfileStartEmptyUnconfirmed = "validation.profile.startEmptyUnconfirmed";
 
     /// <summary>Reported at <c>branchName</c>: the profile has no branch name.</summary>
     public const string ProfileBranchNameRequired = "validation.profile.branchNameRequired";

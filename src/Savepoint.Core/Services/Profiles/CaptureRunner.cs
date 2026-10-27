@@ -162,7 +162,7 @@ internal sealed class CaptureRunner
     /// <param name="game">The game.</param>
     /// <param name="startEmpty">The folders that are to start empty.</param>
     /// <param name="cancellationToken">Cancels the check.</param>
-    /// <exception cref="ValidationException">A folder in <paramref name="startEmpty"/> holds files no snapshot has.</exception>
+    /// <exception cref="ValidationException">A folder in <paramref name="startEmpty"/> holds files no snapshot has, has no marker, or cannot be checked now.</exception>
     public async Task RequireStartEmptySafeAsync(StorageSnapshot storage, GameDefinition game, IReadOnlyCollection<RepoRole> startEmpty, CancellationToken cancellationToken)
     {
         if (startEmpty.Count == 0)

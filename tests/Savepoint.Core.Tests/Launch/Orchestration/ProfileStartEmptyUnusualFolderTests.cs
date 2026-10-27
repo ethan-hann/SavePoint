@@ -2,6 +2,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
+using Savepoint.Core.Paths;
 using Savepoint.Core.Tests.Backend;
 using Savepoint.Core.Tests.Git.Engine;
 
@@ -100,10 +101,128 @@ public class ProfileStartEmptyUnusualFolderTests
         await rig.ProfileAsync("Vanilla");
         var gitDir = await rig.WithEngineAsync((_, repo) => Task.FromResult(repo.GitDir), RepoRole.External);
         File.WriteAllText(SwitchJournal.PathIn(gitDir), "{ this is not a note");
+        // A changed file as well, so a stopped switch that is told apart from new changes shows its own block and reason.
+        rig.WriteSave("slot1.sav", "changed while the switch was stopped");
 
+        var preview = await SavesPreviewAsync(rig);
+        var refused = await rig.Profiles.CreateAsync(rig.Game.Id, "Bare", null, "Bare", [RepoRole.External]);
+
+        Assert.Equal(StartEmptyBlock.StoppedSwitch, preview.StartEmptyBlocked);
+        Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnchecked, RefusalOf(refused));
+        Assert.Equal(["Vanilla"], (await rig.Profiles.ListAsync(rig.Game.Id, Ct)).Value!.Select(profile => profile.Name));
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_saves_folder_on_an_older_point_with_changes_is_refused_with_a_reason_a_snapshot_cannot_fix()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        var vanilla = await rig.ProfileAsync("Vanilla");
+        await GitClock.NextSecondAsync(Ct);
+        rig.WriteSave("slot2.sav", "a later save");
+        await rig.CaptureAsync(vanilla, "Second save");
+        var oldest = (await rig.CommitsAsync(RepoRole.External, vanilla))[^1].Id;
+        await rig.WithEngineAsync(async (engine, repo) =>
+        {
+            await engine.CheckoutCommitAsync(repo, oldest, null, Ct);
+            return 0;
+        }, RepoRole.External);
+        rig.WriteSave("slot9.sav", "played from the old save");
+
+        var preview = await SavesPreviewAsync(rig);
+        var refused = await rig.Profiles.CreateAsync(rig.Game.Id, "Bare", null, "Bare", [RepoRole.External]);
+
+        Assert.Equal(StartEmptyBlock.Other, preview.StartEmptyBlocked);
+        Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnchecked, RefusalOf(refused));
+    }
+
+    [Theory(Timeout = 240_000)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_saves_folder_whose_marker_belongs_to_another_game_or_is_corrupt_is_refused_with_a_reason_a_snapshot_cannot_fix(bool corrupt)
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        await rig.ProfileAsync("Vanilla");
+        var marker = Path.Combine(rig.SavesPath, ConsentMarker.FileName);
+        File.Delete(marker);
+        if (corrupt)
+        {
+            File.WriteAllText(marker, "{ this is not a marker");
+        }
+        else
+        {
+            ConsentMarker.Write(rig.SavesPath, "another-game", RepoRole.External, DateTimeOffset.UtcNow);
+        }
+
+        // The preview as a whole fails on a marker like this before it asks the check, so only the refusal is seen.
         var refused = await rig.Profiles.CreateAsync(rig.Game.Id, "Bare", null, "Bare", [RepoRole.External]);
 
         Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnchecked, RefusalOf(refused));
+        Assert.Equal(["Vanilla"], (await rig.Profiles.ListAsync(rig.Game.Id, Ct)).Value!.Select(profile => profile.Name));
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_saves_folder_without_a_marker_is_refused_with_a_reason_that_points_at_confirming_it()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        await rig.ProfileAsync("Vanilla");
+        File.Delete(Path.Combine(rig.SavesPath, ConsentMarker.FileName));
+
+        var refused = await rig.Profiles.CreateAsync(rig.Game.Id, "Bare", null, "Bare", [RepoRole.External]);
+
+        Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnconfirmed, RefusalOf(refused));
+        Assert.Equal(["Vanilla"], (await rig.Profiles.ListAsync(rig.Game.Id, Ct)).Value!.Select(profile => profile.Name));
+    }
+
+    // Fails the read of new files that the check makes through the engine's status, once armed. The preview lists new files once to
+    // size the capture before it asks the check, so that many reads are let through first.
+    private static async Task<(LaunchRig Rig, Action<int> Arm)> RigWhoseFolderReadFailsAsync()
+    {
+        var letThrough = -1;
+        var rig = await LaunchRig.CreateAsync(options => options with
+        {
+            Engine = new GitEngineOptions
+            {
+                InvocationObserver = invocation =>
+                {
+                    if (invocation is { Arguments: ["ls-files", "-z", "-o", not "-m", ..], GitDir: { } gitDir } && gitDir.EndsWith("external.git", StringComparison.Ordinal) && Volatile.Read(ref letThrough) >= 0 && Interlocked.Decrement(ref letThrough) < 0)
+                    {
+                        throw new IOException("The folder could not be read.");
+                    }
+                },
+            },
+        });
+        await rig.ProfileAsync("Vanilla");
+        return (rig, count => Volatile.Write(ref letThrough, count));
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_failure_reading_the_saves_folder_is_not_blamed_on_a_stopped_switch_in_the_preview()
+    {
+        var (rig, arm) = await RigWhoseFolderReadFailsAsync();
+        using (rig)
+        {
+            arm(1);
+
+            var preview = await SavesPreviewAsync(rig);
+
+            Assert.False(preview.HeldInSnapshot);
+            Assert.Equal(StartEmptyBlock.Other, preview.StartEmptyBlocked);
+        }
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_failure_reading_the_saves_folder_refuses_the_empty_start_with_the_cannot_check_reason()
+    {
+        var (rig, arm) = await RigWhoseFolderReadFailsAsync();
+        using (rig)
+        {
+            arm(0);
+
+            var refused = await rig.Profiles.CreateAsync(rig.Game.Id, "Bare", null, "Bare", [RepoRole.External]);
+
+            Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnchecked, RefusalOf(refused));
+            Assert.Equal(["Vanilla"], (await rig.Profiles.ListAsync(rig.Game.Id, Ct)).Value!.Select(profile => profile.Name));
+        }
     }
 
     [Fact(Timeout = 240_000)]
@@ -143,7 +262,7 @@ public class ProfileStartEmptyUnusualFolderTests
         Assert.False(folder.Ok);
         Assert.Equal("error.validation.invalidPayload", folder.Error!.MessageId);
         var issue = Assert.Single(Assert.IsAssignableFrom<IEnumerable<ValidationIssue>>(folder.Error.Args["issues"]));
-        Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnsaved, issue.MessageId);
+        Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnconfirmed, issue.MessageId);
 
         Assert.Equal("the player's own save in a folder they made again", rig.ReadSave("mine.sav"));
     }
