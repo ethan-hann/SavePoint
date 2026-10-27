@@ -1,6 +1,6 @@
 using Savepoint.App.Features.Games;
-using Savepoint.App.Tests.Features.Common;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Common;
 
 namespace Savepoint.App.Tests.Features.Games;
 
