@@ -2,6 +2,7 @@ using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using Savepoint.Core.Launch;
 using Savepoint.Core.Platform;
+using Savepoint.Core.Tests.Services;
 
 namespace Savepoint.Core.Tests.Launch;
 
@@ -18,6 +19,9 @@ internal sealed class RecordingLauncher : IGameLauncher
 
     public Exception? Failure { get; set; }
 
+    // Runs while the launcher is starting the program, to stand for the time a start takes on a busy machine.
+    public Action? WhileStarting { get; set; }
+
     public IGameProcess StartExecutable(string path, IReadOnlyList<string> args, string workingDirectory)
     {
         if (Failure is not null)
@@ -25,6 +29,7 @@ internal sealed class RecordingLauncher : IGameLauncher
             throw Failure;
         }
 
+        WhileStarting?.Invoke();
         Programs.Add((path, args, workingDirectory));
         return Process;
     }
@@ -258,6 +263,51 @@ public class GameStarterTests
 
         Assert.False(Build(new RecordingLauncher(), processes).IsRunning(Program("Alpha.exe")));
         Assert.Equal(0, processes.Calls);
+    }
+
+    [Fact]
+    public async Task A_session_begins_when_the_program_is_asked_to_start_not_when_the_launcher_returns()
+    {
+        var clock = new ManualTimeProvider();
+        var asked = clock.GetUtcNow();
+        var launcher = new RecordingLauncher { WhileStarting = () => clock.Advance(TimeSpan.FromMilliseconds(300)) };
+        var starter = new GameStarter(launcher, new ScriptedInspector(), OsKind.Windows, new GameSessionOptions(), clock);
+
+        using var watcher = await starter.StartAsync(Program("Alpha.exe"), _install, Ct);
+        launcher.Process.Exit();
+        var outcome = await watcher.Outcome.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
+        Assert.Equal(asked, watcher.StartedAt);
+        Assert.Equal(asked, outcome.StartedAt);
+        Assert.Equal(TimeSpan.FromMilliseconds(300), outcome.PlayDuration);
+    }
+
+    [Fact]
+    public async Task A_game_that_a_vanished_starter_handed_over_to_while_the_launcher_was_still_returning_is_followed()
+    {
+        const string folder = "/games/foo";
+        var clock = new ManualTimeProvider();
+        var asked = clock.GetUtcNow();
+        var launcher = new RecordingLauncher { WhileStarting = () => clock.Advance(TimeSpan.FromMilliseconds(300)) };
+        var processes = new ScriptedInspector();
+        var game = new RunningProcess(600, "real", folder + "/bin/real", ParentPid: 1, StartedAt: asked + TimeSpan.FromMilliseconds(100));
+        processes.Set(game, ScriptedInspector.Bystander);
+        var options = new GameSessionOptions { PollInterval = WatcherRig.Interval, Grace = WatcherRig.Grace };
+        var starter = new GameStarter(launcher, processes, OsKind.Linux, options, clock);
+
+        using var watcher = await starter.StartAsync(new LaunchConfig(LaunchMethod.Exe, "Game.exe", null, null, "Game.exe"), folder, Ct);
+        await WatcherRig.UntilAsync(() => clock.PendingTimers > 0);
+        var before = processes.Calls;
+        launcher.Process.Exit();
+        await WatcherRig.UntilAsync(() => watcher.IsSettled || processes.Calls > before);
+        for (var seconds = 0; seconds < 40 && !watcher.IsSettled; seconds++)
+        {
+            await WatcherRig.UntilAsync(() => watcher.IsSettled || clock.PendingTimers > 0);
+            clock.Advance(TimeSpan.FromSeconds(1));
+        }
+
+        Assert.False(watcher.IsSettled, "the game that began before the launcher returned was not taken for the starter's");
+        Assert.True(watcher.IsRunning());
     }
 
     [Fact]
