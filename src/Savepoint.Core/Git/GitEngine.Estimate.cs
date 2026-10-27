@@ -73,13 +73,11 @@ public sealed partial class GitEngine
             return 0;
         }
 
-        if (kept.Count > 0)
+        // Runs even with nothing kept: the index can still name data, and "--stdin" keeps git from refusing a walk with no revisions.
+        await StreamNamesAsync(repo, ["rev-list", "--objects", "--indexed-objects", "--stdin"], ct, name => candidates.Remove(name), string.Concat(kept.Select(id => id + "\n"))).ConfigureAwait(false);
+        if (candidates.Count == 0)
         {
-            await StreamNamesAsync(repo, ["rev-list", "--objects", "--indexed-objects", "--stdin"], ct, name => candidates.Remove(name), string.Concat(kept.Select(id => id + "\n"))).ConfigureAwait(false);
-            if (candidates.Count == 0)
-            {
-                return 0;
-            }
+            return 0;
         }
 
         // The size as stored: a loose object's file, or what a pack holds for it. No content is read.

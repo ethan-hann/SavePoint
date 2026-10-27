@@ -305,6 +305,7 @@ public sealed class FakeGamesApi : IGamesApi
     public Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId, FreeUpSpaceToken? confirmed = null) =>
         _backend.Call(_api, nameof(OptimizeStorageAsync), [gameId, confirmed], () =>
         {
+            EstimatesStoppedAtRunStart = EstimateTokens.All(token => token.IsCancellationRequested);
             var game = State.Game(gameId);
             var done = new OptimizeResult([FakeSettingsApi.Optimized(game)]);
             // Once the job has run, the game's recently removed snapshots the player agreed to lose are gone for good and no others, as in the real backend.
@@ -324,18 +325,34 @@ public sealed class FakeGamesApi : IGamesApi
                 [JobLine.ForStep(JobSteps.CompactGame, ("game", game.Name))])));
         });
 
-    public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(string gameId, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetFreeUpSpacePreviewAsync), [gameId], () =>
+    // A test sets this to keep the count waiting until it completes it, so the player can do something else meanwhile.
+    public TaskCompletionSource? PreviewHold { get; set; }
+
+    public async Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(string gameId, CancellationToken cancellationToken = default)
+    {
+        if (PreviewHold is { } hold)
+        {
+            await hold.Task.WaitAsync(cancellationToken);
+        }
+
+        return await _backend.Call(_api, nameof(GetFreeUpSpacePreviewAsync), [gameId], () =>
         {
             State.Game(gameId);
             return OperationResult.Success(State.FreeUpPreview(gameId));
         });
+    }
 
     // A test sets this to keep every estimate waiting until it completes it, as a big store would; a cancelled wait fails as cancelled.
     public TaskCompletionSource? EstimateHold { get; set; }
 
+    // The token of every estimate asked for, and whether all of them were already stopped when a run was started.
+    public List<CancellationToken> EstimateTokens { get; } = [];
+
+    public bool EstimatesStoppedAtRunStart { get; private set; }
+
     public async Task<OperationResult<long>> EstimateFreeUpSpaceAsync(string gameId, FreeUpSpaceToken token, CancellationToken cancellationToken = default)
     {
+        EstimateTokens.Add(cancellationToken);
         try
         {
             if (EstimateHold is { } hold)

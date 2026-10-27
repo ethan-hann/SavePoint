@@ -76,6 +76,52 @@ public sealed class FreedBytesEstimateTests : IDisposable
         Assert.InRange(bytes, 0, _slack);
     }
 
+    // With no snapshot kept and no current snapshot, the index is still what a reclaim keeps.
+    [Fact]
+    public async Task Data_the_folders_index_names_is_not_counted_when_every_ref_is_deleted_and_no_snapshot_is_current()
+    {
+        var (repo, points) = await TwoPointsAsync(indexFollowsKept: false);
+        await _ws.GitWriteAsync(repo, "symbolic-ref", "HEAD", "refs/heads/not-yet-born");
+        await _ws.GitWriteAsync(repo, "update-ref", "-d", "refs/heads/profile-1");
+
+        var bytes = await _ws.Engine.EstimateFreedBytesAsync(repo, [new ClearedRef("refs/heads/doomed", points[1])], Ct);
+
+        Assert.InRange(bytes, 0, _slack);
+    }
+
+    [Fact]
+    public async Task The_data_only_the_deleted_refs_reach_is_counted_when_no_snapshot_is_current_and_the_index_is_empty()
+    {
+        var (repo, points) = await TwoPointsAsync();
+        await _ws.GitWriteAsync(repo, "symbolic-ref", "HEAD", "refs/heads/not-yet-born");
+        await _ws.GitWriteAsync(repo, "update-ref", "-d", "refs/heads/profile-1");
+        await _ws.GitWriteAsync(repo, "read-tree", "--empty");
+
+        var bytes = await _ws.Engine.EstimateFreedBytesAsync(repo, [new ClearedRef("refs/heads/doomed", points[1])], Ct);
+
+        Assert.InRange(bytes, _onlyBytes, _onlyBytes + 2 * _slack);
+    }
+
+    // The figure is the data as stored, so data that compresses well counts for little.
+    [Fact]
+    public async Task Data_that_compresses_well_counts_by_what_it_takes_up_on_disk_not_by_its_length()
+    {
+        var repo = await _ws.InitializedFreshAsync();
+        _ws.Write(repo, "a.txt", "one");
+        var first = (await _ws.CaptureAsync(repo, "profile-1", "First")).TipCommitId!;
+        _ws.Write(repo, "zeros.bin", new byte[1_000_000]);
+        var second = (await _ws.CaptureAsync(repo, "profile-1", "Second")).TipCommitId!;
+        await MoveAsync(repo, "doomed", second);
+        await MoveAsync(repo, "profile-1", first);
+        await _ws.GitWriteAsync(repo, "read-tree", first);
+
+        // A capture writes files as they are; a repack is what compresses them.
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
+        var bytes = await _ws.Engine.EstimateFreedBytesAsync(repo, [new ClearedRef("refs/heads/doomed", second)], Ct);
+
+        Assert.InRange(bytes, 1, 250_000);
+    }
+
     [Fact]
     public async Task A_change_of_the_folders_index_with_no_ref_moving_is_noticed_on_the_next_ask()
     {

@@ -17,6 +17,7 @@ internal sealed class FreeUpSizeEstimate : IDisposable
     private CancellationTokenSource _running = new();
     private IReadOnlyList<FreeUpSpaceRecord>? _askedFor;
     private Task<long?>? _task;
+    private bool _disposed;
 
     /// <param name="clock">Times the wait of <see cref="WaitAsync"/>.</param>
     /// <param name="grace">How long <see cref="WaitAsync"/> waits; null uses the usual wait.</param>
@@ -35,6 +36,12 @@ internal sealed class FreeUpSizeEstimate : IDisposable
     /// <returns>The size in bytes; null when it is zero, cannot be worked out, or the question was dropped.</returns>
     public Task<long?> Start(FreeUpSpaceToken token, Func<FreeUpSpaceToken, CancellationToken, Task<OperationResult<long>>> ask)
     {
+        // A click whose preview comes back after the screen is gone must not ask or throw.
+        if (_disposed)
+        {
+            return Task.FromResult<long?>(null);
+        }
+
         // Only a question still running is shared. One that has answered may be out of date (a snapshot kept since changes what is
         // freed while the records stay the same), and the backend remembers its answer until the store changes, so asking again is quick.
         if (_task is { IsCompleted: false } && _askedFor is not null && _askedFor.SequenceEqual(token.Records))
@@ -68,14 +75,25 @@ internal sealed class FreeUpSizeEstimate : IDisposable
     /// <summary>Drops the question that is running, if any, and forgets it.</summary>
     public void Cancel()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         _running.Cancel();
         _askedFor = null;
         _task = null;
     }
 
-    /// <summary>Drops the question that is running.</summary>
+    /// <summary>Drops the question that is running. Asking or cancelling afterwards does nothing.</summary>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         _running.Cancel();
         _running.Dispose();
     }

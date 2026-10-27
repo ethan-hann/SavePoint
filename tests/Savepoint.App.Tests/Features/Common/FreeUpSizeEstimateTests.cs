@@ -101,6 +101,19 @@ public class FreeUpSizeEstimateTests
     }
 
     [Fact]
+    public async Task Asking_cancelling_or_disposing_after_dispose_does_nothing_and_asks_nobody()
+    {
+        _estimate.Dispose();
+
+        var asked = _estimate.Start(TokenOf("a"), Answering(5_000_000));
+        _estimate.Cancel();
+        _estimate.Dispose();
+
+        Assert.Null(await asked);
+        Assert.Empty(_asked);
+    }
+
+    [Fact]
     public async Task Cancelling_stops_the_estimate_that_is_running()
     {
         var hold = new TaskCompletionSource<OperationResult<long>>();
