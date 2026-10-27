@@ -53,8 +53,8 @@ public sealed class FakeLaunchApi : ILaunchApi
                 : throw new KeyNotFoundException($"No launch preview is scripted for {target} in game '{gameId}'."));
     }
 
-    public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false) =>
-        _backend.Call(_api, nameof(StartAsync), startSteam ? [gameId, target, true] : [gameId, target], () =>
+    public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false, bool withoutSteam = false) =>
+        _backend.Call(_api, nameof(StartAsync), withoutSteam ? [gameId, target, false, true] : startSteam ? [gameId, target, true] : [gameId, target], () =>
         {
             State.Game(gameId);
             if (Taken(gameId) is { } taken)
@@ -120,7 +120,20 @@ public sealed class FakeLaunchApi : ILaunchApi
         _backend.Call(_api, nameof(MarkFinishedAsync), [gameId], () =>
             State.IsOpen(gameId) ? OperationResult.Success() : OperationResult.Failure<Unit>(new NoActiveSessionException(gameId)));
 
-    public Task<OperationResult<Unit>> CompleteSessionAsync(string gameId, SessionCompletion completion) =>
+    // A test sets this to make a save wait before it answers, as the real one waits out the relaunch guard after a quit.
+    public Func<Task>? CompleteGate { get; set; }
+
+    public async Task<OperationResult<Unit>> CompleteSessionAsync(string gameId, SessionCompletion completion)
+    {
+        if (CompleteGate is { } gate)
+        {
+            await gate();
+        }
+
+        return await CompleteNowAsync(gameId, completion);
+    }
+
+    private Task<OperationResult<Unit>> CompleteNowAsync(string gameId, SessionCompletion completion) =>
         _backend.Call(_api, nameof(CompleteSessionAsync), [gameId, completion], () =>
         {
             if (!State.Sessions.TryGetValue(gameId, out var session)

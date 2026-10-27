@@ -159,12 +159,13 @@ public class HowItWorksViewModelTests
     }
 
     [Fact]
-    public void On_Linux_how_the_game_starts_says_Steam_games_usually_need_Steam_instead_of_calling_the_program_safer()
+    public void On_Linux_how_the_game_starts_says_to_start_Steam_first_and_that_Through_Steam_can_update_the_game()
     {
         var starts = Assert.Single(new HowItWorksViewModel(HelpText.Formatter("linux"), () => { }).Topics, topic => topic.Section == HowItWorksSection.HowTheGameStarts);
 
         Assert.Contains("\"Run the program\" starts the game's own program.", starts.Body, StringComparison.Ordinal);
-        Assert.Contains("Games installed by Steam on Linux usually need Steam to start them, so Through Steam is the safer choice for those.", starts.Body, StringComparison.Ordinal);
+        Assert.Contains("Games installed by Steam on Linux usually need Steam running, so start Steam first, then run the program. Through Steam can update the game first and replace the version you switched to.", starts.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("safer choice", starts.Body, StringComparison.Ordinal);
         Assert.DoesNotContain("avoids that", starts.Body, StringComparison.Ordinal);
     }
 

@@ -115,7 +115,8 @@ public class GameEditorGuidanceTests
         }
 
         Assert.Equal("Used when the launcher closes itself before the game opens.", editor.ProcessHelp.Answer);
-        Assert.StartsWith("Only used to find artwork.", editor.SteamAppIdHelp.Answer);
+        Assert.StartsWith("SavePoint uses it to find the game's cover", editor.SteamAppIdHelp.Answer);
+        Assert.Contains("It doesn't change how the game starts.", editor.SteamAppIdHelp.Answer);
     }
 
     [Fact]

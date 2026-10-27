@@ -252,7 +252,7 @@ public class GameEditorGuidanceViewTests
         Assert.Equal(3, buttons.Count);
         Assert.False(Shows(harness, text => text == "Used when the launcher closes itself before the game opens."));
         Assert.False(Shows(harness, text => text.StartsWith("Only to make the mod file counts", StringComparison.Ordinal)));
-        Assert.False(Shows(harness, text => text.StartsWith("Only used to find artwork.", StringComparison.Ordinal)));
+        Assert.False(Shows(harness, text => text.StartsWith("SavePoint uses it to find the game's cover", StringComparison.Ordinal)));
 
         foreach (var button in buttons)
         {
@@ -261,7 +261,7 @@ public class GameEditorGuidanceViewTests
 
         Assert.True(Shows(harness, text => text == "Used when the launcher closes itself before the game opens."));
         Assert.True(Shows(harness, text => text.StartsWith("Only to make the mod file counts", StringComparison.Ordinal)));
-        Assert.True(Shows(harness, text => text.StartsWith("Only used to find artwork.", StringComparison.Ordinal)));
+        Assert.True(Shows(harness, text => text.StartsWith("SavePoint uses it to find the game's cover", StringComparison.Ordinal)));
     }
 
     // Explanations of an idea the "How SavePoint works" page covers end with its link. The online-games warning and the Steam app ID are

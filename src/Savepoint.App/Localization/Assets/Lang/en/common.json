@@ -75,6 +75,7 @@
   "errorCard.title.snapshotHasLinks": "This snapshot can't be put back on Windows",
   "errorCard.title.steamNotReady": "Steam isn't ready",
   "errorCard.title.steamNotRunning": "Steam needs to be running",
+  "errorCard.title.steamUpdatingGame": "Steam is updating this game",
   "errorCard.title.storageReachable": "Your snapshot folder is there",
   "errorCard.title.storageUnreachable": "SavePoint can't reach your snapshots",
   "errorCard.title.storageUnreadable": "SavePoint couldn't read part of its snapshot folder",

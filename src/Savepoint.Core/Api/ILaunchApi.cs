@@ -52,13 +52,24 @@ public interface ILaunchApi
     /// and signed in. If it is not, the call fails at once, with no job, with <c>error.launch.steamNotRunning</c>. Passing
     /// <paramref name="startSteam"/> instead makes the job start the Steam client alone (no game, no app id), wait for it
     /// to sign in, and then carry on; if it does not come up in time the job fails with <c>error.launch.steamDidNotStart</c>, and a
-    /// cancelled or failed wait leaves every folder as it was. A game started from a link, or one that is not a Steam game, never asks.
+    /// cancelled or failed wait leaves every folder as it was. A game counts as a Steam game only when its install folder is in a Steam
+    /// library; a Steam app id alone does not. A game started from a link, or one that is not a Steam game, never asks.
+    /// </para>
+    /// <para>
+    /// Once Steam is up, the job reads the game's Steam manifest (read only) before anything starts. If Steam changed it while the launch
+    /// ran, or is updating the game, the job fails with <c>error.launch.steamUpdatingGame</c> and the program is not started, because
+    /// the update may have written over the version that was just loaded.
+    /// </para>
+    /// <para>
+    /// Passing <paramref name="withoutSteam"/> skips every Steam check and starts the program as it is, for a game that does not need
+    /// Steam or when the player knows better. It never starts Steam, and it is not a way to start the game through Steam.
     /// </para>
     /// </summary>
     /// <param name="gameId">The game.</param>
     /// <param name="target">What to load.</param>
     /// <param name="startSteam">True when the player agreed to have SavePoint start the Steam client if it is not running.</param>
-    Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false);
+    /// <param name="withoutSteam">True when the player chose to start the program without checking for Steam. It wins over <paramref name="startSteam"/>.</param>
+    Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false, bool withoutSteam = false);
 
     /// <summary>
     /// Loads a target's files into the game's folders and stops there: the same checks and the same switch as <see cref="StartAsync"/>,

@@ -195,9 +195,37 @@ public sealed partial class LaunchFlowViewModel
     {
         if (flow.Session is not { State: SessionState.Preparing } session
             || job is not { Status: JobStatus.Running }
-            || job.JobId != session.LaunchJobId
-            || flow.SteamWait is not null
-            || !job.RecentLines.OfType<JobLine.Step>().Any(step => step.MessageId == JobSteps.LaunchWaitingForSteam))
+            || job.JobId != session.LaunchJobId)
+        {
+            return;
+        }
+
+        var steps = job.RecentLines.OfType<JobLine.Step>().Select(step => step.MessageId).ToList();
+        if (!steps.Contains(JobSteps.LaunchWaitingForSteam))
+        {
+            return;
+        }
+
+        // Steam is signed in and the folders are read next, which can take a while: the wait is over, and what the player saw before it comes back.
+        if (steps.Contains(JobSteps.LaunchSteamReady))
+        {
+            if (flow.SteamWait is not null)
+            {
+                EndSteamWait(flow);
+                if (flow.ViaBanner && flow.Preview is { } plan)
+                {
+                    SetInline(flow, new LaunchBannerViewModel(plan, GameName(flow.GameId), ProfileName(flow.GameId, plan.ProfileId), _deps.Text, _deps.Dialogs));
+                }
+                else if (!flow.ViaBanner)
+                {
+                    ShowProgress(flow);
+                }
+            }
+
+            return;
+        }
+
+        if (flow.SteamWait is not null)
         {
             return;
         }
@@ -275,7 +303,17 @@ public sealed partial class LaunchFlowViewModel
     // The dialog is closed by now, so its result is already there.
     private async Task CompleteAsync(GameFlow flow, PostPlayDialogViewModel dialog)
     {
-        var completed = await _deps.Launch.CompleteSessionAsync(flow.GameId, await dialog.Result);
+        var completion = await dialog.Result;
+
+        // A save waits a few seconds first, to be sure a store did not start the game again; without a card the screen would show nothing.
+        // Skipping is never held up, so it needs none.
+        if (completion is not SessionCompletion.Skip)
+        {
+            var text = _deps.Text;
+            SetInline(flow, ErrorCardViewModel.Custom(text, Icons.Info, ErrorTone.Neutral, text.Message("launch.checkingClosed.title"), text.Message("launch.checkingClosed.body"), actions: []));
+        }
+
+        var completed = await _deps.Launch.CompleteSessionAsync(flow.GameId, completion);
         if (!completed.Ok)
         {
             if (completed.Error.MessageId == "error.launch.sessionStillRunning")

@@ -14,7 +14,7 @@ public sealed partial class LaunchOrchestrator
     private sealed record Prepared(GameDefinition Game, string InstallPath, ResolvedTarget Resolved);
 
     /// <inheritdoc />
-    public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false) =>
+    public Task<OperationResult<JobStarted>> StartAsync(string gameId, LaunchTarget target, bool startSteam = false, bool withoutSteam = false) =>
         ApiGuard.RunAsync(_services.Log, async () =>
         {
             ArgumentNullException.ThrowIfNull(target);
@@ -35,7 +35,7 @@ public sealed partial class LaunchOrchestrator
                 }
 
                 // Asked here as well as in the job: a refusal now has no job and no session, and nothing was read.
-                if (!startSteam && await SteamIsMissingAsync(game).ConfigureAwait(false))
+                if (!startSteam && !withoutSteam && await SteamIsMissingAsync(game).ConfigureAwait(false))
                 {
                     throw new SteamNotRunningException(gameId);
                 }
@@ -45,7 +45,7 @@ public sealed partial class LaunchOrchestrator
 
                 // The work waits until the session exists, so its first change always finds it.
                 var sessionOpen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                var jobId = _services.Jobs.Start(JobKind.Launch, gameId, cancellable: true, context => RunLaunchAsync(context, gameId, target, startSteam, sessionOpen.Task), new JobProfile(profile.Id, profile.Name));
+                var jobId = _services.Jobs.Start(JobKind.Launch, gameId, cancellable: true, context => RunLaunchAsync(context, gameId, target, startSteam, withoutSteam, sessionOpen.Task), new JobProfile(profile.Id, profile.Name));
                 _book.Open(gameId, profileId, target, older, jobId);
                 opened = true;
                 sessionOpen.SetResult();
@@ -136,16 +136,27 @@ public sealed partial class LaunchOrchestrator
         }).ConfigureAwait(false);
     }
 
-    private async Task<JobResult?> RunLaunchAsync(JobContext context, string gameId, LaunchTarget target, bool startSteam, Task sessionOpen)
+    private async Task<JobResult?> RunLaunchAsync(JobContext context, string gameId, LaunchTarget target, bool startSteam, bool withoutSteam, Task sessionOpen)
     {
         await sessionOpen.ConfigureAwait(false);
 
         // Before the first folder is read: a Steam game needs the client, and a client started later would update over the switched version.
-        await EnsureSteamAsync(context, await RequireGameAsync(gameId, context.CancellationToken).ConfigureAwait(false), startSteam).ConfigureAwait(false);
+        // The manifest is read before Steam can start, so a change made while it comes up shows against it.
+        var steamGame = await RequireGameAsync(gameId, context.CancellationToken).ConfigureAwait(false);
+        var steamBefore = withoutSteam ? null : await ReadSteamInstallAsync(steamGame).ConfigureAwait(false);
+        if (!withoutSteam)
+        {
+            await EnsureSteamAsync(context, steamGame, startSteam).ConfigureAwait(false);
+        }
 
         // Preparing and switching hold the game's lock, which a running optimization yields to (D13.17); the lock is let go before the game starts.
         var prepared = await _services.RunForGameAsync(gameId, (storage, _) => PrepareAsync(storage, context, gameId, target), context.CancellationToken).ConfigureAwait(false);
         context.CancellationToken.ThrowIfCancellationRequested();
+
+        if (!withoutSteam)
+        {
+            await RefuseWhenSteamUpdatesAsync(prepared.Game, steamBefore, prepared.InstallPath).ConfigureAwait(false);
+        }
 
         context.AddStep(JobSteps.LaunchStarting, ("game", prepared.Game.Name));
         var watcher = await _starter.StartAsync(prepared.Game.Launch, prepared.InstallPath, context.CancellationToken).ConfigureAwait(false);

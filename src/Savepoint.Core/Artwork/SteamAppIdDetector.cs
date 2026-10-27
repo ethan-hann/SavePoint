@@ -125,8 +125,40 @@ internal static partial class SteamAppIdDetector
     private static string TrimWhitespaceAndNul(string text) =>
         text.AsSpan().Trim(['\0', ' ', '\t', '\r', '\n', '\v', '\f', ' ', '﻿']).ToString();
 
+    // True when the folder is, or is inside, <library>/steamapps/common/<dir> of a library folder that exists. That is where Steam installs its
+    // own games, so a copy from another store never sits there.
+    public static bool IsInSteamLibrary(string? installPath, StringComparison pathComparison)
+    {
+        if (string.IsNullOrWhiteSpace(installPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            return FindSteamAppsFolder(installPath, pathComparison, out _) is { } steamApps && Directory.Exists(steamApps.FullName);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    // The manifest Steam keeps for the game installed at this folder, the one with the lowest app id when several name it; null when none does.
     // A folder under <library>/steamapps/common/<dir> belongs to the app whose manifest in <library>/steamapps names <dir> as its installdir.
-    private static int? FromManifest(string installPath, StringComparison pathComparison)
+    public static string? ManifestOf(string? installPath, StringComparison pathComparison)
+    {
+        if (string.IsNullOrWhiteSpace(installPath))
+        {
+            return null;
+        }
+
+        return FindManifest(installPath, pathComparison)?.File.FullName;
+    }
+
+    private static int? FromManifest(string installPath, StringComparison pathComparison) => FindManifest(installPath, pathComparison)?.AppId;
+
+    private static (FileInfo File, int AppId)? FindManifest(string installPath, StringComparison pathComparison)
     {
         try
         {
@@ -136,19 +168,19 @@ internal static partial class SteamAppIdDetector
                 return null;
             }
 
-            int? lowest = null;
+            (FileInfo File, int AppId)? lowest = null;
             foreach (var manifest in steamApps.EnumerateFiles("appmanifest_*.acf"))
             {
                 if (ManifestFileName().Match(manifest.Name) is not { Success: true } named
                     || ParseId(named.Groups[1].Value) is not { } appId
-                    || (lowest is { } best && appId >= best))
+                    || (lowest is { } best && appId >= best.AppId))
                 {
                     continue;
                 }
 
                 if (string.Equals(InstallDirOf(manifest), gameFolder, pathComparison))
                 {
-                    lowest = appId;
+                    lowest = (manifest, appId);
                 }
             }
 

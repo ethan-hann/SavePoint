@@ -10,18 +10,29 @@ public class LaunchSteamTests
 {
     private const int _appId = 2379780;
 
+    // StateFlags as Steam writes them: 4 is fully installed, 2 adds that an update is waiting, 1024 adds that an update has started.
+    private const long _installed = 4;
+    private const long _updating = 4 | 1024;
+    private const long _updateWaiting = 2 | 4;
+
     private static LaunchTarget Tip(Profile profile) => new LaunchTarget.ProfileTip(profile.Id);
 
+    // A Steam game is installed in a Steam library. The other game is a GOG or retail copy: it carries the Steam app id of the template it
+    // matched, but sits outside any library.
     private static async Task<(LaunchRig Rig, Profile Vanilla, Profile Modded)> SteamRigAsync(FakeSteamClient steam, SteamWaitOptions? wait = null, bool steamGame = true)
     {
-        var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync(steam: steam, steamWait: wait);
-        if (steamGame)
+        var (rig, vanilla, modded) = await LaunchRig.WithTwoProfilesAsync(steam: steam, steamWait: wait, steamLibrary: steamGame);
+        if (!steamGame)
         {
             await rig.EditGameAsync(game => game with { SteamAppId = _appId });
         }
 
         return (rig, vanilla, modded);
     }
+
+    // Steam's manifest for a rig in a library: fully installed unless a test says Steam is updating.
+    private static void Manifest(LaunchRig rig, long flags = _installed, string buildId = "100", string lastUpdated = "1") =>
+        rig.Workspace.WriteSteamManifest(_appId, buildId, flags, lastUpdated);
 
     private static bool Switched(LaunchRig rig) =>
         rig.Jobs.List().Where(job => job.GameId == rig.Game.Id)
@@ -65,16 +76,128 @@ public class LaunchSteamTests
     }
 
     [Fact(Timeout = 240_000)]
-    public async Task A_game_that_is_not_a_Steam_game_never_asks_about_Steam()
+    public async Task A_GOG_copy_with_a_Steam_app_id_outside_a_Steam_library_never_asks_about_Steam()
     {
         var steam = new FakeSteamClient();
         var (rig, vanilla, _) = await SteamRigAsync(steam, steamGame: false);
         using var _ = rig;
 
+        Assert.Null((await rig.PreviewAsync(Tip(vanilla))).SteamNeeded);
         var job = await rig.StartAsync(Tip(vanilla));
         await rig.WaitForGameAsync();
 
         Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.Equal(0, steam.Starts);
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task Play_without_Steam_starts_the_program_with_Steam_closed_and_never_starts_Steam()
+    {
+        var steam = new FakeSteamClient();
+        var (rig, vanilla, _) = await SteamRigAsync(steam);
+        using var _ = rig;
+
+        var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(vanilla), withoutSteam: true);
+        Assert.True(started.Ok, started.Error?.Detail);
+        var job = await rig.WaitForJobAsync(started.Value!.JobId);
+        await rig.WaitForGameAsync();
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.NotEmpty(rig.GameProcessIds());
+        Assert.Equal(0, steam.Starts);
+        Assert.DoesNotContain(JobSteps.LaunchWaitingForSteam, job.RecentLines.OfType<JobLine.Step>().Select(step => step.MessageId));
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_Steam_update_that_starts_as_the_client_comes_up_stops_the_launch_before_the_program_starts()
+    {
+        LaunchRig? rig = null;
+        var steam = new FakeSteamClient { ReadyAfterLooks = 1, OnStart = () => Manifest(rig!, _updating) };
+        var (made, vanilla, _) = await SteamRigAsync(steam);
+        rig = made;
+        using var _ = rig;
+        Manifest(rig);
+
+        var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(vanilla), startSteam: true);
+        var job = await rig.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Failed, job.Status);
+        Assert.Equal("error.launch.steamUpdatingGame", job.Error?.MessageId);
+        Assert.Empty(rig.GameProcessIds());
+        var session = await rig.WaitForAsync<SessionState.Failed>();
+        Assert.Equal("error.launch.steamUpdatingGame", Assert.IsType<SessionState.Failed>(session.State).Error.MessageId);
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_new_Steam_build_written_while_the_client_comes_up_stops_the_launch_before_the_program_starts()
+    {
+        LaunchRig? rig = null;
+        var steam = new FakeSteamClient { ReadyAfterLooks = 1, OnStart = () => Manifest(rig!, _installed, buildId: "101", lastUpdated: "2") };
+        var (made, vanilla, _) = await SteamRigAsync(steam);
+        rig = made;
+        using var _ = rig;
+        Manifest(rig);
+
+        var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(vanilla), startSteam: true);
+        var job = await rig.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Failed, job.Status);
+        Assert.Equal("error.launch.steamUpdatingGame", job.Error?.MessageId);
+        Assert.Empty(rig.GameProcessIds());
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_Steam_update_already_running_when_Steam_is_up_stops_the_launch_before_the_program_starts()
+    {
+        var steam = new FakeSteamClient(ready: true);
+        var (rig, vanilla, _) = await SteamRigAsync(steam);
+        using var _ = rig;
+        Manifest(rig, _updating);
+
+        var job = await StartAndWaitAsync(rig, Tip(vanilla));
+
+        Assert.Equal(JobStatus.Failed, job.Status);
+        Assert.Equal("error.launch.steamUpdatingGame", job.Error?.MessageId);
+        Assert.Empty(rig.GameProcessIds());
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_Steam_game_whose_manifest_stays_as_it_was_starts_even_with_an_update_waiting()
+    {
+        LaunchRig? rig = null;
+        var steam = new FakeSteamClient { ReadyAfterLooks = 1, OnStart = () => Manifest(rig!, _updateWaiting) };
+        var (made, vanilla, _) = await SteamRigAsync(steam);
+        rig = made;
+        using var _ = rig;
+        Manifest(rig, _updateWaiting);
+
+        var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(vanilla), startSteam: true);
+        var job = await rig.WaitForJobAsync(started.Value!.JobId);
+        await rig.WaitForGameAsync();
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+        Assert.NotEmpty(rig.GameProcessIds());
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task Play_without_Steam_skips_the_update_check_because_Steam_is_closed()
+    {
+        var steam = new FakeSteamClient();
+        var (rig, vanilla, _) = await SteamRigAsync(steam);
+        using var _ = rig;
+        Manifest(rig, _updating);
+
+        var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(vanilla), withoutSteam: true);
+        var job = await rig.WaitForJobAsync(started.Value!.JobId);
+
+        Assert.Equal(JobStatus.Succeeded, job.Status);
+    }
+
+    private static async Task<JobSnapshot> StartAndWaitAsync(LaunchRig rig, LaunchTarget target)
+    {
+        var started = await rig.Launch.StartAsync(rig.Game.Id, target);
+        Assert.True(started.Ok, started.Error?.Detail);
+        return await rig.WaitForJobAsync(started.Value.JobId);
     }
 
     [Fact(Timeout = 240_000)]
@@ -94,6 +217,10 @@ public class LaunchSteamTests
         var steps = job.RecentLines.OfType<JobLine.Step>().Select(step => step.MessageId).ToList();
         Assert.Contains(JobSteps.LaunchWaitingForSteam, steps);
         Assert.True(steps.IndexOf(JobSteps.LaunchWaitingForSteam) < steps.IndexOf(JobSteps.LaunchSwitchFolder), "the wait comes before the first folder is switched");
+
+        // The wait ends the moment Steam is signed in, before the folders are read, so the screen can stop saying it is waiting.
+        Assert.Contains(JobSteps.LaunchSteamReady, steps);
+        Assert.True(steps.IndexOf(JobSteps.LaunchWaitingForSteam) < steps.IndexOf(JobSteps.LaunchSteamReady) && steps.IndexOf(JobSteps.LaunchSteamReady) < steps.IndexOf(JobSteps.LaunchSwitchFolder), "Steam is ready between the wait and the first switch");
         Assert.False(rig.InstallHas("mods/a.txt"));
     }
 
@@ -104,11 +231,10 @@ public class LaunchSteamTests
         // starting the client sets the variable, so the game only runs if it was started after Steam was up.
         var variable = "SAVEPOINT_FG_STEAM_" + Guid.NewGuid().ToString("N");
         var steam = new FakeSteamClient { ReadyAfterLooks = 2, OnStart = () => Environment.SetEnvironmentVariable(variable, "1") };
-        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync(gameArguments: ["--exit-unless-env", variable], steam: steam);
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync(gameArguments: ["--exit-unless-env", variable], steam: steam, steamLibrary: true);
         try
         {
             using var _ = rig;
-            await rig.EditGameAsync(game => game with { SteamAppId = _appId });
 
             var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(vanilla), startSteam: true);
             var job = await rig.WaitForJobAsync(started.Value!.JobId);
