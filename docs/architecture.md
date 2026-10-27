@@ -326,7 +326,7 @@ Folder work reports one `FolderOutcome(Role, Error?)` per folder it touched. All
 
 ### Free up space (D45, D46)
 
-- `GetFreeUpSpacePreviewAsync` (on `IGamesApi` and `ISettingsApi`) returns a token that names the exact records it would delete. The optimize calls take that token.
+- `GetFreeUpSpacePreviewAsync` (on `IGamesApi` and `ISettingsApi`) returns a token that names the exact records it would delete. The optimize calls take that token, and so does `EstimateFreeUpSpaceAsync` (on both APIs), which answers about how many stored bytes the run frees, through `GitEngine.EstimateFreedBytesAsync` and a cache keyed by a digest of the store's refs, HEAD and index (D66). It refuses a token no preview issued.
 - A run writes `savepoint-free-up.json` in the game's storage folder before it deletes, so the next start can finish it. After that, `NoLongerCancellable()` returns whether a stop was already accepted.
 - A reclaim writes `savepoint-reclaim.json` in the git directory, naming SavePoint's process and the last git it started. The startup check and `RunForGameAsync` (every game write) wait for that git when its owner is gone.
 
