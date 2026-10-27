@@ -19,6 +19,8 @@ public sealed record CaptureRowViewModel(string Icon, string Title, string Subti
 public sealed partial class CapturePreviewViewModel : ObservableObject
 {
     private readonly UiFormatter _text;
+    private CapturePreview? _preview;
+    private IReadOnlySet<RepoRole> _empty = new HashSet<RepoRole>();
 
     /// <summary>True until the preview has been read or has failed.</summary>
     [ObservableProperty]
@@ -55,6 +57,7 @@ public sealed partial class CapturePreviewViewModel : ObservableObject
 
     internal void Show(CapturePreview preview)
     {
+        _preview = preview;
         Rows = [.. preview.Folders.Select(Row)];
         Note = preview.NewBytesEstimate > 0
             ? _text.Message("profiles.wizard.preview.newBytesNote", ("newSize", _text.FileSize(preview.NewBytesEstimate)))
@@ -65,19 +68,39 @@ public sealed partial class CapturePreviewViewModel : ObservableObject
 
     internal void Fail()
     {
+        _preview = null;
         Rows = [];
         Note = string.Empty;
         Error = _text.Message("profiles.wizard.preview.failed");
         IsLoading = false;
     }
 
+    /// <summary>Marks the folders the new profile starts with nothing in, so their rows say so instead of counting files.</summary>
+    /// <param name="folders">The saves and mods folders that start empty.</param>
+    internal void StartEmpty(IReadOnlySet<RepoRole> folders)
+    {
+        _empty = folders;
+        if (_preview is { } preview)
+        {
+            Rows = [.. preview.Folders.Select(Row)];
+        }
+    }
+
     private CaptureRowViewModel Row(FolderCapturePreview folder) => folder.Role switch
     {
         RepoRole.Install => new CaptureRowViewModel(Icons.Folder, _text.Message("profiles.wizard.preview.installTitle"), InstallSubtitle(folder)),
+        RepoRole.Mods when _empty.Contains(RepoRole.Mods) => new CaptureRowViewModel(
+            Icons.Folder,
+            _text.Message("profiles.wizard.preview.modsTitle"),
+            _text.Message("profiles.wizard.preview.modsEmptySubtitle", ("path", folder.Path))),
         RepoRole.Mods => new CaptureRowViewModel(
             Icons.Folder,
             _text.Message("profiles.wizard.preview.modsTitle"),
             _text.Message("profiles.wizard.preview.modsSubtitle", ("path", folder.Path), ("fileCount", folder.FileCount), ("size", _text.FileSize(folder.Bytes)))),
+        _ when _empty.Contains(RepoRole.External) => new CaptureRowViewModel(
+            Icons.Save,
+            _text.Message("profiles.wizard.preview.externalEmptyTitle"),
+            _text.Message("profiles.wizard.preview.externalEmptySubtitle", ("path", folder.Path))),
         _ => new CaptureRowViewModel(
             Icons.Save,
             _text.Message("profiles.wizard.preview.externalTitle"),

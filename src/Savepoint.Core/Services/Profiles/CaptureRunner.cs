@@ -23,7 +23,14 @@ namespace Savepoint.Core.Services.Profiles;
 /// saved as its first history.
 /// </param>
 /// <param name="Downgraded">True for a folder whose replacement was refused at save time because rewriting its snapshot could touch another profile's history; it is saved as a new snapshot and reported as kept as new.</param>
-internal sealed record FolderCapturePlan(CaptureMode Mode, string? ExpectedStartCommit = null, bool SkipWhenClean = false, string? AmendPointId = null, bool LeftAtLaunch = false, bool Downgraded = false);
+/// <param name="StartEmpty">True for a folder the profile starts with nothing in: its history begins with an empty snapshot and the folder's files are not read or touched.</param>
+internal sealed record FolderCapturePlan(CaptureMode Mode, string? ExpectedStartCommit = null, bool SkipWhenClean = false, string? AmendPointId = null, bool LeftAtLaunch = false, bool Downgraded = false, bool StartEmpty = false);
+
+/// <summary>The capture event a save belongs to, with what a retry of an earlier partial save must keep doing.</summary>
+/// <param name="Capture">The event.</param>
+/// <param name="ForksNewBranches">True when a folder the profile never saved starts its branch from what the folder held.</param>
+/// <param name="StartEmpty">The folders that were to start empty and still have to; empty for a save that is not such a retry.</param>
+internal readonly record struct TakenEvent(CaptureEvent Capture, bool ForksNewBranches, IReadOnlyCollection<RepoRole> StartEmpty);
 
 /// <summary>One capture event: the id every folder's point carries, and when it began, which every folder's point records the same way.</summary>
 /// <param name="Id">The capture id.</param>
@@ -59,6 +66,7 @@ internal sealed class CaptureRunner
     /// <param name="creating">True when the profile does not exist yet: its row is saved with the first folder that works, and branches left by a total failure are taken back.</param>
     /// <param name="plans">How a folder is saved when it is not a plain capture, as the play session after an older point asks for; a folder it names no plan for is saved plainly.</param>
     /// <param name="forksNewBranches">True for the retry of a creation that saved only some folders: the profile exists by now, but a folder it never saved still starts its branch from what the folder held, as the first try did.</param>
+    /// <param name="startEmpty">The folders among <paramref name="roles"/> that start with an empty snapshot instead of a capture of their files; null for none.</param>
     public Guid Start(
         GameDefinition game,
         Profile profile,
@@ -67,7 +75,8 @@ internal sealed class CaptureRunner
         CaptureEvent capture,
         bool creating,
         IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans = null,
-        bool forksNewBranches = false) =>
+        bool forksNewBranches = false,
+        IReadOnlyCollection<RepoRole>? startEmpty = null) =>
         _services.Jobs.Start(
             JobKind.Capture,
             game.Id,
@@ -93,14 +102,14 @@ internal sealed class CaptureRunner
                             await RequireLoadedAsync(storage, current, target, roles, capture.Id, context.CancellationToken).ConfigureAwait(false);
                         }
 
-                        var saved = await RunAsync(context, storage, current, target, pointName, roles, capture, creating, forksNewBranches || creating, plans).ConfigureAwait(false);
+                        var saved = await RunAsync(context, storage, current, target, pointName, roles, capture, creating, forksNewBranches || creating, plans, startEmpty).ConfigureAwait(false);
 
                         // Counted while the lock is held, only for a save nobody stopped (D13.17), so the job ends without waiting for the lock again.
                         crowded = !context.CancellationToken.IsCancellationRequested && saved.Folders.Any(folder => folder.Ok) && _optimization.IsCrowded(storage, current);
                         return saved;
                     },
                     context.CancellationToken).ConfigureAwait(false);
-                Remember(game.Id, profile.Id, capture, result, forksNewBranches || creating);
+                Remember(game.Id, profile.Id, capture, result, forksNewBranches || creating, startEmpty);
 
                 // Starting the tidy-up only schedules it; the save is already over.
                 if (crowded)
@@ -162,16 +171,18 @@ internal sealed class CaptureRunner
     /// <param name="gameId">The game.</param>
     /// <param name="profileId">The profile being saved.</param>
     /// <param name="roles">The folders about to be saved.</param>
-    public (CaptureEvent Capture, bool ForksNewBranches) TakeEvent(string gameId, string profileId, IReadOnlyList<RepoRole> roles) =>
-        _partial.TryRemove((gameId, profileId), out var partial) && roles.All(partial.Missing.Contains) ? (partial.Capture, partial.ForksNewBranches) : (NewEvent(), false);
+    public TakenEvent TakeEvent(string gameId, string profileId, IReadOnlyList<RepoRole> roles) =>
+        _partial.TryRemove((gameId, profileId), out var partial) && roles.All(partial.Missing.Contains)
+            ? new TakenEvent(partial.Capture, partial.ForksNewBranches, [.. partial.StartEmpty.Where(roles.Contains)])
+            : new TakenEvent(NewEvent(), false, []);
 
     // A partial save is remembered; any other ending, including the retry that finished it, clears the memory.
-    private void Remember(string gameId, string profileId, CaptureEvent capture, CaptureResult result, bool forksNewBranches)
+    private void Remember(string gameId, string profileId, CaptureEvent capture, CaptureResult result, bool forksNewBranches, IReadOnlyCollection<RepoRole>? startEmpty)
     {
         var failed = result.Folders.Where(folder => !folder.Ok).Select(folder => folder.Role).ToList();
         if (failed.Count > 0 && failed.Count < result.Folders.Count)
         {
-            _partial[(gameId, profileId)] = new PartialSave(capture, failed, forksNewBranches);
+            _partial[(gameId, profileId)] = new PartialSave(capture, failed, forksNewBranches, [.. (startEmpty ?? []).Where(failed.Contains)]);
         }
         else
         {
@@ -184,7 +195,7 @@ internal sealed class CaptureRunner
         }
     }
 
-    private sealed record PartialSave(CaptureEvent Capture, IReadOnlyList<RepoRole> Missing, bool ForksNewBranches);
+    private sealed record PartialSave(CaptureEvent Capture, IReadOnlyList<RepoRole> Missing, bool ForksNewBranches, IReadOnlyCollection<RepoRole> StartEmpty);
 
     private async Task<CaptureResult> RunAsync(
         JobContext context,
@@ -196,10 +207,12 @@ internal sealed class CaptureRunner
         CaptureEvent capture,
         bool creating,
         bool forksNewBranches,
-        IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans)
+        IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans,
+        IReadOnlyCollection<RepoRole>? startEmpty)
     {
         var repos = GameFolders.Repos(_services, storage, game).Where(repo => roles.Contains(repo.Role)).ToList();
         plans = await RefuseUnsafeReplaceAsync(storage, game, profile, repos, plans, capture.Id, context.CancellationToken).ConfigureAwait(false);
+        plans = WithEmptyStarts(plans, startEmpty);
 
         var progress = new CaptureProgressCombiner(context.Progress, context.AddLine);
         // A new profile's first snapshot carries the profile's name, so saying both would repeat it.
@@ -226,6 +239,22 @@ internal sealed class CaptureRunner
 
         var recorded = saved.Any(folder => folder.Recorded);
         return new CaptureResult(profile.Id, recorded ? new HistoryPointId(capture.Id) : null, outcomes);
+    }
+
+    private static IReadOnlyDictionary<RepoRole, FolderCapturePlan>? WithEmptyStarts(IReadOnlyDictionary<RepoRole, FolderCapturePlan>? plans, IReadOnlyCollection<RepoRole>? startEmpty)
+    {
+        if (startEmpty is not { Count: > 0 })
+        {
+            return plans;
+        }
+
+        var merged = plans is null ? [] : new Dictionary<RepoRole, FolderCapturePlan>(plans);
+        foreach (var role in startEmpty)
+        {
+            merged[role] = new FolderCapturePlan(CaptureMode.Normal, StartEmpty: true);
+        }
+
+        return merged;
     }
 
     // A replacement is judged again now, with the game's lock held and the folders as they are: what was true when the session ended may
@@ -386,6 +415,13 @@ internal sealed class CaptureRunner
         IProgress<FileProgress> progress,
         CancellationToken cancellationToken)
     {
+        // The folder's files are not read: its history starts with nothing, and the folder keeps what it holds until a switch empties it.
+        if (plan is { StartEmpty: true })
+        {
+            await storage.Engine.CreateEmptyBranchAsync(repo, branch, pointName, capture.Id, capture.At, cancellationToken, attachToUnbornHead: true).ConfigureAwait(false);
+            return new FolderSave(true);
+        }
+
         // A first save of this folder that stopped after its branch was written, before the folder moved onto it, is finished as it was begun.
         var finishing = branchExists
             && plan is null or { Mode: CaptureMode.Normal or CaptureMode.Root }

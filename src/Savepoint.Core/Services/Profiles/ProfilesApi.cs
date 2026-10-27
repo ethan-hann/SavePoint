@@ -25,7 +25,7 @@ internal sealed partial class ProfilesApi : IProfilesApi
     public Task<OperationResult<IReadOnlyList<Profile>>> ListAsync(string? gameId = null, CancellationToken cancellationToken = default) =>
         ApiGuard.RunAsync(_services.Log, () => _services.Catalog.ListProfilesAsync(gameId, cancellationToken), cancellationToken);
 
-    public Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName) =>
+    public Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName, IReadOnlyCollection<RepoRole>? startEmpty = null) =>
         ApiGuard.RunAsync(_services.Log, async () =>
         {
             var game = await RequireGameAsync(gameId).ConfigureAwait(false);
@@ -33,7 +33,15 @@ internal sealed partial class ProfilesApi : IProfilesApi
             var capture = _capture.NewEvent();
             var point = string.IsNullOrWhiteSpace(pointName) ? profile.Name : pointName;
             var roles = GameFolders.RolesOf(game);
-            var jobId = _capture.Start(game, profile, point, roles, capture, creating: true);
+
+            // The install folder is what makes a profile playable, and a folder the game lacks has nothing to start empty.
+            var empty = startEmpty?.Distinct().ToList() ?? [];
+            if (empty.Any(role => role == RepoRole.Install || !roles.Contains(role)))
+            {
+                throw new ValidationException([new ValidationIssue("startEmpty", ValidationMessageIds.ProfileStartEmptyInvalid)]);
+            }
+
+            var jobId = _capture.Start(game, profile, point, roles, capture, creating: true, startEmpty: empty);
             return new JobStarted(jobId);
         });
 
@@ -53,8 +61,8 @@ internal sealed partial class ProfilesApi : IProfilesApi
                 await _capture.RequireLoadedAsync(storage, game, profile, roles, pending, CancellationToken.None).ConfigureAwait(false);
                 return Unit.Value;
             }).ConfigureAwait(false);
-            var (capture, forksNewBranches) = _capture.TakeEvent(gameId, profileId, roles);
-            return new JobStarted(_capture.Start(game, profile, point, roles, capture, creating: false, forksNewBranches: forksNewBranches));
+            var taken = _capture.TakeEvent(gameId, profileId, roles);
+            return new JobStarted(_capture.Start(game, profile, point, roles, taken.Capture, creating: false, forksNewBranches: taken.ForksNewBranches, startEmpty: taken.StartEmpty));
         });
 
     public Task<OperationResult<IReadOnlyList<ProfileRowStats>>> GetRowStatsAsync(string gameId, CancellationToken cancellationToken = default) =>

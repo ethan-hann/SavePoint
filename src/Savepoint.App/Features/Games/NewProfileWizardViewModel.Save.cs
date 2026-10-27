@@ -32,7 +32,7 @@ public sealed partial class NewProfileWizardViewModel
         EnterSaving();
 
         var notes = TrimmedNotes.Length > 0 ? TrimmedNotes : null;
-        var created = await _profiles.CreateAsync(_game.Id, TrimmedName, notes, TrimmedName);
+        var created = await _profiles.CreateAsync(_game.Id, TrimmedName, notes, TrimmedName, [.. EmptyFolders()]);
         if (!created.Ok)
         {
             Step = WizardStep.Check;

@@ -58,14 +58,27 @@ public sealed class FakeProfilesApi : IProfilesApi
     }
 
     // The profile is listed at once and its capture job is left for the test to end.
-    public Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName) =>
-        _backend.Call(_api, nameof(CreateAsync), [gameId, name, notes, pointName], () =>
+    public Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName, IReadOnlyCollection<RepoRole>? startEmpty = null) =>
+        _backend.Call(_api, nameof(CreateAsync), [gameId, name, notes, pointName, startEmpty ?? []], () =>
         {
             var game = State.Game(gameId);
+            var folders = FakeState.FoldersOf(game);
+
+            // The same refusal as the real backend: the install folder never starts empty, and neither does a folder the game lacks.
+            if ((startEmpty ?? []).Any(role => role == RepoRole.Install || !folders.Contains(role)))
+            {
+                throw new ValidationException([new ValidationIssue("startEmpty", ValidationMessageIds.ProfileStartEmptyInvalid)]);
+            }
+
             var profile = CatalogIds.NewProfile(gameId, name, State.Random) with { Notes = notes };
             State.Profiles.Add(profile);
             Load(profile);
-            return OperationResult.Success(StartCapture(game, profile, pointName, FakeState.FoldersOf(game)));
+            if (startEmpty?.Contains(RepoRole.Mods) == true)
+            {
+                State.RowStats[profile.Id] = State.StatsFor(profile) with { ModFileCount = 0 };
+            }
+
+            return OperationResult.Success(StartCapture(game, profile, pointName, folders));
         });
 
     public Task<OperationResult<Profile>> UpdateAsync(string gameId, string profileId, ProfileChanges changes) =>

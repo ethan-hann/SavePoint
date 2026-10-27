@@ -61,6 +61,25 @@
                    PlaceholderText="{loc:Loc profiles.wizard.notes.placeholder}"
                    AutomationProperties.Name="{loc:Loc profiles.wizard.notes.label}" />
         </StackPanel>
+        <!-- Each box is offered only when the game has that folder. -->
+        <StackPanel x:Name="StartEmptyChoices" Spacing="10" IsVisible="{Binding HasStartEmptyChoices}">
+          <StackPanel x:Name="StartWithoutSavesChoice" Spacing="2" IsVisible="{Binding HasSavesFolder}">
+            <CheckBox x:Name="StartWithoutSavesBox"
+                      IsChecked="{Binding StartWithoutSaves, Mode=TwoWay}"
+                      Content="{loc:Loc profiles.wizard.startEmpty.saves}"
+                      AutomationProperties.Name="{loc:Loc profiles.wizard.startEmpty.saves}"
+                      AutomationProperties.HelpText="{loc:Loc profiles.wizard.startEmpty.savesHint}" />
+            <TextBlock x:Name="StartWithoutSavesHint" Classes="caption subtle" Margin="32,0,0,0" TextWrapping="Wrap" AutomationProperties.AccessibilityView="Raw" Text="{loc:Loc profiles.wizard.startEmpty.savesHint}" />
+          </StackPanel>
+          <StackPanel x:Name="StartWithoutModsChoice" Spacing="2" IsVisible="{Binding HasModsFolder}">
+            <CheckBox x:Name="StartWithoutModsBox"
+                      IsChecked="{Binding StartWithoutMods, Mode=TwoWay}"
+                      Content="{loc:Loc profiles.wizard.startEmpty.mods}"
+                      AutomationProperties.Name="{loc:Loc profiles.wizard.startEmpty.mods}"
+                      AutomationProperties.HelpText="{loc:Loc profiles.wizard.startEmpty.modsHint}" />
+            <TextBlock x:Name="StartWithoutModsHint" Classes="caption subtle" Margin="32,0,0,0" TextWrapping="Wrap" AutomationProperties.AccessibilityView="Raw" Text="{loc:Loc profiles.wizard.startEmpty.modsHint}" />
+          </StackPanel>
+        </StackPanel>
         <ContentControl x:Name="NamePreview" Content="{Binding Preview}" />
       </StackPanel>
 

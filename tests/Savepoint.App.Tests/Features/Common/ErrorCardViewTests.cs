@@ -25,7 +25,7 @@ public class ErrorCardViewTests
         using var shown = Show(new ErrorCardViewModel(SampleScenario.FileInUseError, _text, operation: ErrorOperation.Switch));
 
         Assert.Equal("A file is in use, so the switch stopped partway", shown.Text("TitleText"));
-        Assert.StartsWith("Another program", shown.Text("BodyText"));
+        Assert.StartsWith("SavePoint couldn't change one of the game's files.", shown.Text("BodyText"));
         Assert.True(shown.Find<Border>("PathSurface").IsEffectivelyVisible);
         Assert.Contains(@"C:\Games\SkyrimSE\Data\Skyrim.esm", shown.Card.GetVisualDescendants().OfType<SelectableTextBlock>().Select(block => block.Text));
     }

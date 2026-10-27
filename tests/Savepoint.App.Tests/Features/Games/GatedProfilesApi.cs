@@ -45,8 +45,8 @@ internal sealed class GatedProfilesApi(IProfilesApi inner) : IProfilesApi
         return await inner.GetRowStatsAsync(gameId, cancellationToken);
     }
 
-    public Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName) =>
-        inner.CreateAsync(gameId, name, notes, pointName);
+    public Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName, IReadOnlyCollection<RepoRole>? startEmpty = null) =>
+        inner.CreateAsync(gameId, name, notes, pointName, startEmpty);
 
     public Task<OperationResult<Profile>> UpdateAsync(string gameId, string profileId, ProfileChanges changes) =>
         inner.UpdateAsync(gameId, profileId, changes);

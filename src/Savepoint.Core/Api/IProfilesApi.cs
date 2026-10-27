@@ -27,12 +27,23 @@ public interface IProfilesApi
     /// The profile's catalog row appears when the first capture finishes with at least one folder saved (D23). A capture that saves
     /// nothing leaves no row and no branch. A partial result keeps the row and shows the "Only part of the snapshot was taken" card with a
     /// retry for the missing folder.
+    /// <para>
+    /// A folder named in <paramref name="startEmpty"/> gets a history that begins with an empty snapshot instead of a snapshot of its
+    /// files, as a duplicate's saves do. No file on disk is touched: the folder keeps its files until the player switches to the
+    /// profile, which the launch check announces and asks about. A retry of a folder that failed to start empty starts it empty again.
+    /// </para>
     /// </remarks>
     /// <param name="gameId">The game.</param>
     /// <param name="name">The profile's name. Required.</param>
     /// <param name="notes">The profile's notes, or null.</param>
     /// <param name="pointName">The name of the first history point.</param>
-    Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName);
+    /// <param name="startEmpty">
+    /// The folders that start with nothing; null or empty for none. Only <see cref="RepoRole.External"/> (saves) and
+    /// <see cref="RepoRole.Mods"/> may be named, and only when the game has that folder: anything else fails with
+    /// <c>error.validation.invalidPayload</c> (issue <see cref="ValidationMessageIds.ProfileStartEmptyInvalid"/> at <c>startEmpty</c>) before a job is queued,
+    /// since the game's own files are what a profile is for (D29.3).
+    /// </param>
+    Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName, IReadOnlyCollection<RepoRole>? startEmpty = null);
 
     /// <summary>Changes the fields a user edits. Fails with <c>error.validation.invalidPayload</c> when the name is empty.</summary>
     /// <param name="gameId">The game.</param>

@@ -118,8 +118,19 @@ public class GamesScreenOpenFolderTests
     {
         var rig = await GamesRig.StartAsync();
 
-        var label = rig.Text.Message("games.profileTable.openFolder", ("role", "mods"));
+        // Every real role has its own wording, so the fallback is checked with a value the catalog does not name.
+        var label = rig.Text.Message("games.profileTable.openFolder", ("role", "somethingElse"));
 
         Assert.Equal("Open folder", label);
+    }
+
+    [Fact]
+    public async Task The_mods_folder_reads_as_the_mods_folder()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        var label = rig.Text.Message("games.profileTable.openFolder", ("role", "mods"));
+
+        Assert.Equal("Open mods folder", label);
     }
 }
