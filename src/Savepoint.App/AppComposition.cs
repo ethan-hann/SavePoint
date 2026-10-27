@@ -44,7 +44,7 @@ public static class AppComposition
         var toasts = new ToastHostViewModel(clock ?? TimeProvider.System, ui);
         var dialogStack = new DialogHostViewModel();
         var pickers = dialogs ?? new AvaloniaDialogs(dialogStack, text, storage);
-        var startup = new StartupViewModel(services.AppStatus, text, services.BackendStarted, services.LogFolder, services.FileRevealer, pickers);
+        var startup = new StartupViewModel(services.AppStatus, text, ui, services.BackendStarted, services.LogFolder, services.FileRevealer, pickers);
 
         var libraryRuns = new LibraryRunTracker();
 

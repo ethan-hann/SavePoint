@@ -24,7 +24,7 @@ public class MainWindowViewModelTests
         var toasts = new ToastHostViewModel(clock ?? new ManualTimeProvider(), new ImmediateUiDispatcher());
         var dialogs = new DialogHostViewModel();
         var main = new MainWindowViewModel(
-            new StartupViewModel(backend.AppStatus, _text),
+            new StartupViewModel(backend.AppStatus, _text, new ImmediateUiDispatcher()),
             () =>
             {
                 var shell = new ShellViewModel(new ShellDependencies(
