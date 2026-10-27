@@ -253,7 +253,6 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         RaiseTableState();
 
         var listTask = _deps.Profiles.ListAsync(game.Id, cts.Token);
-        var statsTask = _deps.Profiles.GetRowStatsAsync(game.Id, cts.Token);
         var usageTask = _deps.Games.GetStorageUsageAsync(game.Id, cts.Token);
         var foldersTask = _deps.Games.GetFolderStatusAsync(game.Id, cts.Token);
         var list = await listTask;
@@ -272,23 +271,32 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             RaiseTableState();
         }
 
-        var stats = await statsTask;
-        var usage = await usageTask;
         var folders = await foldersTask;
-
         if (generation != _generation || _disposed)
         {
             return;
         }
 
-        // A failed read keeps the folders the rows already offer; the menu entries are not worth an error toast of their own.
+        // A failed read keeps the folders the rows already offer; the menu entries are not worth an error toast of their own. The watch
+        // starts before the status scan, so a change made during the scan is signalled instead of missed.
         if (folders.Ok)
         {
             _folderRoles = [.. folders.Value.Select(folder => folder.Role)];
             if (_shown)
             {
-                UpdateWatch(game.Id, folders.Value);
+                await UpdateWatchAsync(game.Id, folders.Value, retryFailed: true, generation, cts.Token);
+                if (generation != _generation || _disposed)
+                {
+                    return;
+                }
             }
+        }
+
+        var stats = await _deps.Profiles.GetRowStatsAsync(game.Id, cts.Token);
+        var usage = await usageTask;
+        if (generation != _generation || _disposed)
+        {
+            return;
         }
 
         IsLoading = false;

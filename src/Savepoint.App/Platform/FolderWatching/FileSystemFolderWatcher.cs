@@ -4,22 +4,46 @@ namespace Savepoint.App.Platform.FolderWatching;
 
 /// <summary>
 /// Watches folders with the operating system's own change notifications (<see cref="FileSystemWatcher"/>: ReadDirectoryChangesW,
-/// inotify, FSEvents), which cost nothing while nothing changes, so a 90 GB install is no dearer to watch than an empty one.
+/// inotify, FSEvents). Nothing is spent while nothing changes, but setting a watch up costs by the tree: Windows and macOS watch a
+/// folder with one handle, while Linux adds an inotify watch for every directory under it, so a modded install with thousands of
+/// folders takes real time to arm. That work runs off the calling thread.
 /// </summary>
 public sealed class FileSystemFolderWatcher : IFolderWatcher
 {
     private readonly IDiagnosticLog _log;
+    private readonly TaskScheduler _scheduler;
     private readonly HashSet<string> _reported = new(StringComparer.OrdinalIgnoreCase);
     private readonly Lock _gate = new();
 
     /// <param name="log">Where a folder that cannot be watched is noted, once for each folder.</param>
     public FileSystemFolderWatcher(IDiagnosticLog log)
+        : this(log, TaskScheduler.Default)
+    {
+    }
+
+    // Tests give the work a scheduler of their own to see that it does not run on the caller's thread.
+    internal FileSystemFolderWatcher(IDiagnosticLog log, TaskScheduler scheduler)
     {
         _log = log;
+        _scheduler = scheduler;
     }
 
     /// <inheritdoc />
-    public IFolderWatch Watch(IReadOnlyList<string> folders) => new FileSystemFolderWatch(folders, NoteUnwatched);
+    public async Task<IFolderWatch> WatchAsync(IReadOnlyList<string> folders, CancellationToken cancellationToken = default)
+    {
+        var watch = new FileSystemFolderWatch(NoteUnwatched);
+        try
+        {
+            await Task.Factory.StartNew(() => watch.Arm(folders, cancellationToken), cancellationToken, TaskCreationOptions.DenyChildAttach, _scheduler).ConfigureAwait(false);
+        }
+        catch
+        {
+            watch.Dispose();
+            throw;
+        }
+
+        return watch;
+    }
 
     // A game's folders are watched again each time the player comes back to it, so the same folder would otherwise fill the log.
     private void NoteUnwatched(string folder, Exception? error)
@@ -51,16 +75,28 @@ internal sealed class FileSystemFolderWatch : IFolderWatch
     private readonly Action<string, Exception?> _noteUnwatched;
     private readonly Lock _gate = new();
     private readonly Dictionary<string, FileSystemWatcher> _watchers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _unwatched = new(StringComparer.OrdinalIgnoreCase);
     private readonly ITimer _gapTimer;
     private int _signalPending;
     private bool _disposed;
 
-    public FileSystemFolderWatch(IReadOnlyList<string> folders, Action<string, Exception?> noteUnwatched)
+    public FileSystemFolderWatch(Action<string, Exception?> noteUnwatched)
     {
         _noteUnwatched = noteUnwatched;
         _gapTimer = TimeProvider.System.CreateTimer(_ => RaiseChanged(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+    }
+
+    // Walks the folders one by one and stops at once for a disposed watch or a cancelled setup; on Linux each folder is a walk of its tree.
+    internal void Arm(IReadOnlyList<string> folders, CancellationToken cancellationToken)
+    {
         foreach (var folder in folders.Distinct(StringComparer.OrdinalIgnoreCase))
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Volatile.Read(ref _disposed))
+            {
+                return;
+            }
+
             Start(folder);
         }
     }
@@ -68,6 +104,17 @@ internal sealed class FileSystemFolderWatch : IFolderWatch
     public event EventHandler? Changed;
 
     public event EventHandler? Faulted;
+
+    public IReadOnlyList<string> Unwatched
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _unwatched];
+            }
+        }
+    }
 
     public void Dispose()
     {
@@ -93,7 +140,7 @@ internal sealed class FileSystemFolderWatch : IFolderWatch
     {
         if (!Directory.Exists(folder))
         {
-            _noteUnwatched(folder, null);
+            GiveUp(folder, null);
             return;
         }
 
@@ -120,7 +167,7 @@ internal sealed class FileSystemFolderWatch : IFolderWatch
                 Release(watcher);
             }
 
-            _noteUnwatched(folder, e);
+            GiveUp(folder, e);
             return;
         }
 
@@ -133,7 +180,18 @@ internal sealed class FileSystemFolderWatch : IFolderWatch
             }
 
             _watchers[folder] = watcher;
+            _unwatched.Remove(folder);
         }
+    }
+
+    private void GiveUp(string folder, Exception? error)
+    {
+        lock (_gate)
+        {
+            _unwatched.Add(folder);
+        }
+
+        _noteUnwatched(folder, error);
     }
 
     // The operating system dropped events (its buffer overflowed) or the watch broke, so nothing says what changed: tell the listener to

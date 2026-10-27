@@ -24,6 +24,9 @@ public sealed class FileSystemFolderWatcherTests : IDisposable
         return path;
     }
 
+    private Task<IFolderWatch> WatchAsync(params string[] folders) =>
+        new FileSystemFolderWatcher(_log).WatchAsync(folders, TestContext.Current.CancellationToken);
+
     private static async Task UntilAsync(Func<bool> condition)
     {
         var until = DateTime.UtcNow + _deadline;
@@ -54,7 +57,7 @@ public sealed class FileSystemFolderWatcherTests : IDisposable
     public async Task A_new_file_in_a_watched_folder_raises_Changed()
     {
         var folder = Folder("install");
-        using var watch = new FileSystemFolderWatcher(_log).Watch([folder]);
+        using var watch = await WatchAsync(folder);
         var signals = new Signals();
         signals.Attach(watch);
 
@@ -71,7 +74,7 @@ public sealed class FileSystemFolderWatcherTests : IDisposable
         Directory.CreateDirectory(nested);
         var file = Path.Combine(nested, "a.dds");
         await File.WriteAllTextAsync(file, "old", TestContext.Current.CancellationToken);
-        using var watch = new FileSystemFolderWatcher(_log).Watch([folder]);
+        using var watch = await WatchAsync(folder);
         var signals = new Signals();
         signals.Attach(watch);
 
@@ -85,7 +88,7 @@ public sealed class FileSystemFolderWatcherTests : IDisposable
     {
         var install = Folder("install");
         var saves = Folder("saves");
-        using var watch = new FileSystemFolderWatcher(_log).Watch([install, saves]);
+        using var watch = await WatchAsync(install, saves);
         var signals = new Signals();
         signals.Attach(watch);
 
@@ -98,7 +101,7 @@ public sealed class FileSystemFolderWatcherTests : IDisposable
     public async Task A_burst_of_writes_raises_Changed_far_fewer_times_than_there_were_writes()
     {
         var folder = Folder("install");
-        using var watch = new FileSystemFolderWatcher(_log).Watch([folder]);
+        using var watch = await WatchAsync(folder);
         var signals = new Signals();
         signals.Attach(watch);
 
@@ -118,17 +121,17 @@ public sealed class FileSystemFolderWatcherTests : IDisposable
     }
 
     [Fact]
-    public void A_missing_folder_is_skipped_without_an_error_and_logged_once()
+    public async Task A_missing_folder_is_skipped_without_an_error_and_logged_once()
     {
         var present = Folder("saves");
         var missing = Path.Combine(_root, "gone");
         var watcher = new FileSystemFolderWatcher(_log);
 
-        using (watcher.Watch([missing, present]))
+        using (await watcher.WatchAsync([missing, present], TestContext.Current.CancellationToken))
         {
         }
 
-        using (watcher.Watch([missing]))
+        using (await watcher.WatchAsync([missing], TestContext.Current.CancellationToken))
         {
         }
 
@@ -141,7 +144,7 @@ public sealed class FileSystemFolderWatcherTests : IDisposable
     public async Task The_folders_that_exist_are_still_watched_when_another_is_missing()
     {
         var present = Folder("saves");
-        using var watch = new FileSystemFolderWatcher(_log).Watch([Path.Combine(_root, "gone"), present]);
+        using var watch = await WatchAsync(Path.Combine(_root, "gone"), present);
         var signals = new Signals();
         signals.Attach(watch);
 
@@ -154,7 +157,7 @@ public sealed class FileSystemFolderWatcherTests : IDisposable
     public async Task Nothing_is_raised_after_the_watch_is_disposed()
     {
         var folder = Folder("install");
-        var watch = new FileSystemFolderWatcher(_log).Watch([folder]);
+        var watch = await WatchAsync(folder);
         var signals = new Signals();
         signals.Attach(watch);
 
@@ -169,7 +172,7 @@ public sealed class FileSystemFolderWatcherTests : IDisposable
     public async Task A_watcher_error_raises_Faulted_and_the_folder_is_still_watched()
     {
         var folder = Folder("install");
-        using var watch = (FileSystemFolderWatch)new FileSystemFolderWatcher(_log).Watch([folder]);
+        using var watch = (FileSystemFolderWatch)await WatchAsync(folder);
         var signals = new Signals();
         signals.Attach(watch);
 
@@ -179,5 +182,101 @@ public sealed class FileSystemFolderWatcherTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(folder, "after.bin"), "x", TestContext.Current.CancellationToken);
 
         await UntilAsync(() => signals.Changed > 0);
+        Assert.Empty(watch.Unwatched);
+    }
+
+    [Fact]
+    public async Task The_watch_is_set_up_on_the_scheduler_it_is_given_and_not_by_the_caller()
+    {
+        var folder = Folder("install");
+        var scheduler = new QueuedScheduler();
+
+        var pending = new FileSystemFolderWatcher(_log, scheduler).WatchAsync([folder], TestContext.Current.CancellationToken);
+
+        Assert.False(pending.IsCompleted);
+        scheduler.RunAll();
+        using var watch = await pending;
+        var signals = new Signals();
+        signals.Attach(watch);
+        await File.WriteAllTextAsync(Path.Combine(folder, "late.bin"), "x", TestContext.Current.CancellationToken);
+        await UntilAsync(() => signals.Changed > 0);
+    }
+
+    [Fact]
+    public async Task A_cancelled_setup_ends_cancelled_and_leaves_nothing_watching()
+    {
+        var folder = Folder("install");
+        var scheduler = new QueuedScheduler();
+        using var cancel = new CancellationTokenSource();
+        var pending = new FileSystemFolderWatcher(_log, scheduler).WatchAsync([folder], cancel.Token);
+
+        await cancel.CancelAsync();
+        scheduler.RunAll();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+    }
+
+    [Fact]
+    public async Task A_missing_folder_is_reported_as_unwatched_and_one_that_exists_is_not()
+    {
+        var present = Folder("saves");
+        var missing = Path.Combine(_root, "gone");
+
+        using var watch = await WatchAsync(missing, present);
+
+        Assert.Equal([missing], watch.Unwatched);
+    }
+
+    [Fact]
+    public async Task A_folder_deleted_before_its_watch_starts_again_is_reported_as_unwatched()
+    {
+        var folder = Folder("install");
+        using var watch = (FileSystemFolderWatch)await WatchAsync(folder);
+        Assert.Empty(watch.Unwatched);
+        Directory.Delete(folder, recursive: true);
+
+        watch.HandleError(folder);
+
+        Assert.Equal([folder], watch.Unwatched);
+    }
+
+    private sealed class QueuedScheduler : TaskScheduler
+    {
+        private readonly Queue<Task> _queue = new();
+
+        protected override IEnumerable<Task> GetScheduledTasks()
+        {
+            lock (_queue)
+            {
+                return [.. _queue];
+            }
+        }
+
+        protected override void QueueTask(Task task)
+        {
+            lock (_queue)
+            {
+                _queue.Enqueue(task);
+            }
+        }
+
+        protected override bool TryExecuteTaskInline(Task task, bool taskWasPreviouslyQueued) => false;
+
+        public void RunAll()
+        {
+            while (true)
+            {
+                Task? next;
+                lock (_queue)
+                {
+                    if (!_queue.TryDequeue(out next))
+                    {
+                        return;
+                    }
+                }
+
+                TryExecuteTask(next);
+            }
+        }
     }
 }

@@ -429,6 +429,148 @@ public class GamesScreenLiveChangesTests
         Assert.Equal(reads, StatusReads(rig));
     }
 
+    // Holds the next profile status scan, and says when it has started.
+    private static (Task Started, TaskCompletionSource Release) HoldScan(GamesRig rig)
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        rig.Backend.Profiles.StatsGate = token =>
+        {
+            started.TrySetResult();
+            return release.Task.WaitAsync(token);
+        };
+        return (started.Task, release);
+    }
+
+    [Fact]
+    public async Task The_new_games_folders_are_watched_while_their_status_is_still_being_read()
+    {
+        var (rig, _) = await StartAsync();
+        var (started, release) = HoldScan(rig);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
+
+        var reload = rig.Screen.ReloadAsync();
+        await started.Soon();
+
+        var watch = Assert.Single(rig.Watcher.Running);
+        Assert.Contains(rig.Backend.State.Games.Single(game => game.Id == SampleScenario.SatisfactoryId).Install.Path, watch.Folders);
+
+        rig.Backend.Profiles.StatsGate = null;
+        release.SetResult();
+        await reload;
+    }
+
+    [Fact]
+    public async Task A_change_made_while_the_status_is_being_read_is_read_afterwards()
+    {
+        var (rig, clock) = await StartAsync();
+        var (started, release) = HoldScan(rig);
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
+        var reload = rig.Screen.ReloadAsync();
+        await started.Soon();
+        var reads = StatusReads(rig);
+
+        Assert.Single(rig.Watcher.Running).RaiseChanged();
+        clock.Advance(_settle);
+        rig.Backend.Profiles.StatsGate = null;
+        release.SetResult();
+        await reload;
+        await SettledAsync(rig, clock, _settle);
+
+        // The scan that was held, then the one the change asked for.
+        Assert.Equal(reads + 2, StatusReads(rig));
+    }
+
+    [Fact]
+    public async Task The_status_is_not_read_before_the_watch_is_ready()
+    {
+        var (rig, _) = await StartAsync();
+        var reads = StatusReads(rig);
+        var arming = new TaskCompletionSource();
+        rig.Watcher.Arming = arming;
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
+
+        var reload = rig.Screen.ReloadAsync();
+        await UntilAsync(() => rig.Watcher.Watches.Count > 1);
+        Assert.Equal(reads, StatusReads(rig));
+
+        arming.SetResult();
+        await reload;
+
+        Assert.Equal(reads + 1, StatusReads(rig));
+    }
+
+    [Fact]
+    public async Task A_watch_that_could_not_cover_a_folder_is_set_up_again_by_the_next_reload()
+    {
+        var (rig, _) = await StartAsync();
+        var first = Assert.Single(rig.Watcher.Running);
+        first.Unwatched = [first.Folders[0]];
+
+        await rig.Screen.ReloadAsync();
+
+        Assert.True(first.Disposed);
+        Assert.Equal(first.Folders, Assert.Single(rig.Watcher.Running).Folders);
+    }
+
+    [Fact]
+    public async Task A_watch_that_could_not_cover_a_folder_is_not_set_up_again_by_every_read()
+    {
+        var (rig, clock) = await StartAsync();
+        var first = Assert.Single(rig.Watcher.Running);
+        first.Unwatched = [first.Folders[0]];
+
+        first.RaiseChanged();
+        await SettledAsync(rig, clock, _settle);
+
+        Assert.Same(first, Assert.Single(rig.Watcher.Running));
+    }
+
+    [Fact]
+    public async Task A_watch_that_lost_a_folder_after_a_fault_is_set_up_again_by_the_read_that_follows()
+    {
+        var (rig, clock) = await StartAsync();
+        var first = Assert.Single(rig.Watcher.Running);
+        first.Unwatched = [first.Folders[0]];
+
+        first.RaiseFaulted();
+        await SettledAsync(rig, clock, _settle);
+
+        Assert.True(first.Disposed);
+        Assert.Equal(first.Folders, Assert.Single(rig.Watcher.Running).Folders);
+    }
+
+    [Fact]
+    public async Task A_folder_that_was_missing_and_appears_is_watched_after_the_next_read()
+    {
+        var backend = FakeBackend.Sample();
+        var answer = await backend.Games.GetFolderStatusAsync(SampleScenario.SkyrimId, TestContext.Current.CancellationToken);
+        Assert.True(answer.Ok);
+        var statuses = answer.Value!;
+        backend.Script(() => backend.State.FolderStatuses[SampleScenario.SkyrimId] = [.. statuses.Select(status => status with { Exists = false })]);
+        var (rig, clock) = await StartAsync(backend);
+        Assert.Empty(rig.Watcher.Running);
+
+        backend.Script(() => backend.State.FolderStatuses[SampleScenario.SkyrimId] = statuses);
+        BringWindowBack(rig);
+        await SettledAsync(rig, clock, _settle);
+
+        Assert.NotEmpty(Assert.Single(rig.Watcher.Running).Folders);
+    }
+
+    [Fact]
+    public async Task A_read_leaves_a_watch_that_covers_everything_alone()
+    {
+        var (rig, clock) = await StartAsync();
+        var first = Assert.Single(rig.Watcher.Running);
+
+        first.RaiseChanged();
+        await SettledAsync(rig, clock, _settle);
+
+        Assert.Same(first, Assert.Single(rig.Watcher.Running));
+        Assert.Single(rig.Watcher.Watches);
+    }
+
     [Fact]
     public async Task Disposing_the_screen_stops_the_watch_and_drops_a_read_that_was_waiting()
     {

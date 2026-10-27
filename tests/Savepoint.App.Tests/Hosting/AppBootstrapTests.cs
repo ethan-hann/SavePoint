@@ -34,12 +34,12 @@ public class AppBootstrapTests : IDisposable
     }
 
     [Fact]
-    public void A_started_backend_gives_the_games_screen_a_folder_watcher_that_logs_to_the_apps_log()
+    public async Task A_started_backend_gives_the_games_screen_a_folder_watcher_that_logs_to_the_apps_log()
     {
         var started = StartOnHost();
 
         var watcher = Assert.IsType<FileSystemFolderWatcher>(started.Services.FolderWatcher);
-        using (watcher.Watch([Path.Combine(_root, "not-there")]))
+        using (await watcher.WatchAsync([Path.Combine(_root, "not-there")], TestContext.Current.CancellationToken))
         {
         }
 
