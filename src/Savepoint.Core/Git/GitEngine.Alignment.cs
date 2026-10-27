@@ -203,7 +203,7 @@ public sealed partial class GitEngine
                 throw new DirtyWorkingTreeException(repo.Role);
             }
 
-            TryDelete(full);
+            TryDeleteReadOnly(full);
             if (File.Exists(full))
             {
                 throw FileLockProbe.Probe(full) is { } kind
