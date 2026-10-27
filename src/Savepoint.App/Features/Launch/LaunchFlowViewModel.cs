@@ -140,7 +140,7 @@ public sealed partial class LaunchFlowViewModel : ObservableObject, ILaunchFlowH
         {
             await StartAsync(flow, target, plan, viaBanner: true);
         }
-        else if (plan.OnlySaveDiffers && settings.SkipConfirmWhenOnlySaveChanges && !HasUnsaved(plan))
+        else if (plan.OnlySaveDiffers && settings.SkipConfirmWhenOnlySaveChanges && !HasUnsaved(plan) && plan.External?.Switch is not { LeavesFolderEmpty: true })
         {
             await StartAsync(flow, target, plan, viaBanner: false);
         }

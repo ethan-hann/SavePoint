@@ -166,7 +166,10 @@ public sealed partial class LaunchOrchestrator
             RepoRole.Mods => diff.ChangedPaths.Count,
             _ => 0,
         };
-        return new SwitchSummary(diff.FilesChanged, mods, diff.BytesAtTarget, null, diff.BytesRemoved, diff.FilesRemoved);
+        // A switch that removes files and leaves the folder with none is the one a player's "don't ask again" must never skip.
+        var leavesEmpty = diff.FilesRemoved > 0
+            && (await storage.Engine.ListTreeFilesAsync(repo, target, cancellationToken, leaveOutIgnored: true).ConfigureAwait(false)).Count == 0;
+        return new SwitchSummary(diff.FilesChanged, mods, diff.BytesAtTarget, null, diff.BytesRemoved, diff.FilesRemoved, leavesEmpty);
     }
 
     // The version a commit of the install folder holds, and the mod-file count of that commit with the mods folder's commit beside it;
