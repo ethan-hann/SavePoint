@@ -71,7 +71,7 @@ Steam games show their cover art. SavePoint looks first in the Steam client's ca
 Your first snapshot comes with your first profile. On the Games screen, **New profile** walks you through three steps:
 
 1. **Name it:** a name and optional notes.
-2. **Check:** what goes into the first snapshot from each folder, and how much new space it takes. SavePoint reuses files it already has, so later profiles usually add very little.
+2. **Check:** what goes into the first snapshot from each folder, and how much new space it takes. SavePoint reuses files it already has, so later profiles usually add very little. When the drive is nearly full, SavePoint doesn't count files it already has stored, like a save you put back, so it doesn't refuse a snapshot that fits.
 3. **Create:** **Create profile** takes the first snapshot. A big install takes a while the first time. You can close the window and keep using SavePoint. Activity shows progress, and you get a message when it is done.
 
 ![New profile for Grounded on its last step: "Taking the first snapshot...", a progress bar at 9.3 GB of 12.1 GB copied, 60 of 128 files finished, the latest file, and the Cancel and Keep working buttons.](images/first-snapshot.png)
@@ -119,7 +119,7 @@ To never be asked, turn off **Ask whether to keep the session** in Settings. Sav
 
 ## Go back to an earlier snapshot
 
-**History** shows the snapshots you can go back to, newest first, grouped into the last 7 days and earlier. Each snapshot holds **Version, mods and saves**, **Version and mods**, or **Saves only**. Switch between the **List** and **Cards** views, and filter by profile. History's search also finds a snapshot by its profile, what it holds, or a date such as `2026-09` or a month name, and you can show only **Saves** or only **Game and mods**. The snapshot your game folders hold right now is marked **Loaded now**. History opens quickly even when a game has thousands of snapshots. Tab reaches every card, and SavePoint keeps your place after a search.
+**History** shows the snapshots you can go back to, newest first, grouped into the last 7 days and earlier. Each snapshot holds **Version, mods and saves**, **Version and mods**, or **Saves only**. Switch between the **List** and **Cards** views, and filter by profile. History's search also finds a snapshot by its profile or that profile's notes, what it holds, or a date such as `2026-09` or a month name, and you can show only **Saves** or only **Game and mods**. A snapshot in Recently removed is found by the notes of the profile it left. The snapshot your game folders hold right now is marked **Loaded now**. History opens quickly even when a game has thousands of snapshots. Tab reaches every card, and SavePoint keeps your place after a search.
 
 - **Go back and play** on a card, or on a version in the list, puts that whole snapshot back and starts the game. Next to a save snapshot, it puts those saves back in the profile they belong to.
 - **Go back without playing** puts the snapshot back and stops there.
@@ -144,12 +144,12 @@ The loaded profile has **Play**. Every other profile has **Switch and play**, wh
 
 The row's menu has **Edit** (name, notes, version), **Take a snapshot**, **Duplicate**, **Open game folder**, **Open mods folder**, **Open saves folder**, and **Delete**. Open it with the row's More actions button, by right-clicking the row, or with the Menu key or Shift+F10 on a selected row:
 - **Duplicate** starts a new profile with the same game version and mods, but no save snapshots of its own.
-- **Open game folder**, **Open mods folder** and **Open saves folder** open that folder in your file manager. Open mods folder and Open saves folder appear only when the game has that folder. If the folder moved or is gone, SavePoint says so instead.
+- **Open game folder**, **Open mods folder** and **Open saves folder** open that folder in your file manager as it is right now, so it may hold another profile's files, not the files of the profile you picked. Open mods folder and Open saves folder appear only when the game has that folder. If the folder moved or is gone, SavePoint says so instead.
 - **Delete** warns you when the profile has snapshots no other profile has, and says what happens to them. Usually they are deleted for good. Snapshots that came from Recently removed, as in a profile you brought back from there, go back to Recently removed instead.
 
-**New profile** works the same way as your first one (see Take your first snapshot). On its first step you can tick **Start with no saves** and, when the game has a mods folder, **Start with no mods**, to try a fresh setup. A box is off, with the reason, until that folder's current files are in a snapshot of one of the game's profiles, so nothing is lost. Nothing on disk changes when the profile is made. The next time you switch to it, SavePoint asks before it empties that folder and says how much it will remove. The game folder can't start empty.
+**New profile** works the same way as your first one (see Take your first snapshot). On its first step you can tick **Start with no saves** and, when the game has a mods folder, **Start with no mods**, to try a fresh setup. A box is off, with the reason, until that folder's current files are in a snapshot of one of the game's profiles, so nothing is lost. A box is also off, and says so, when SavePoint can't check that folder's files right now, because a file is open in another program or can't be read. Closing the program that holds the file and trying again helps, but a snapshot does not. If you made the folder again by hand, SavePoint needs you to confirm it in Edit game first. Nothing on disk changes when the profile is made. The next time you switch to it, SavePoint asks before it empties that folder and says how much it will remove. The game folder can't start empty.
 
-The games list, a game's profile table, and its History each have a search box. Type any words from a name or a profile's notes. Initials work too, as in "skyrim se", and accents and punctuation don't matter. Add a game's **Name** field and the template list match games the same way. Ctrl+F (Cmd+F on a Mac) jumps to the search on the screen in front, and Escape clears it. While a search narrows the profile table, its header says how many profiles show. The narrow icon list of games has no search box.
+The games list, a game's profile table, and its History each have a search box. Type any words from a name or a profile's notes. Initials work too, as in "skyrim se", and accents and punctuation don't matter. Add a game's **Name** field and the template list match games the same way. Ctrl+F (Cmd+F on a Mac) jumps to the search on the screen in front, which on the Games screen is the profile search. Ctrl+Shift+F (Cmd+Shift+F) jumps to the games list search from anywhere. Hover over a search box to see its key. When nothing matches, **Clear search** under the message clears it and puts you back in the box, and Escape in the box clears it too. While a search narrows the profile table, its header says how many profiles show. The profile search stays above the profile table when there is room, and scrolls with the profiles when the window is short. The narrow icon list of games has no search box.
 
 ## Activity
 
@@ -165,11 +165,11 @@ Right after a snapshot, SavePoint may run "Compacting snapshot files for &lt;gam
 
 ## Free up space
 
-Snapshots no profile uses anymore, like a deleted profile's, still take up space, and so do the ones in Recently removed. **Free up space** deletes them, the mods folder's snapshots included. When it would delete snapshots from Recently removed, it asks first and tells you how many. When it starts to delete, it cannot be stopped, and quitting waits for it to finish.
+Snapshots no profile uses anymore, like a deleted profile's, still take up space, and so do the ones in Recently removed. **Free up space** deletes them, the mods folder's snapshots included. When it would delete snapshots from Recently removed, it asks first and tells you how many, and about how much space it frees once that is ready. When it starts to delete, it cannot be stopped, and quitting waits for it to finish.
 
 You find **Free up space** in three places:
 
-- **Settings**, under Free up space, with a **Free up space** button. Before you press it, a line says how many snapshots in Recently removed it will delete for good, or that Recently removed is empty.
+- **Settings**, under Free up space, with a **Free up space** button. Before you press it, a line says how many snapshots in Recently removed it will delete for good, or that Recently removed is empty. Once SavePoint has worked it out, the line also says about how much space comes back, such as "about 1.2 GB".
 - The footer under the profile table in the Sidebar layout, which also shows how much space this game's snapshots use and how big the drive is.
 - The game's menu in the Library layout.
 
