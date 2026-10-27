@@ -308,6 +308,45 @@ public class GamesScreenActionsTests
     }
 
     [Fact]
+    public async Task Starting_the_rows_snapshot_turns_off_the_header_button_until_the_snapshot_ends()
+    {
+        var rig = await GamesRig.StartAsync();
+
+        await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
+
+        Assert.False(rig.Screen.TakeSnapshotCommand.CanExecute(null));
+        await rig.Screen.TakeSnapshotCommand.ExecuteAsync(null);
+        Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
+
+        rig.Backend.Jobs.Complete(rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId);
+
+        Assert.True(rig.Screen.TakeSnapshotCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task The_header_button_is_off_and_says_so_from_the_moment_the_rows_snapshot_is_asked_for()
+    {
+        var backend = FakeBackend.Sample();
+        var gated = new GatedProfilesApi(backend.Profiles);
+        var rig = await GamesRig.StartAsync(backend, gated);
+        var release = gated.HoldCapture();
+        var changed = 0;
+        rig.Screen.TakeSnapshotCommand.CanExecuteChanged += (_, _) => changed++;
+
+        var running = rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
+
+        Assert.False(rig.Screen.TakeSnapshotCommand.CanExecute(null));
+        Assert.True(changed > 0);
+        release();
+        await running;
+        Assert.False(rig.Screen.TakeSnapshotCommand.CanExecute(null));
+
+        rig.Backend.Jobs.Complete(rig.Backend.Jobs.LastStarted(JobKind.Capture).JobId);
+
+        Assert.True(rig.Screen.TakeSnapshotCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task A_snapshot_running_for_another_game_leaves_this_games_snapshot_button_on()
     {
         var rig = await GamesRig.StartAsync();

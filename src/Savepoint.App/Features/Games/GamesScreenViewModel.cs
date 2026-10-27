@@ -514,6 +514,9 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             else
             {
                 row = new ProfileRowViewModel(profile, current, _deps.Text, Columns, this, known);
+
+                // The header button gates on the loaded row's command, which also turns itself off while its own run is under way.
+                row.TakeSnapshotCommand.CanExecuteChanged += OnRowSnapshotChanged;
             }
 
             row.SetFolders(_folderRoles);
@@ -530,6 +533,14 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         }
 
         RefreshSnapshotHeader();
+    }
+
+    private void OnRowSnapshotChanged(object? sender, EventArgs e)
+    {
+        if (!_disposed)
+        {
+            TakeSnapshotCommand.NotifyCanExecuteChanged();
+        }
     }
 
     // Play needs no session for the game and no profile already running.

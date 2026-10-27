@@ -62,6 +62,22 @@ internal sealed class GatedProfilesApi(IProfilesApi inner) : IProfilesApi
 
     public Task<OperationResult<Unit>> DeleteAsync(string gameId, string profileId) => inner.DeleteAsync(gameId, profileId);
 
-    public Task<OperationResult<JobStarted>> CaptureAsync(string gameId, string profileId, string pointName, IReadOnlyCollection<RepoRole>? folders = null) =>
-        inner.CaptureAsync(gameId, profileId, pointName, folders);
+    private TaskCompletionSource? _heldCapture;
+
+    // The next snapshot request waits, as a slow start would, until the returned action is called.
+    public Action HoldCapture()
+    {
+        var gate = _heldCapture = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        return () => gate.TrySetResult();
+    }
+
+    public async Task<OperationResult<JobStarted>> CaptureAsync(string gameId, string profileId, string pointName, IReadOnlyCollection<RepoRole>? folders = null)
+    {
+        if (_heldCapture is { } gate)
+        {
+            await gate.Task;
+        }
+
+        return await inner.CaptureAsync(gameId, profileId, pointName, folders);
+    }
 }
