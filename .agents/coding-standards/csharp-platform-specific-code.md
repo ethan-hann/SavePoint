@@ -159,10 +159,6 @@ if (!OperatingSystem.IsWindows())
 - `tests/Savepoint.Core.Tests/Services/Storage/StorageFolderDeleteTests.cs`, `A_file_another_program_holds_open_still_fails_as_a_file_in_use`: an OS skip with its reason.
 - `tools/SkipCheck/SkipVerdict.cs`, `SkipVerdict.Compare`: fails a skip that the list does not name.
 
-**Known violations:**
-
-- `tests/Savepoint.Core.Tests/Git/Engine/StreamedPackFailureTests.cs`, `A_keep_that_cannot_be_removed_at_a_reclaim_is_a_reported_failure_not_a_raw_exception`: returns early on Linux and macOS.
-
 ## Additional Resources
 
 ### Project Documentation

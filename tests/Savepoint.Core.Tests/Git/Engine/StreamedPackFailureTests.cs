@@ -86,10 +86,7 @@ public sealed class StreamedPackFailureTests : IDisposable
     [Fact]
     public async Task A_keep_that_cannot_be_removed_at_a_reclaim_is_a_reported_failure_not_a_raw_exception()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return; // Only Windows refuses to delete a file another handle holds open.
-        }
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows refuses to delete a file another handle holds open");
 
         var repo = await _ws.InitializedRepoAsync();
         _ws.Write(repo, "Saves/slot.txt", "save");
