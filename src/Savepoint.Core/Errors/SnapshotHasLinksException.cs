@@ -14,7 +14,7 @@ public sealed class SnapshotHasLinksException : SavepointException
         : base(
             "error.switch.snapshotHasLinks",
             $"The snapshot holds '{path}' as a link to another file, which cannot be restored as a link on Windows.",
-            new Dictionary<string, object?> { ["path"] = path, ["name"] = Path.GetFileName(path) })
+            new Dictionary<string, object?> { ["path"] = path, ["name"] = ErrorPathName.LastSegment(path) })
     {
     }
 }
