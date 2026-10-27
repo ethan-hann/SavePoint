@@ -31,11 +31,8 @@ public class ChoiceListSemanticsTests
 
     public static TheoryData<string, string> Choices => [.. _choices.Select(choice => (choice.State, choice.Name))];
 
-    // Every choice except the layout switch, which rebuilds the screen's chrome when its choice changes and so drops focus.
-    public static TheoryData<string, string> FocusKeepingChoices =>
-        [.. _choices.Where(choice => choice.Name != "Toggle").Select(choice => (choice.State, choice.Name))];
-
-    // The Sidebar/Library switch exists once in each layout's chrome; the one on screen is the one a key press reaches.
+    // The Sidebar/Library switch exists once in each layout's chrome; the one on screen is the one a key press reaches. After a key
+    // switches the layout, the other copy is the one on screen, and it holds focus.
     private static ListBox Shown(Features.EndToEnd.ComposedApp app, string name) =>
         app.All<ListBox>().First(list => list.Name == name && list.IsEffectivelyVisible);
 
@@ -269,13 +266,14 @@ public class ChoiceListSemanticsTests
     }
 
     [AvaloniaTheory]
-    [MemberData(nameof(FocusKeepingChoices))]
+    [MemberData(nameof(Choices))]
     public async Task An_arrow_key_leaves_focus_on_the_option_it_chose(string state, string name)
     {
         using var app = await AppStates.OpenAsync(state);
-        var shown = Shown(app, name);
-        shown.SelectedIndex = 0;
+        Shown(app, name).SelectedIndex = 0;
         app.Settle();
+        // Choosing the first option can swap the layout's chrome (the layout toggle), so the list to focus is found again.
+        var shown = Shown(app, name);
         ((Control)shown.ContainerFromIndex(0)!).Focus(NavigationMethod.Tab);
         app.Settle();
 
@@ -283,6 +281,30 @@ public class ChoiceListSemanticsTests
 
         var list = Shown(app, name);
         Assert.Same(list.ContainerFromIndex(1), app.Focused);
+    }
+
+    [AvaloniaFact]
+    public async Task Arrow_keys_on_the_layout_toggle_keep_switching_the_layout_without_the_player_touching_the_mouse()
+    {
+        using var app = await AppStates.OpenAsync("games-library");
+        // The state opens in the library layout; choosing Sidebar swaps the chrome, so the toggle to focus is found again afterwards.
+        Shown(app, "Toggle").SelectedIndex = 0;
+        app.Settle();
+        var start = Shown(app, "Toggle");
+        ((Control)start.ContainerFromIndex(0)!).Focus(NavigationMethod.Tab);
+        app.Settle();
+
+        // Each press is sent with no re-focusing in between: focus has to be where the last one left it.
+        app.Press(Key.Right, PhysicalKey.ArrowRight);
+        var library = Shown(app, "Toggle");
+        Assert.Equal(1, library.SelectedIndex);
+        Assert.Same(library.ContainerFromIndex(1), app.Focused);
+
+        app.Press(Key.Left, PhysicalKey.ArrowLeft);
+        var sidebar = Shown(app, "Toggle");
+        Assert.Equal(0, sidebar.SelectedIndex);
+        Assert.Same(sidebar.ContainerFromIndex(0), app.Focused);
+        Assert.NotSame(library, sidebar);
     }
 
     private static readonly Regex _plainChoiceList = new(@"<ListBox\b[^>]*\bClasses=""[^""]*\b(choice|segmented|segmented-tray|radio-cards|swatches)\b", RegexOptions.CultureInvariant);
