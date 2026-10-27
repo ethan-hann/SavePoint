@@ -15,6 +15,7 @@ internal sealed class StatusReadScheduler : IDisposable
     private readonly Func<Task<bool>> _read;
     private readonly TimeSpan _settle;
     private readonly TimeSpan _longestWait;
+    private readonly Action<Exception> _failed;
 
     // The next read starts no sooner than this many times the last read's duration after it ended.
     private const int _spacingFactor = 2;
@@ -34,8 +35,10 @@ internal sealed class StatusReadScheduler : IDisposable
     /// <param name="read">Reads the status; answers false when it could not start, so the scheduler tries again after the next wait.</param>
     /// <param name="settle">How long the signals must stop before a read.</param>
     /// <param name="longestWait">The longest a read waits for the signals to stop.</param>
-    public StatusReadScheduler(TimeProvider clock, IUiDispatcher dispatcher, Func<bool> blocked, Func<Task<bool>> read, TimeSpan settle, TimeSpan longestWait)
+    /// <param name="failed">Told about a read that threw; the scheduler goes on, and does not read again for that failure.</param>
+    public StatusReadScheduler(TimeProvider clock, IUiDispatcher dispatcher, Func<bool> blocked, Func<Task<bool>> read, TimeSpan settle, TimeSpan longestWait, Action<Exception> failed)
     {
+        _failed = failed;
         _clock = clock;
         _dispatcher = dispatcher;
         _blocked = blocked;
@@ -43,6 +46,9 @@ internal sealed class StatusReadScheduler : IDisposable
         _settle = settle;
         _longestWait = longestWait;
     }
+
+    /// <summary>True while a read is due: waiting for the signals to settle, or asked for again after the read that is running.</summary>
+    public bool IsDue => _waiting || _again;
 
     /// <summary>Notes that something changed and a read is due once it settles.</summary>
     public void Request()
@@ -141,6 +147,12 @@ internal sealed class StatusReadScheduler : IDisposable
         try
         {
             ran = await _read();
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // The tick runs unobserved, so a throw would vanish; the next signal reads again rather than this failure repeating on a timer.
+            _failed(e);
+            ran = true;
         }
         finally
         {

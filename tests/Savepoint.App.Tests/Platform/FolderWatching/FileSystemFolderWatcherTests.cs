@@ -240,6 +240,22 @@ public sealed class FileSystemFolderWatcherTests : IDisposable
         Assert.Equal([folder], watch.Unwatched);
     }
 
+    [Fact]
+    public async Task An_error_from_a_watcher_that_was_already_replaced_is_ignored()
+    {
+        var folder = Folder("install");
+        using var watch = (FileSystemFolderWatch)await WatchAsync(folder);
+        var signals = new Signals();
+        signals.Attach(watch);
+        using var replaced = new FileSystemWatcher();
+
+        watch.HandleError(folder, replaced);
+
+        Assert.Equal(0, signals.Faulted);
+        await File.WriteAllTextAsync(Path.Combine(folder, "still.bin"), "x", TestContext.Current.CancellationToken);
+        await UntilAsync(() => signals.Changed > 0);
+    }
+
     private sealed class QueuedScheduler : TaskScheduler
     {
         private readonly Queue<Task> _queue = new();

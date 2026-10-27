@@ -18,8 +18,10 @@ public class StatusReadSchedulerTests
         public Harness()
         {
             Dispatcher = new ManualDispatcher { PostsImmediately = false };
-            Scheduler = new StatusReadScheduler(Clock, Dispatcher, () => Blocked, () => ReadBody(), _settle, _cap);
+            Scheduler = new StatusReadScheduler(Clock, Dispatcher, () => Blocked, () => ReadBody(), _settle, _cap, Failures.Add);
         }
+
+        public List<Exception> Failures { get; } = [];
 
         public ManualTimeProvider Clock { get; } = new();
 
@@ -210,6 +212,27 @@ public class StatusReadSchedulerTests
         h.Pass(_settle);
 
         Assert.Equal(2, h.Reads);
+    }
+
+    [Fact]
+    public void A_read_that_throws_is_reported_and_the_next_signal_still_reads()
+    {
+        using var h = Create();
+        h.ReadBody = () => Task.FromException<bool>(new InvalidOperationException("boom"));
+        h.Scheduler.Request();
+        h.Pass(_settle);
+
+        Assert.Equal("boom", Assert.Single(h.Failures).Message);
+
+        h.ReadBody = () =>
+        {
+            h.Read();
+            return Task.FromResult(true);
+        };
+        h.Scheduler.Request();
+        h.Pass(_settle);
+
+        Assert.Equal(1, h.Reads);
     }
 
     [Fact]

@@ -15,6 +15,10 @@ public sealed partial class GamesScreenViewModel
     private bool _shown;
     private bool _watchFaulted;
 
+    // True from a signal that came while the window was away, or a fault, until the next status read starts.
+    private bool _maybeMissed;
+    private bool _hasMissingFolders;
+
     /// <inheritdoc />
     public void OnHidden()
     {
@@ -23,11 +27,43 @@ public sealed partial class GamesScreenViewModel
     }
 
     // Nothing is read while the window is behind another or minimized: a game started elsewhere writes all the time, and a scan of its
-    // install would compete with it for the disk. The window coming back reads once, which also covers folders that cannot be watched
-    // and changes a watch missed.
+    // install would compete with it for the disk. The window coming back reads only when the watch could have missed something: a
+    // signal came while it was away, a fault happened, or a folder is not covered. Any other return costs nothing, since every switch to
+    // another window would otherwise scan a big install.
     private void OnWindowActivityChanged(object? sender, EventArgs e)
     {
-        if (IsWindowInFront())
+        if (!IsWindowInFront())
+        {
+            // A read that was due is dropped while the window is away; coming back makes it.
+            _maybeMissed |= _statusReads.IsDue;
+            return;
+        }
+
+        if (_maybeMissed || _watch is { Unwatched.Count: > 0 })
+        {
+            _statusReads.Request();
+        }
+        else if (_hasMissingFolders)
+        {
+            _ = ReadIfMissingFolderAppearedAsync();
+        }
+    }
+
+    // Nobody waits on this read, so a failure goes to the log and the table keeps the rows it has.
+    private void NoteStatusReadFailed(Exception error) =>
+        _deps.Log.Error("Could not read the profiles' status after a change in the game's folders.", error);
+
+    // A folder that did not exist cannot be watched, so a look at which folders exist (a cheap check) is how its arrival is noticed; the
+    // read that follows sets the watch up again.
+    private async Task ReadIfMissingFolderAppearedAsync()
+    {
+        if (_game is not { } game || !_shown)
+        {
+            return;
+        }
+
+        var folders = await _deps.Games.GetFolderStatusAsync(game.Id);
+        if (folders.Ok && !_disposed && game.Id == _game?.Id && folders.Value.Any(folder => folder.Exists && !_watchedFolders.Contains(folder.ResolvedPath ?? folder.Path)))
         {
             _statusReads.Request();
         }
@@ -55,6 +91,7 @@ public sealed partial class GamesScreenViewModel
             return false;
         }
 
+        _maybeMissed = false;
         var generation = _generation;
         var token = (_statusCts ??= new CancellationTokenSource()).Token;
         try
@@ -91,6 +128,7 @@ public sealed partial class GamesScreenViewModel
     // change made during it.
     private async Task UpdateWatchAsync(string gameId, IReadOnlyList<FolderStatus> folders, bool retryFailed, long generation, CancellationToken token)
     {
+        _hasMissingFolders = folders.Any(folder => !folder.Exists);
         IReadOnlyList<string> paths = [.. folders.Where(folder => folder.Exists).Select(folder => folder.ResolvedPath ?? folder.Path).Distinct()];
         if (_watch is { } current && _watchedGameId == gameId && _watchedFolders.SequenceEqual(paths) && !(retryFailed && current.Unwatched.Count > 0))
         {
@@ -133,6 +171,7 @@ public sealed partial class GamesScreenViewModel
         {
             if (ReferenceEquals(sender, _watch))
             {
+                _maybeMissed |= !IsWindowInFront();
                 _statusReads.Request();
             }
         });
@@ -144,6 +183,7 @@ public sealed partial class GamesScreenViewModel
             if (ReferenceEquals(sender, _watch))
             {
                 _watchFaulted = true;
+                _maybeMissed = true;
                 _statusReads.Request();
             }
         });
@@ -153,6 +193,7 @@ public sealed partial class GamesScreenViewModel
         _statusReads.Cancel();
         _statusCts?.Cancel();
         _statusCts = null;
+        _hasMissingFolders = false;
         ReleaseWatch();
     }
 
@@ -169,5 +210,6 @@ public sealed partial class GamesScreenViewModel
         _watchedGameId = null;
         _watchedFolders = [];
         _watchFaulted = false;
+        _maybeMissed = false;
     }
 }

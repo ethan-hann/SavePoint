@@ -4,6 +4,7 @@ using Savepoint.App.Features.Shell;
 using Savepoint.App.Hosting;
 using Savepoint.App.Platform;
 using Savepoint.App.Platform.FolderWatching;
+using Savepoint.Core.Diagnostics;
 
 namespace Savepoint.App.Composition;
 
@@ -25,5 +26,6 @@ public static partial class FeatureComposition
             editor,
             context.Services.FileRevealer ?? new FileManagerRevealer(FileManager.CreateForCurrentOs()),
             context.Services.FolderWatcher ?? NullFolderWatcher.Instance,
-            context.Window ?? AlwaysActiveWindow.Instance));
+            context.Window ?? AlwaysActiveWindow.Instance,
+            context.Services.Log ?? DiagnosticLog.None));
 }

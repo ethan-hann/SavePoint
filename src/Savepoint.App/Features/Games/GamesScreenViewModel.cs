@@ -84,7 +84,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     {
         _shell = shell;
         _deps = dependencies;
-        _statusReads = new StatusReadScheduler(dependencies.Clock, dependencies.Dispatcher, StatusReadsBlocked, ReadStatusAsync, ChangeSettleTime, ChangeLongestWait);
+        _statusReads = new StatusReadScheduler(dependencies.Clock, dependencies.Dispatcher, StatusReadsBlocked, ReadStatusAsync, ChangeSettleTime, ChangeLongestWait, NoteStatusReadFailed);
         LayoutToggle = shell.LayoutToggle;
         FreeUp = new FreeUpSpaceViewModel(dependencies.Games, dependencies.Jobs, dependencies.Dialogs, dependencies.Text, dependencies.Dispatcher, ShowError, RefreshStorageUsageAsync, dependencies.Clock);
         InitializeProfileSearch();
@@ -292,6 +292,8 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             }
         }
 
+        // The scan below reads everything; a signal from here on is a new one.
+        _maybeMissed = false;
         var stats = await _deps.Profiles.GetRowStatsAsync(game.Id, cts.Token);
         var usage = await usageTask;
         if (generation != _generation || _disposed)

@@ -288,9 +288,11 @@ public class GamesScreenLiveChangesTests
     }
 
     [Fact]
-    public async Task Activating_the_window_reads_the_status_again()
+    public async Task Activating_the_window_reads_the_status_when_the_watch_could_not_cover_a_folder()
     {
         var (rig, clock) = await StartAsync();
+        var watch = Assert.Single(rig.Watcher.Running);
+        watch.Unwatched = [watch.Folders[0]];
         var reads = StatusReads(rig);
         EditOutsideSavePoint(rig);
 
@@ -302,9 +304,70 @@ public class GamesScreenLiveChangesTests
     }
 
     [Fact]
+    public async Task Activating_the_window_when_every_folder_is_watched_and_nothing_was_signalled_reads_nothing()
+    {
+        var (rig, clock) = await StartAsync();
+        var reads = StatusReads(rig);
+
+        BringWindowBack(rig);
+        await SettledAsync(rig, clock, _settle * 2);
+
+        Assert.Equal(reads, StatusReads(rig));
+    }
+
+    [Fact]
+    public async Task Activating_the_window_after_a_fault_while_it_was_away_reads_once()
+    {
+        var (rig, clock) = await StartAsync();
+        var reads = StatusReads(rig);
+        rig.Window.Become(active: false);
+        Assert.Single(rig.Watcher.Running).RaiseFaulted();
+
+        rig.Window.Become(active: true);
+        await SettledAsync(rig, clock, _settle);
+        Assert.Equal(reads + 1, StatusReads(rig));
+
+        BringWindowBack(rig);
+        await SettledAsync(rig, clock, _settle * 2);
+
+        Assert.Equal(reads + 1, StatusReads(rig));
+    }
+
+    [Fact]
+    public async Task Activating_the_window_while_a_folder_is_still_missing_reads_nothing()
+    {
+        var backend = FakeBackend.Sample();
+        var answer = await backend.Games.GetFolderStatusAsync(SampleScenario.SkyrimId, TestContext.Current.CancellationToken);
+        Assert.True(answer.Ok);
+        backend.Script(() => backend.State.FolderStatuses[SampleScenario.SkyrimId] = [.. answer.Value!.Select((status, index) => index == 0 ? status with { Exists = false } : status)]);
+        var (rig, clock) = await StartAsync(backend);
+        var reads = StatusReads(rig);
+
+        BringWindowBack(rig);
+        await SettledAsync(rig, clock, _settle * 2);
+
+        Assert.Equal(reads, StatusReads(rig));
+    }
+
+    [Fact]
+    public async Task A_background_status_read_that_fails_is_noted_in_the_log()
+    {
+        var (rig, clock) = await StartAsync();
+        rig.Backend.Profiles.StatsGate = _ => throw new InvalidOperationException("scan failed");
+
+        Assert.Single(rig.Watcher.Running).RaiseChanged();
+        await SettledAsync(rig, clock, _settle);
+
+        var entry = Assert.Single(rig.Log.Containing("status"));
+        Assert.Equal("scan failed", entry.Exception?.Message);
+    }
+
+    [Fact]
     public async Task Activating_the_window_while_the_game_runs_through_SavePoint_reads_nothing()
     {
         var (rig, clock) = await StartAsync();
+        var watch = Assert.Single(rig.Watcher.Running);
+        watch.Unwatched = [watch.Folders[0]];
         rig.LaunchFlow.SetActive(SampleScenario.SkyrimId, true);
         var reads = StatusReads(rig);
 
@@ -318,6 +381,9 @@ public class GamesScreenLiveChangesTests
     public async Task Activating_the_window_after_leaving_the_screen_reads_nothing()
     {
         var (rig, clock) = await StartAsync();
+        var watch = Assert.Single(rig.Watcher.Running);
+        rig.Window.Become(active: false);
+        watch.RaiseChanged();
         rig.Shell.Navigate(NavDestination.History);
         var reads = StatusReads(rig);
 

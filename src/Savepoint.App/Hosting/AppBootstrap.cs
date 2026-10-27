@@ -73,6 +73,7 @@ public static class AppBootstrap
             FileRevealer = new FileManagerRevealer(FileManager.CreateForCurrentOs()),
             FolderWatcher = new FileSystemFolderWatcher(log ?? DiagnosticLog.None),
             LogFolder = logFolder,
+            Log = log,
         };
 
     /// <summary>An Api whose every call fails with <paramref name="error"/>; only the startup screen reads it.</summary>
