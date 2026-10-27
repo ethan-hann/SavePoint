@@ -39,7 +39,7 @@ C# and Avalonia XAML (`.axaml`) in `src/Savepoint.App/`.
    - If yes, apply "Reach the UI thread through `IUiDispatcher`, and the time through the clock".
    - If no, this standard does not apply.
 
-**Exception - handed-off commands:** A command that one object builds and passes to another is created with `new RelayCommand(...)`. Examples are the remove command a list builds for each chip it adds, and the commands `ShellViewModel` builds only to pass into `FirstRunViewModel`. A command the class declares and binds itself is generated, and the generated instance may be passed along too. The generator makes commands only for the class that declares the method, so it cannot express these. A view model that exists once per row, such as `ProfileRowViewModel`, declares its own commands with `[RelayCommand]` like any other view model.
+**Exception - handed-off commands:** A command that one object builds and passes to another is created with `new RelayCommand(...)`. An example is the commands `ShellViewModel` builds only to pass into `FirstRunViewModel`. A command the class declares and binds itself is generated, and the generated instance may be passed along too. The generator makes commands only for the class that declares the method, so it cannot express these. A view model that exists once per row, such as `ProfileRowViewModel`, declares its own commands with `[RelayCommand]` like any other view model.
 
 **Verification step:** list views that have bindings but no `x:DataType`, then App code that reaches past the Api:
 

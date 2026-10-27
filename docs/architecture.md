@@ -235,7 +235,7 @@ Catalog models (`GameDefinition`, `Profile`, `AppSettings`, `GameTemplate`, `Rep
 
 ### Jobs
 
-`JobKind` is `Launch` (prepare, switch, start the game), `Switch` (prepare and switch without starting the game, D49), `Capture`, `Compact`, `RelocateStorage`, or `ClearData`. `JobStatus` is `Running`, `Succeeded`, `Partial`, `Failed`, or `Cancelled`.
+`JobKind` is `Launch` (prepare, switch, start the game), `Switch` (prepare and switch without starting the game, D49), `Capture`, `Compact` (the player's Free up space), `PackStorage` (the automatic tidy after a snapshot, D13.17), `RelocateStorage`, or `ClearData`. `JobStatus` is `Running`, `Succeeded`, `Partial`, `Failed`, or `Cancelled`.
 
 `JobSnapshot` carries:
 - the kind, the game (null for a job across every game), and the `JobProfile(Id, Name)` it is for, when there is one.
