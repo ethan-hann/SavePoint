@@ -1,6 +1,6 @@
 using Savepoint.App.Features.Settings;
-using Savepoint.App.Platform;
 using Savepoint.App.Features.Shell;
+using Savepoint.App.Platform;
 
 namespace Savepoint.App.Composition;
 
