@@ -15,6 +15,18 @@
     stays below the table in the scroll area, and so does any card while the pane is too short to pin it. The library layout has no art tile, path, chips or toggle (the shell's shelf
     and top bar carry them), so its header is a title with the same buttons.
   -->
+  <UserControl.Resources>
+    <!-- One look for every entry of a profile row's menu, used by More actions and by the right-click menu. -->
+    <ControlTheme x:Key="ProfileMenuItemTheme" x:DataType="games:ProfileMenuEntry" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+      <Setter Property="Header" Value="{Binding Header}" />
+      <Setter Property="Command" Value="{Binding Command}" />
+      <Setter Property="CommandParameter" Value="{Binding CommandParameter}" />
+      <Setter Property="IsVisible" Value="{Binding IsVisible}" />
+      <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+      <Setter Property="ToolTip.Tip" Value="{Binding Tip}" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Header}" />
+    </ControlTheme>
+  </UserControl.Resources>
   <UserControl.Styles>
     <Style Selector="Border.profile-dot">
       <Setter Property="Width" Value="6" />
@@ -254,19 +266,9 @@
                                 ToolTip.Tip="{Binding MoreActionsAutomationName}">
                           <TextBlock Classes="icon s18" Text="{x:Static theme:Icons.MoreVert}" />
                           <Button.Flyout>
-                            <MenuFlyout Placement="BottomEdgeAlignedRight">
-                              <MenuItem Header="{loc:Loc games.profileTable.switch}" Command="{Binding SwitchCommand}" ToolTip.Tip="{loc:Loc games.profileTable.switchTip}" />
-                              <MenuItem Header="{loc:Loc games.profileTable.takeSnapshot}" Command="{Binding TakeSnapshotCommand}" IsVisible="{Binding CanOfferSnapshot}" />
-                              <!-- A profile the folders do not hold cannot take a snapshot: the entry stays, disabled, with the reason in its text. -->
-                              <MenuItem x:Name="SnapshotBlockedItem"
-                                        Header="{Binding SnapshotBlockedText}"
-                                        IsEnabled="False"
-                                        IsVisible="{Binding SnapshotBlocked}"
-                                        ToolTip.Tip="{Binding SnapshotBlockedTip}" />
-                              <MenuItem Header="{loc:Loc games.profileTable.edit}" Command="{Binding EditCommand}" />
-                              <MenuItem Header="{loc:Loc games.profileTable.duplicate}" Command="{Binding DuplicateCommand}" />
-                              <MenuItem Header="{loc:Loc games.profileTable.delete}" Command="{Binding DeleteCommand}" />
-                            </MenuFlyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight"
+                                        ItemsSource="{Binding MenuEntries}"
+                                        ItemContainerTheme="{StaticResource ProfileMenuItemTheme}" />
                           </Button.Flyout>
                         </Button>
                       </Grid>

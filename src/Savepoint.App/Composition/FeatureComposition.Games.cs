@@ -1,6 +1,8 @@
 using Savepoint.App.Features.Common.Navigation;
 using Savepoint.App.Features.Games;
 using Savepoint.App.Features.Shell;
+using Savepoint.App.Hosting;
+using Savepoint.App.Platform;
 
 namespace Savepoint.App.Composition;
 
@@ -19,5 +21,6 @@ public static partial class FeatureComposition
             context.Toasts,
             context.Dispatcher,
             context.Clock,
-            editor));
+            editor,
+            context.Services.FileRevealer ?? new FileManagerRevealer(FileManager.CreateForCurrentOs())));
 }

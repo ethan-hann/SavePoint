@@ -76,6 +76,9 @@ internal sealed class GamesViewHarness : IDisposable
     public IEnumerable<T> All<T>()
         where T : Visual => View.GetVisualDescendants().OfType<T>();
 
+    // The entries of whichever menu is open: a popup's items live in the window's overlay layer, not under the screen.
+    public List<MenuItem> OpenMenuItems() => [.. Window.GetVisualDescendants().OfType<MenuItem>()];
+
     public IEnumerable<string?> VisibleTexts() =>
         All<TextBlock>().Where(block => block.IsEffectivelyVisible && block.Opacity > 0).Select(block => block.Text);
 

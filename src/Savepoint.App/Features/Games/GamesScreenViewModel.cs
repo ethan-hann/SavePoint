@@ -31,6 +31,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     private double _headerWidth = double.PositiveInfinity;
     private bool _cardsScroll;
     private bool _flowActive;
+    private IReadOnlyList<RepoRole> _folderRoles = [];
     private long _generation;
     private CancellationTokenSource? _loadCts;
 
@@ -228,6 +229,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             ClearRows();
             StorageFooterText = string.Empty;
             LoadError = null;
+            _folderRoles = [];
             _loaded = false;
         }
 
@@ -237,6 +239,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         var listTask = _deps.Profiles.ListAsync(game.Id, cts.Token);
         var statsTask = _deps.Profiles.GetRowStatsAsync(game.Id, cts.Token);
         var usageTask = _deps.Games.GetStorageUsageAsync(game.Id, cts.Token);
+        var foldersTask = _deps.Games.GetFolderStatusAsync(game.Id, cts.Token);
         var list = await listTask;
         if (generation != _generation || _disposed)
         {
@@ -255,10 +258,17 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
         var stats = await statsTask;
         var usage = await usageTask;
+        var folders = await foldersTask;
 
         if (generation != _generation || _disposed)
         {
             return;
+        }
+
+        // A failed read keeps the folders the rows already offer; the menu entries are not worth an error toast of their own.
+        if (folders.Ok)
+        {
+            _folderRoles = [.. folders.Value.Select(folder => folder.Role)];
         }
 
         IsLoading = false;
@@ -506,6 +516,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
                 row = new ProfileRowViewModel(profile, current, _deps.Text, Columns, this, known);
             }
 
+            row.SetFolders(_folderRoles);
             rows.Add(row);
         }
 

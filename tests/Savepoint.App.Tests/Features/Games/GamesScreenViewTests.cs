@@ -201,15 +201,15 @@ public class GamesScreenViewTests
         more.Flyout!.ShowAt(more);
         harness.Settle();
 
-        var items = ((MenuFlyout)more.Flyout).Items.OfType<MenuItem>().ToList();
-        Assert.Equal(["Switch to this profile", "Take a snapshot", "Take a snapshot (load this profile first)", "Edit", "Duplicate", "Delete"], items.Select(item => item.Header));
+        var items = harness.OpenMenuItems();
+        Assert.Equal(["Switch to this profile", "Take a snapshot", "Take a snapshot (load this profile first)", "Edit", "Duplicate", "Open game folder", "Open saves folder", "Delete"], items.Select(item => item.Header));
         Assert.Same(row.SwitchCommand, items[0].Command);
         Assert.Same(row.TakeSnapshotCommand, items[1].Command);
         Assert.True(items[1].IsVisible);
         Assert.False(items[2].IsVisible);
         Assert.Same(row.EditCommand, items[3].Command);
         Assert.Same(row.DuplicateCommand, items[4].Command);
-        Assert.Same(row.DeleteCommand, items[5].Command);
+        Assert.Same(row.DeleteCommand, items[^1].Command);
     }
 
     [AvaloniaFact]
@@ -222,7 +222,7 @@ public class GamesScreenViewTests
         more.Flyout!.ShowAt(more);
         harness.Settle();
 
-        var items = ((MenuFlyout)more.Flyout).Items.OfType<MenuItem>().ToList();
+        var items = harness.OpenMenuItems();
         Assert.Same(row.SwitchCommand, items[0].Command);
         Assert.False(items[1].IsVisible);
         var blocked = items[2];
@@ -231,7 +231,25 @@ public class GamesScreenViewTests
         Assert.Equal("Take a snapshot (load this profile first)", blocked.Header);
         Assert.Equal(row.SnapshotBlockedTip, Avalonia.Controls.ToolTip.GetTip(blocked));
         Assert.Same(row.EditCommand, items[3].Command);
-        Assert.Same(row.DeleteCommand, items[5].Command);
+        Assert.Same(row.DeleteCommand, items[^1].Command);
+    }
+
+    [AvaloniaFact]
+    public async Task Every_entry_of_the_row_menu_has_a_name_and_the_folder_entries_open_their_folder()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var more = MoreButtons(harness)[0];
+        more.Flyout!.ShowAt(more);
+        harness.Settle();
+
+        var items = harness.OpenMenuItems();
+        var saves = items.Single(item => item.Header as string == "Open saves folder");
+        saves.Command!.Execute(saves.CommandParameter);
+        harness.Settle();
+
+        Assert.All(items, item => Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(item))));
+        Assert.All(items, item => Assert.True(item.Focusable));
+        Assert.Equal([SampleScenario.SkyrimSaves], harness.Rig.Revealer.Revealed);
     }
 
     [AvaloniaFact]
@@ -242,7 +260,7 @@ public class GamesScreenViewTests
         more.Flyout!.ShowAt(more);
         harness.Settle();
 
-        ((MenuFlyout)more.Flyout).Items.OfType<MenuItem>().Last().Command!.Execute(null);
+        harness.OpenMenuItems().Last().Command!.Execute(null);
         harness.Settle();
 
         var confirm = Assert.IsType<ConfirmDialogViewModel>(harness.Dialogs.Current);

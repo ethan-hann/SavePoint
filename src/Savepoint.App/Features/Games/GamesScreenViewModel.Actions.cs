@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
+using Savepoint.App.Features.Common.Toasts;
 using Savepoint.Core.Api;
+using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Features.Games;
@@ -106,6 +108,30 @@ public sealed partial class GamesScreenViewModel
         if (await _deps.Dialogs.ShowAsync(dialog))
         {
             await RefreshAfterChangeAsync();
+        }
+    }
+
+    // The folder is read again here, so one that went away since the screen loaded is told apart from one that just will not open.
+    async Task IProfileRowActions.OpenFolderAsync(ProfileRowViewModel row, RepoRole role)
+    {
+        var statuses = await _deps.Games.GetFolderStatusAsync(row.GameId);
+        if (!statuses.Ok)
+        {
+            ShowError(statuses.Error);
+            return;
+        }
+
+        var folder = statuses.Value.FirstOrDefault(status => status.Role == role);
+        if (folder is not null && (folder.ResolvedPath is null || !folder.Exists))
+        {
+            ShowError(ErrorInfo.From(new PathMissingException(folder.ResolvedPath ?? folder.Path, role)));
+            return;
+        }
+
+        if (folder?.ResolvedPath is not { } path || !_deps.Revealer.Reveal(path))
+        {
+            var message = _deps.Text.Message("games.profileTable.openFolder.failed", ("role", ProfileRowViewModel.RoleName(role)));
+            _deps.Toasts.Show(new ToastMessage(message, ToastKind.Error));
         }
     }
 
