@@ -53,6 +53,7 @@
   "games.profileTable.noneAutomation": "none",
   "games.profileTable.openFolder": "Open {role, select, install {game folder} mods {mods folder} external {saves folder} other {folder}}",
   "games.profileTable.openFolder.failed": "SavePoint couldn't open the {role, select, install {game folder} mods {mods folder} external {saves folder} other {folder}}.",
+  "games.profileTable.openFolderTip": "Opens the folder as it is now, which may hold a different profile's files.",
   "games.profileTable.play": "Play",
   "games.profileTable.playAutomationName": "Play {name}",
   "games.profileTable.playBlocked": "This game is already running. Play works again after you close it.",
