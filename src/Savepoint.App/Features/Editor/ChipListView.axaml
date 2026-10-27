@@ -19,21 +19,22 @@
         <Panel Margin="0,0,8,8">
           <Border Classes="input-chip" IsVisible="{Binding !IsEditing}">
             <StackPanel Orientation="Horizontal" Spacing="2">
-              <!-- The chip's text is the edit target: Enter or F2 while it has focus, or a double-click, turns it into a field. -->
-              <Border x:Name="ChipText"
-                      Focusable="True"
-                      Background="Transparent"
-                      VerticalAlignment="Center"
-                      AutomationProperties.Name="{Binding EditLabel}"
-                      AutomationProperties.HelpText="{Binding EditHint}"
-                      AutomationProperties.ControlTypeOverride="Button">
-                <Border.KeyBindings>
-                  <KeyBinding Gesture="Enter" Command="{Binding BeginEditCommand}" />
-                  <KeyBinding Gesture="Space" Command="{Binding BeginEditCommand}" />
+              <!-- The chip's text is the edit target: Enter, Space or F2 while it has focus, a screen reader's invoke, or a double-click, turns it into a field. -->
+              <editor:ChipEditButton x:Name="ChipText"
+                                     Classes="text"
+                                     Padding="0"
+                                     CornerRadius="{DynamicResource Md3RadiusPill}"
+                                     FontSize="12"
+                                     FontWeight="Normal"
+                                     Foreground="{DynamicResource Md3OnSurfaceBrush}"
+                                     Command="{Binding BeginEditCommand}"
+                                     AutomationProperties.Name="{Binding EditLabel}"
+                                     AutomationProperties.HelpText="{Binding EditHint}">
+                <editor:ChipEditButton.KeyBindings>
                   <KeyBinding Gesture="F2" Command="{Binding BeginEditCommand}" />
-                </Border.KeyBindings>
+                </editor:ChipEditButton.KeyBindings>
                 <TextBlock VerticalAlignment="Center" Text="{Binding Text}" />
-              </Border>
+              </editor:ChipEditButton>
               <!-- A 32px target that sticks out of the chip by 4px, so the chip keeps its height. -->
               <Button Classes="icon"
                       Margin="0,-4,-4,-4"

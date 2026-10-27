@@ -398,6 +398,20 @@ public class GamesScreenViewModelTests
     }
 
     [Fact]
+    public async Task When_the_automatic_tidy_of_the_selected_game_ends_the_footer_reads_the_games_storage_use_again()
+    {
+        var rig = await GamesRig.StartAsync();
+        var job = rig.Backend.Jobs.Start(JobKind.PackStorage, SampleScenario.SkyrimId, new OptimizeResult([]));
+        rig.Backend.State.GameBytes[SampleScenario.SkyrimId] = 10_000_000_000;
+
+        rig.Backend.Jobs.Complete(job);
+        await Task.Yield();
+
+        Assert.Equal("This game's snapshots use 10 GB on a 210 GB drive", rig.Screen.StorageFooterText);
+        Assert.False(rig.Screen.FreeUp.IsRunning);
+    }
+
+    [Fact]
     public async Task A_free_up_run_that_cannot_start_is_a_toast_like_the_screens_other_failures()
     {
         var rig = await GamesRig.StartAsync();
