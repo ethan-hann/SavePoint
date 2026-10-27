@@ -120,11 +120,6 @@ Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationT
 - `src/Savepoint.Core/Api/IGamesApi.cs`, `IGamesApi.GetStorageUsageAsync` and `IGamesApi.OptimizeStorageAsync`: a read and a job side by side.
 - `src/Savepoint.Core/Services/Jobs/JobContext.cs`, `JobContext.CancellationToken`: the token a job passes down.
 
-**Known violations:**
-
-- `src/Savepoint.Core/Api/IAppStatusApi.cs`, `IAppStatusApi.UseStorageFolderAsync`, `IAppStatusApi.RecoverCatalogFileAsync`, and `IAppStatusApi.StartWithEmptyStorageAsync`: mutations that take a token.
-- `src/Savepoint.Core/Api/IGamesApi.cs`, `IGamesApi.ExportDefinitionAsync`: writes a file and takes a token.
-
 ### Convert exceptions with `ApiGuard.RunAsync`
 
 An Api implementation runs its body through `ApiGuard.RunAsync`, with the backend's `IDiagnosticLog`. The guard maps a cancelled read to `error.operation.cancelled` and maps every other exception to a failure through `ErrorInfo.From`. It also writes the failure to the log (D34). Do not write a new try and catch that builds an `ErrorInfo` by hand. A hand-built one skips the log.

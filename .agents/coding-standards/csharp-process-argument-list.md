@@ -101,10 +101,6 @@ OsKind.Windows => new ProcessCommand(_explorerPath, isFile ? ["/select,", full] 
 - `src/Savepoint.App/Platform/Processes/SystemProcessRunner.cs`, `SystemProcessRunner.CreateStartInfo`: every App process.
 - `src/Savepoint.App/Platform/FileManager.cs`, `FileManager.Reveal`: Explorer's `/select,` and the path as two list items.
 
-**Known violations:**
-
-- `src/Savepoint.App/Features/Settings/SettingsEnvironment.cs`, `ProcessFileRevealer.Start`: the Windows branch joins a string.
-
 ### In app code, pass arguments through the wrapper type
 
 App and Core code that needs a process builds the wrapper for its layer, with the arguments as a collection: `GitInvocation` for git, `ProcessStartRequest` for a launch, `ProcessCommand` in the App. Only the runner for that wrapper touches `ProcessStartInfo`. Tests and tools have no wrapper and build `ProcessStartInfo` directly, with `ArgumentList`.

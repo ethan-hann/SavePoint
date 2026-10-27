@@ -158,7 +158,7 @@ public interface IGamesApi
     Task<OperationResult<LibraryScan>> ScanLibrariesAsync(CancellationToken cancellationToken = default);   // installed Steam and GOG games, matched to templates, with "already added" (D52)
     Task<OperationResult<LibraryAddResult>> AddLibraryGameAsync(LibraryGame game);                            // one scanned game through AddAsync's checks: Added | AlreadyAdded | HasOlderHistory | Refused
     Task<OperationResult<GameDefinition>> ImportDefinitionAsync(string filePath, CancellationToken cancellationToken = default);  // never saves
-    Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath, CancellationToken cancellationToken = default);
+    Task<OperationResult<Unit>> ExportDefinitionAsync(string gameId, string filePath);
 }
 
 public interface IProfilesApi
@@ -216,9 +216,9 @@ public interface IAppStatusApi
 {
     Task<OperationResult<StartupStatus>> CheckAsync(CancellationToken cancellationToken = default,
         IProgress<StartupProgress>? progress = null);   // reports FinishingEarlierCleanup while a leftover git ends
-    Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery, CancellationToken cancellationToken = default);
-    Task<OperationResult<string>> UseStorageFolderAsync(string folder, CancellationToken cancellationToken = default);   // "Find the folder"
-    Task<OperationResult<string>> StartWithEmptyStorageAsync(CancellationToken cancellationToken = default);              // "Start with an empty folder"
+    Task<OperationResult<string>> RecoverCatalogFileAsync(string path, CatalogRecovery recovery);
+    Task<OperationResult<string>> UseStorageFolderAsync(string folder);   // "Find the folder"
+    Task<OperationResult<string>> StartWithEmptyStorageAsync();           // "Start with an empty folder"
 }
 
 public interface IArtworkApi

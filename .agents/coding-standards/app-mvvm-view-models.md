@@ -39,7 +39,7 @@ C# and Avalonia XAML (`.axaml`) in `src/Savepoint.App/`.
    - If yes, apply "Reach the UI thread through `IUiDispatcher`, and the time through the clock".
    - If no, this standard does not apply.
 
-**Exception - handed-off commands:** A command that one object builds and passes to another is created with `new RelayCommand(...)`. Examples are the remove command a list builds for each chip it adds, and the commands `ShellViewModel` passes into `FirstRunViewModel`. The generator makes commands only for the class that declares the method, so it cannot express these. A view model that exists once per row, such as `ProfileRowViewModel`, declares its own commands with `[RelayCommand]` like any other view model.
+**Exception - handed-off commands:** A command that one object builds and passes to another is created with `new RelayCommand(...)`. Examples are the remove command a list builds for each chip it adds, and the commands `ShellViewModel` builds only to pass into `FirstRunViewModel`. A command the class declares and binds itself is generated, and the generated instance may be passed along too. The generator makes commands only for the class that declares the method, so it cannot express these. A view model that exists once per row, such as `ProfileRowViewModel`, declares its own commands with `[RelayCommand]` like any other view model.
 
 **Verification step:** list views that have bindings but no `x:DataType`, then App code that reaches past the Api:
 
@@ -99,10 +99,6 @@ Items.Add(new ChipItem(trimmed, _text.Message("gameEditor.chip.remove", ("value"
 - `src/Savepoint.App/Features/Common/Dialogs/ConfirmDialogViewModel.cs`, `ConfirmDialogViewModel.Confirm`: a generated command with a named gate.
 - `src/Savepoint.App/Features/Editor/ChipListViewModel.cs`, `ChipItem`: a command built for each chip.
 
-**Known violations:**
-
-- Commands a class owns but builds by hand, in constructors or in `field ??= new RelayCommand(...)` properties. Examples are `TourViewModel.BackCommand`, `GamesScreenViewModel`, `NewProfileWizardViewModel`, `ProfileRowViewModel`, `HistoryScreenViewModel`, and `StartupViewModel`.
-
 ### Put the view beside its view model, with `x:DataType`
 
 A view is `<Name>View.axaml` in the same `Features/<Area>/` folder as `<Name>ViewModel.cs`. `ViewLocator` finds it by that name. The root element declares `x:DataType` for its view model, and each `DataTemplate` declares it for its item.
@@ -153,10 +149,6 @@ public static IScreenFactory SettingsScreen(FeatureContext context, SettingsEnvi
 - `src/Savepoint.App/Composition/FeatureComposition.Activity.cs`, `FeatureComposition.ActivityScreen`: a factory with its dependencies record.
 - `src/Savepoint.App/Features/Activity/ActivityDependencies.cs`, `ActivityDependencies`: only what the screen needs.
 
-**Known violations:**
-
-- `src/Savepoint.App/Features/Settings/SettingsScreenFactory.cs`, `SettingsScreenFactory`, and `src/Savepoint.App/Features/History/HistoryScreenFactory.cs`, `HistoryScreenFactory`: both keep the whole `FeatureContext`.
-
 ### Call Core only through the Api
 
 A view model uses the Api interfaces in `Savepoint.Core.Api`, the types they return, and the error types in `Savepoint.Core.Errors`. It does not import `Savepoint.Core.Services`, `Savepoint.Core.Git`, or `Savepoint.Core.Paths`. A helper the App needs from one of those namespaces moves to the Api first. Settings changes go through the shared `SettingsWriter`, one field per write.
@@ -179,10 +171,6 @@ using Savepoint.Core.Services.Storage;
 
 - `src/Savepoint.App/Features/Common/Preferences/SettingsWriter.cs`, `SettingsWriter`: the one path for settings writes.
 
-**Known violations:**
-
-- `ErrorCardViewModel`, `StorageSectionViewModel`, and `ClearAllDataSectionViewModel` import `Savepoint.Core.Services.Storage` for `SnapshotFolderNames`. `StorageSectionViewModel` also takes the internal `SettingsStore`.
-
 ### Reach the UI thread through `IUiDispatcher`, and the time through the clock
 
 Api events fire on background threads. A view model's handler wraps its body in `IUiDispatcher.Post`. A view model reads the time from the `TimeProvider` its dependencies give it, which is `FeatureContext.Clock`.
@@ -204,10 +192,6 @@ new UiProgress(SynchronizationContext.Current, step => ShowProgress(run, step))
 
 - `src/Savepoint.App/Features/Common/IUiDispatcher.cs`, `IUiDispatcher.Post`: `AvaloniaUiDispatcher` in the app, `ImmediateUiDispatcher` in tests.
 - `src/Savepoint.App/Features/Games/FreeUpSpaceViewModel.cs`, `FreeUpSpaceViewModel.OnJobChanged`: an event handler that posts.
-
-**Known violations:**
-
-- `src/Savepoint.App/Features/Shell/StartupViewModel.cs`, `UiProgress`: uses `SynchronizationContext` directly.
 
 ## Additional Resources
 

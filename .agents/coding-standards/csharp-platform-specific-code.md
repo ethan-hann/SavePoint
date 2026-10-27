@@ -123,10 +123,6 @@ var gog = new WindowsGogRegistry();
 - `src/Savepoint.Core/Platform/Windows/WindowsSteamRegistry.cs`, `WindowsSteamRegistry.ReadSteamPath`: marked `[SupportedOSPlatform("windows")]`.
 - `src/Savepoint.Core/Artwork/GogGalaxyCacheLocator.cs`, `GogGalaxyCacheLocator.ForPlatform`: branches on the injected platform's `Os`.
 
-**Known violations:**
-
-- `src/Savepoint.App/Features/Settings/SettingsEnvironment.cs`, `ProcessFileRevealer.Start`: switches on the strings `"windows"`, `"macos"`, and `"linux"`.
-
 ### Skip a test on an OS, and list the skip
 
 A test that cannot run on an OS calls `Assert.SkipUnless` or `Assert.SkipWhen` with the OS check and a reason in plain words, so the report shows it as skipped. It never returns early, which passes without testing anything. Its full name, as the xunit report writes it, goes in the list for each gate that skips it (D48):
