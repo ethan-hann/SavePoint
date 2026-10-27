@@ -290,7 +290,10 @@ internal sealed class RealContractHarness : ContractHarness
     // Starts the switch with the install folder held at the free-space question of its own switch, then cancels it there: nothing is written, and the folder is marked unfinished.
     public override async Task InterruptSwitchAsync(GameDefinition game, string currentProfileId, string toProfileId, CancellationToken cancellationToken)
     {
-        _disk.Hold(game.Install.Path, skip: 2);
+        // The checks before the switch ask about the install folder too, and how many they ask depends on how the folders share drives,
+        // so the hold waits for the job to say it is switching the install folder, as a job that began after this call.
+        var before = _backend.Jobs.List().Select(job => job.JobId).ToHashSet();
+        _disk.Hold(game.Install.Path, () => InstallSwitchBegun(game.Id, before));
         try
         {
             var started = await _backend.Launch.StartAsync(game.Id, new LaunchTarget.ProfileTip(toProfileId)).ConfigureAwait(false);
@@ -309,6 +312,11 @@ internal sealed class RealContractHarness : ContractHarness
             _disk.Release();
         }
     }
+
+    private bool InstallSwitchBegun(string gameId, HashSet<Guid> jobsBefore) =>
+        _backend.Jobs.List().Any(job => job.GameId == gameId
+            && !jobsBefore.Contains(job.JobId)
+            && job.RecentLines.OfType<JobLine.Step>().Any(step => step.MessageId == JobSteps.LaunchSwitchFolder && Equals(step.Args["folder"], "install")));
 
     // The switch is held at the install folder's first free-space question, with the game claimed.
     public override async Task<Guid> HoldSwitchAsync(GameDefinition game, string toProfileId, CancellationToken cancellationToken)
@@ -419,16 +427,16 @@ internal sealed class GatedDisk : IDiskSpace
     private readonly ManualResetEventSlim _reached = new();
     private readonly ManualResetEventSlim _release = new(initialState: true);
     private volatile string? _folder;
-    private int _skip;
+    private volatile Func<bool>? _ready;
 
-    // The folder is held at its question after the first `skip` ones. A launch of two folders on one drive asks the first folder twice
-    // before its switch writes (its own check, then the check of the drive both share), so a switch that must be stopped inside the
-    // folder's own switch skips those two.
-    public void Hold(string folder, int skip = 0)
+    // The folder is held at its first question once `ready` is true (no condition: its first question). A launch asks about a folder
+    // more than once before its switch writes, and how often depends on which folders share a drive, so a switch that must be stopped
+    // inside the folder's own switch names that moment instead of counting questions.
+    public void Hold(string folder, Func<bool>? ready = null)
     {
         _reached.Reset();
         _release.Reset();
-        Volatile.Write(ref _skip, skip);
+        _ready = ready;
         _folder = folder;
     }
 
@@ -443,7 +451,7 @@ internal sealed class GatedDisk : IDiskSpace
 
     public long? GetFreeBytes(string path)
     {
-        if (_folder is { } held && path.StartsWith(held, StringComparison.OrdinalIgnoreCase) && !_release.IsSet && Interlocked.Decrement(ref _skip) < 0)
+        if (_folder is { } held && path.StartsWith(held, StringComparison.OrdinalIgnoreCase) && !_release.IsSet && (_ready?.Invoke() ?? true))
         {
             _reached.Set();
             _release.Wait(_limit);
