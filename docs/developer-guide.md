@@ -8,7 +8,7 @@ How to build, run, test, package, and release SavePoint. The working rules for e
 - **On Windows, PowerShell 7 (`pwsh`).** The build calls `build/fetch-git.ps1` through it.
 - **On Linux and macOS, `bash`, `tar`, and `curl` or `wget`.** No JSON tool is necessary.
 - **Network access on the first build**, to download SavePoint's own git. Later builds reuse it.
-- **For the full test run:** PowerShell 7 on every OS, `gpg`, and on Linux `dbus-daemon`. On Windows, `gpg` comes from Gpg4win or from Git for Windows' `usr\bin`. On the Linux VM, `build/gate-linux.sh` installs the .NET SDK and PowerShell into its own folder, and stops with the `apt install` line to run if `rsync`, `flock`, `dbus-daemon`, or `gpg` is missing. A test that skips because one of these is missing fails the gate.
+- **For the full test run:** PowerShell 7 on every OS, `gpg`, and on Linux `dbus-daemon`. On Windows, `gpg` comes from Gpg4win or from Git for Windows' `usr\bin`. On the Linux VM, `build/gate-linux.sh` installs the .NET SDK and PowerShell into its own folder. If `rsync`, `flock`, `dbus-daemon`, or `gpg` is missing, it stops with the `apt install` line to run. A test that skips because one of these is missing fails the gate.
 - **For packaging only:** `dotnet tool restore`, which installs the pinned `vpk`, and git on `PATH`.
 
 SavePoint never uses a git installed on the machine. Only the package scripts call git, to read the commit they build.
@@ -83,10 +83,10 @@ A change is done when the gate passes. `build/gate.ps1` (Windows) and `build/gat
 
 The gates run at below-normal priority. They cap MSBuild at 4 nodes with no node reuse, and tests at 4 threads per module, with the App and Core test modules side by side (D48). Override the caps with `SAVEPOINT_GATE_BUILD_NODES` and `SAVEPOINT_GATE_TEST_THREADS`.
 
-`SAVEPOINT_TEST_ARGS` takes only a report (`--report-*`), and the gate prints it. The gate refuses anything else there: a filter could run only some tests, and test retries are not available (D60). A narrowed run is allowed when `-AllowNarrowedTests` (`--allow-narrowed-tests`) says it is on purpose, and its pass is reported as narrowed.
+`SAVEPOINT_TEST_ARGS` takes only a report (`--report-*`), and the gate prints it. The gate refuses anything else there: a filter could run only some tests, and test retries are not available (D60). A narrowed run is allowed when `-AllowNarrowedTests` (`--allow-narrowed-tests`) says it is on purpose, and the gate reports its pass as narrowed.
 
-- **`build/gate-linux.ps1 -Commit <branch or commit>`** runs the Linux gate from Windows on the Linux test VM over SSH, with a key only (D60). It sends the committed tree of that commit (default `HEAD`), so a local branch that was never pushed works; uncommitted changes are not gated, and it says so.
-  - On the VM it works in `~/gate`, with its own .NET SDK, PowerShell and NuGet caches, and keeps build outputs between runs. The VM's skips are checked against `linux-ci.txt`, the same list as CI.
+- **`build/gate-linux.ps1 -Commit <branch or commit>`** runs the Linux gate from Windows on the Linux test VM over SSH, with a key only (D60). It sends the committed tree of that commit (default `HEAD`), so a local branch that was never pushed works. It does not gate uncommitted changes, and it says so.
+  - On the VM it works in `~/gate`, with its own .NET SDK, PowerShell and NuGet caches, and keeps build outputs between runs. The gate checks the VM's skips against `linux-ci.txt`, the same list as CI.
   - The exit code is the gate's. Exit 75 means another gate holds the VM's lock (`~/gate/gate.lock`). The log comes back to `.tools/gate-linux-last.log`.
   - The VM's address, user, key and folder default to the test VM's and can be changed with `-VmHost`, `-VmUser`, `-VmKey`, `-VmDir`, or `SAVEPOINT_VM_HOST`, `SAVEPOINT_VM_USER`, `SAVEPOINT_VM_KEY`, `SAVEPOINT_VM_DIR`.
   - A full run takes about 16 minutes on the 4-core VM.
