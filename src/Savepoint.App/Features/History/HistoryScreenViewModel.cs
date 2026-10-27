@@ -476,8 +476,8 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen, 
         ErrorCard = null;
         Subtitle = _deps.Text.Message("history.subtitle", ("game", game.Name), ("count", points.Count));
         _flowCommands.Clear();
-        _entries = BuildEntries(game, points);
         _groupsNow = _deps.Clock.GetUtcNow();
+        _entries = BuildEntries(game, points);
         BuildGroups();
         ShowEntries();
         State = points.Count == 0 ? HistoryState.Empty : HistoryState.Loaded;

@@ -327,6 +327,26 @@ public class HistoryVirtualizationTests
         Assert.True(InView(app, (Button)app.Focused!));
     }
 
+    // A drawn control can be reused for another snapshot while it holds focus; the person is then on a card they never chose.
+    [AvaloniaFact]
+    public async Task Focus_that_ends_up_on_another_snapshots_control_goes_back_to_the_snapshot_it_was_on()
+    {
+        var (app, screen) = await OpenAsync();
+        using var _ = app;
+        var cards = screen.Groups.SelectMany(group => group.Cards).ToList();
+        var target = cards.Single(card => card.Name == "Session 0002");
+        var other = cards.Single(card => card.Name == "Session 0001");
+        ButtonOf(app, target.GoBackCommand).Focus(NavigationMethod.Tab);
+
+        // Runs after the view has noted where focus was, and before the cards change.
+        screen.EntriesChanging += (_, _) => ButtonOf(app, other.GoBackCommand).Focus(NavigationMethod.Tab);
+        screen.Search.Text = "session 000";
+        app.Clock.Advance(HistoryScreenViewModel.TypingPause);
+        Layout(app);
+
+        Assert.Same(target.GoBackCommand, Assert.IsType<Button>(app.Focused).Command);
+    }
+
     [AvaloniaFact]
     public async Task A_card_far_down_keeps_keyboard_focus_through_a_refresh_and_stays_in_view()
     {
@@ -363,20 +383,66 @@ public class HistoryVirtualizationTests
     }
 
     [AvaloniaFact]
-    public async Task Each_card_tells_assistive_technology_its_place_in_its_group_and_the_size_of_the_group()
+    public async Task A_search_keeps_the_controls_drawn_for_the_lines_it_leaves_as_they_were()
+    {
+        var (app, screen) = await OpenAsync();
+        using var _ = app;
+        var list = app.Find<ItemsControl>("GroupList");
+        var before = DrawnLines(screen, list);
+
+        screen.Search.Text = "session 000";
+        app.Clock.Advance(HistoryScreenViewModel.TypingPause);
+        Layout(app);
+
+        var after = DrawnLines(screen, list);
+        var kept = after.Keys.Intersect(before.Keys).ToList();
+        Assert.True(kept.Count >= 2, $"the test needs lines that stay; {kept.Count} did");
+        Assert.All(kept, line => Assert.Same(before[line], after[line]));
+    }
+
+    // The control drawn for each line of the cards list, named by what the line holds.
+    private static Dictionary<string, Control> DrawnLines(HistoryScreenViewModel screen, ItemsControl list) =>
+        list.ItemsPanelRoot!.Children.Cast<Control>().ToDictionary(
+            container => screen.CardEntries[list.IndexFromContainer(container)] switch
+            {
+                CardGroupHeadingViewModel heading => "heading:" + heading.Heading,
+                CardRowViewModel row => "row:" + row.Cards[0].FocusKey,
+                _ => throw new InvalidOperationException("An unknown line."),
+            });
+
+    [AvaloniaFact]
+    public async Task Each_card_tells_assistive_technology_its_place_in_the_whole_list_and_the_group_it_is_in()
     {
         var (app, screen) = await OpenAsync();
         using var _ = app;
         ScrollToCard(app, screen, "Session 2500");
-        var earlier = screen.Groups.Single(group => group.Cards.Any(card => card.Name == "Session 2500"));
-        var index = earlier.Cards.ToList().FindIndex(card => card.Name == "Session 2500");
+        var cards = screen.Groups.SelectMany(group => group.Cards).ToList();
+        var index = cards.FindIndex(card => card.Name == "Session 2500");
+        var group = screen.Groups.Single(candidate => candidate.Cards.Any(card => card.Name == "Session 2500"));
 
         var item = app.Find<ItemsControl>("GroupList").GetVisualDescendants().OfType<Border>()
             .First(border => border.Classes.Contains("card") && ((PointCardViewModel)border.DataContext!).Name == "Session 2500");
+        var peer = Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(item);
 
+        // The peer has no position or size to ask; the Windows provider reads them from these properties, and the peer gives the name.
         Assert.Equal(index + 1, Avalonia.Automation.AutomationProperties.GetPositionInSet(item));
-        Assert.Equal(earlier.Cards.Count, Avalonia.Automation.AutomationProperties.GetSizeOfSet(item));
-        Assert.True(earlier.Cards.Count > 2800);
+        Assert.Equal(cards.Count, Avalonia.Automation.AutomationProperties.GetSizeOfSet(item));
+        Assert.StartsWith($"{group.Heading}: Session 2500", peer.GetName(), StringComparison.Ordinal);
+        Assert.True(index > 2000, "the card should be far enough down for a count that restarts to differ");
+    }
+
+    [AvaloniaFact]
+    public async Task The_group_headings_are_headings_to_assistive_technology()
+    {
+        var (app, screen) = await OpenAsync();
+        using var _ = app;
+
+        var heading = app.Find<ItemsControl>("GroupList").GetVisualDescendants().OfType<TextBlock>()
+            .First(text => text.DataContext is CardGroupHeadingViewModel);
+
+        var peer = Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(heading);
+        Assert.Equal(2, peer.GetHeadingLevel());
+        Assert.Contains(heading.Text, screen.Groups.Select(group => group.Heading), StringComparer.OrdinalIgnoreCase);
     }
 
     [AvaloniaFact]

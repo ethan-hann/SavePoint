@@ -48,13 +48,16 @@
       <Setter Property="Background" Value="{DynamicResource Md3SelectedRowBrush}" />
     </Style>
 
-    <!-- Recently removed: a short list is drawn in full, so the section is as tall as its rows wherever the screen is scrolled; a long one draws only the rows in view. -->
+    <!-- Recently removed: a short list is drawn in full, so the section is as tall as its rows wherever the screen is scrolled; a long one draws only the rows in view and scrolls inside a fixed height. -->
     <Style Selector="ItemsControl.long">
       <Setter Property="ItemsPanel">
         <ItemsPanelTemplate>
           <common:OrderedVirtualizingStackPanel />
         </ItemsPanelTemplate>
       </Setter>
+    </Style>
+    <Style Selector="ScrollViewer.long">
+      <Setter Property="MaxHeight" Value="340" />
     </Style>
 
     <!-- The Recently removed header is a toggle that reads as a plain row: opening it must not fill it like a chosen chip. -->
@@ -244,7 +247,7 @@
                        Text="{Binding RemovedError}" />
             <TextBlock x:Name="RemovedNoMatchesLine" Classes="body" TextWrapping="Wrap" IsVisible="{Binding ShowRemovedNoMatches}" Text="{Binding RemovedNoMatchesText}" />
             <!-- A long list scrolls inside its section and draws only the rows in view; a short one takes the room it needs. -->
-            <ScrollViewer x:Name="RemovedScroll" MaxHeight="340" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer x:Name="RemovedScroll" Classes.long="{Binding IsRemovedLong}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <ItemsControl x:Name="RemovedList"
                           Classes.long="{Binding IsRemovedLong}"
                           ItemsSource="{Binding Removed}"
@@ -429,7 +432,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.DataTemplates>
               <DataTemplate x:DataType="history:CardGroupHeadingViewModel">
-                <TextBlock Classes="overline" FontSize="12.5" Margin="7,12,0,7" Text="{Binding Heading, Converter={x:Static theme:UppercaseConverter.Instance}}" />
+                <TextBlock Classes="overline" FontSize="12.5" Margin="7,12,0,7" AutomationProperties.HeadingLevel="2" Text="{Binding Heading, Converter={x:Static theme:UppercaseConverter.Instance}}" />
               </DataTemplate>
               <DataTemplate x:DataType="history:CardRowViewModel">
                 <!-- The row only lines its cards up; the cards are the list's items. -->

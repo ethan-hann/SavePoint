@@ -62,6 +62,41 @@ public class HistoryCardRowsTests
         Assert.Single(rig.Screen.CardEntries.OfType<CardGroupHeadingViewModel>());
     }
 
+    [Fact]
+    public async Task The_cards_are_numbered_through_the_whole_list_not_within_each_group()
+    {
+        var rig = await HistoryRig.ShownAsync();
+
+        var cards = rig.Screen.Groups.SelectMany(group => group.Cards).ToList();
+
+        Assert.True(rig.Screen.Groups.Count > 1, "the test needs two groups");
+        Assert.Equal(Enumerable.Range(1, cards.Count), cards.Select(card => card.PositionInSet));
+        Assert.All(cards, card => Assert.Equal(cards.Count, card.SizeOfSet));
+    }
+
+    [Fact]
+    public async Task A_search_numbers_the_cards_it_leaves_through_the_whole_list_again()
+    {
+        var rig = await HistoryRig.ShownAsync();
+
+        rig.Screen.SelectedKindOption = rig.Screen.KindOptions.Single(option => option.Filter == HistoryKindFilter.GameAndMods);
+
+        var cards = rig.Screen.Groups.SelectMany(group => group.Cards).ToList();
+        Assert.Equal(Enumerable.Range(1, cards.Count), cards.Select(card => card.PositionInSet));
+        Assert.All(cards, card => Assert.Equal(cards.Count, card.SizeOfSet));
+    }
+
+    [Fact]
+    public async Task Each_card_names_its_group_ahead_of_itself_for_assistive_technology()
+    {
+        var rig = await HistoryRig.ShownAsync();
+
+        foreach (var group in rig.Screen.Groups)
+        {
+            Assert.All(group.Cards, card => Assert.StartsWith($"{group.Heading}: {card.Name}", card.ItemAutomationName, StringComparison.Ordinal));
+        }
+    }
+
     private static string Describe(CardListEntry entry) => entry switch
     {
         CardGroupHeadingViewModel heading => $"heading:{heading.Heading}",

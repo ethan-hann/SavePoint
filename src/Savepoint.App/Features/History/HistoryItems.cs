@@ -175,7 +175,7 @@ public sealed class PointCardViewModel : ListedItemViewModel
     /// <param name="contains">What the point holds ("Save only · 1.6.640 with 212 mod files").</param>
     /// <param name="date">The absolute date and time, with the weekday ("Sun Jul 5, 11:42 PM").</param>
     /// <param name="automationName">What assistive technology calls the button.</param>
-    /// <param name="itemAutomationName">What assistive technology calls the card in its list: name, what it holds, date, and whether it is loaded.</param>
+    /// <param name="itemAutomationName">What assistive technology calls the card in its list: its group, then name, what it holds, date, and whether it is loaded.</param>
     /// <param name="goBack">Goes back to the point; never null.</param>
     /// <param name="switchAutomationName">What assistive technology calls the switch button.</param>
     /// <param name="switchOnly">Restores the point without starting the game; never null.</param>
@@ -216,7 +216,7 @@ public sealed class PointCardViewModel : ListedItemViewModel
     /// <summary>The button's accessible name ("Go back and play: Cleared Blackreach").</summary>
     public string GoBackAutomationName { get; }
 
-    /// <summary>The card's accessible name in its list ("Cleared Blackreach, Save only · same version and mods, Sat Jul 4, 8:15 PM").</summary>
+    /// <summary>The card's accessible name in its list, led by its group ("Earlier: Cleared Blackreach, Save only · same version and mods, Sat Jul 4, 8:15 PM").</summary>
     public string ItemAutomationName { get; }
 
     /// <summary>Starts the launch flow with both folders restored to this point.</summary>

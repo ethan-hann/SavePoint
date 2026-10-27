@@ -51,9 +51,10 @@ public sealed class VirtualizedFocusRestore
         }
 
         _pending = null;
-        if (TopLevel.GetTopLevel(_list)?.FocusManager?.GetFocusedElement() is InputElement and not TopLevel)
+        if (TopLevel.GetTopLevel(_list)?.FocusManager?.GetFocusedElement() is InputElement and not TopLevel and var focused
+            && (VirtualizedTabNavigation.EntryIndex(_list, focused) < 0 || Holds(focused, pending.Key)))
         {
-            // Focus survived the change, in the list or because the person moved it on.
+            // Focus survived the change on the same snapshot, or sits outside the list because the person moved it on.
             return;
         }
 

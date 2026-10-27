@@ -12,6 +12,7 @@ using Savepoint.App.Features.History;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Theme;
+using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.History;
@@ -19,9 +20,16 @@ namespace Savepoint.App.Tests.Features.History;
 // The "Recently removed" section as a person sees it: hidden when empty, closed until opened, reachable and readable without a mouse.
 public class HistoryRecentlyRemovedViewTests
 {
-    private static Task<ScreenHarness> StartAsync(bool seeded = true, double width = 1040, double height = 660, ThemePreference theme = ThemePreference.Dark, bool realDialogs = false)
+    private static Task<ScreenHarness> StartAsync(bool seeded = true, double width = 1040, double height = 660, ThemePreference theme = ThemePreference.Dark, bool realDialogs = false, int moreRemoved = 0)
     {
         var scenario = (seeded ? RemovedSnapshotSamples.Scenario() : ScenarioBuilder.Sample()).WithSettings(SampleScenario.Settings with { Theme = theme });
+        for (var i = 0; i < moreRemoved; i++)
+        {
+            scenario.WithRemovedSnapshot(
+                SampleScenario.SkyrimId,
+                new RemovedSnapshot(new HistoryPointId($"gone-{i}"), HistoryPointKind.SaveOnly, $"Old session {i:0000}", ScenarioBuilder.DefaultNow.AddDays(-30).AddHours(-i), new InstallState("1.6.640", 212), SampleScenario.ModdedId, RemovedSnapshotSamples.ModdedName, ScenarioBuilder.DefaultNow.AddHours(-i - 1), RemovedSnapshotReason.ContinuedFromSession));
+        }
+
         var backend = new FakeBackend(scenario);
         var clock = backend.Clock;
         return ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, clock))], NavDestination.History, backend, theme, width, height, realDialogs);
@@ -242,6 +250,51 @@ public class HistoryRecentlyRemovedViewTests
 
         Assert.Equal(before, page.Extent.Height);
         Assert.Equal(2, Named<ItemsControl>(harness, "RemovedList").GetVisualDescendants().OfType<Border>().Count(border => AutomationProperties.GetControlTypeOverride(border) == AutomationControlType.ListItem));
+    }
+
+    [AvaloniaFact]
+    public async Task A_list_of_a_dozen_rows_is_drawn_in_full_with_no_scroll_bar_of_its_own()
+    {
+        using var harness = await StartAsync(moreRemoved: 10);
+        Open(harness);
+
+        var scroll = Named<ScrollViewer>(harness, "RemovedScroll");
+
+        Assert.True(scroll.Extent.Height > 340, $"the test needs rows taller than the long list's 340 px; they take {scroll.Extent.Height}");
+        Assert.True(scroll.Bounds.Height >= scroll.Extent.Height - 1, $"the list is cut to {scroll.Bounds.Height} px of its {scroll.Extent.Height}");
+    }
+
+    [AvaloniaFact]
+    public async Task A_long_list_scrolls_inside_its_section()
+    {
+        using var harness = await StartAsync(moreRemoved: 40);
+        Open(harness);
+
+        var scroll = Named<ScrollViewer>(harness, "RemovedScroll");
+
+        Assert.InRange(scroll.Bounds.Height, 200, 341);
+        Assert.True(scroll.Extent.Height > scroll.Viewport.Height + 1, "a long list should scroll inside its section");
+    }
+
+    [AvaloniaFact]
+    public async Task Tab_into_the_rows_of_a_long_list_scrolls_the_screen_so_the_focused_row_shows()
+    {
+        using var harness = await StartAsync(width: 640, height: 420, moreRemoved: 40);
+        Screen(harness).SnapshotHelp.IsOpen = true;
+        Open(harness);
+        Named<ToggleButton>(harness, "RemovedToggle").Focus(NavigationMethod.Tab);
+
+        for (var press = 0; press < 5; press++)
+        {
+            harness.Window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+            harness.Window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+            harness.Settle();
+        }
+
+        var focused = Assert.IsType<Button>(harness.Window.FocusManager!.GetFocusedElement());
+        Assert.Equal("Bring back as a new profile", focused.Content);
+        var bounds = new Rect(focused.TranslatePoint(default, harness.View)!.Value, focused.Bounds.Size);
+        Assert.True(bounds.Top >= -1 && bounds.Bottom <= harness.View.Bounds.Height + 1, $"the focused row is at {bounds} outside the {harness.View.Bounds.Height} px window");
     }
 
     [AvaloniaFact]
