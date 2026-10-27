@@ -11,6 +11,10 @@ public static class UiScale
 
     /// <summary>The step closest to a stored percent; the lower step when it is exactly between two.</summary>
     /// <param name="percent">Any number, such as one typed into a settings file by hand.</param>
-    public static int Nearest(int percent) =>
-        Steps.OrderBy(step => Math.Abs(step - percent)).ThenBy(step => step).First();
+    public static int Nearest(int percent)
+    {
+        // Clamped first, so the distance below cannot overflow for a number far outside the steps.
+        var clamped = Math.Clamp(percent, Steps[0], Steps[^1]);
+        return Steps.OrderBy(step => Math.Abs(step - clamped)).ThenBy(step => step).First();
+    }
 }

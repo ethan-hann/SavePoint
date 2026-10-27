@@ -80,6 +80,9 @@ public class UiScaleTests
     [InlineData(140, 150)]
     [InlineData(1000, 200)]
     [InlineData(-50, 100)]
+    [InlineData(-2147483548, 100)]
+    [InlineData(int.MinValue, 100)]
+    [InlineData(int.MaxValue, 200)]
     public void A_scale_that_is_not_one_of_the_steps_becomes_the_nearest_step(int asked, int expected)
     {
         Assert.Equal(expected, UiScale.Nearest(asked));
