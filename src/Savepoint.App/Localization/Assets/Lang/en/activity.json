@@ -12,6 +12,7 @@
   "activity.details.jumpToLatest": "Jump to latest",
   "activity.details.keptNote": "SavePoint no longer keeps this task. It leaves the list when you choose another.",
   "activity.details.linesName": "Details of {title}",
+  "activity.details.noSteps": "This task didn't have any steps to show.",
   "activity.details.notKept": "The steps of this task weren't kept when SavePoint closed.",
   "activity.details.moreLines": "Showing the newest {shown, number} of {total, number} lines. Copy, with nothing selected, takes {all, select, yes {all of them} other {the newest {kept, number}}}.",
   "activity.empty.body": "Snapshots, switches, freeing up space and moves show up here.",

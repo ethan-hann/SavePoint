@@ -83,9 +83,14 @@ public sealed partial class JobDetailsViewModel : ObservableObject
 
     /// <summary>
     /// What the list of lines says while it is empty: that nothing has been written yet, or, for a finished task, that its steps were not
-    /// kept (a task listed from an earlier run keeps only its summary).
+    /// kept (a task listed from an earlier run keeps only its summary) or that it had none.
     /// </summary>
-    public string EmptyText => _text.Message(_job.Status == JobStatus.Running ? "activity.details.empty" : "activity.details.notKept");
+    public string EmptyText => _text.Message(_job switch
+    {
+        { Status: JobStatus.Running } => "activity.details.empty",
+        { Restored: true } => "activity.details.notKept",
+        _ => "activity.details.noSteps",
+    });
 
     /// <summary>The error card for a job that failed, finished only in part, or was canceled; null otherwise.</summary>
     public ErrorCardViewModel? Error => _error;

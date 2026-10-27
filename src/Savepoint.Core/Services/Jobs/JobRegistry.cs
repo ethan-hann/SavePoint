@@ -13,8 +13,9 @@ namespace Savepoint.Core.Services.Jobs;
 /// </summary>
 /// <remarks>
 /// Keeps the running jobs and, for each game, its five most recently finished ones (the jobs that span every game are one more
-/// group). Given a history file it also writes the finished ones to it as each job ends, and lists those from an earlier run: no more than
-/// the newest 100, none that finished over 30 days ago, and without their lines or result. A running job is never written. The registry takes
+/// group), no more than the newest 100 in all and none that finished over 30 days ago; the limits are applied as each job ends. Given a
+/// history file it also writes the finished ones to it as each job ends, and lists those from an earlier run without their lines or
+/// result. A running job is never written. The registry takes
 /// no per-game lock, so jobs for one game run side by side and order their git work with <c>GameLock</c>. Thread-safe.
 /// </remarks>
 public sealed class JobRegistry : IJobsApi
@@ -99,6 +100,7 @@ public sealed class JobRegistry : IJobsApi
                 Status = saved.Status,
                 FinishedAt = saved.FinishedAt,
                 Error = saved.Error,
+                Restored = true,
             };
             job.Cancellation.Dispose();
             _byId.Add(job.Id, job);
@@ -118,7 +120,8 @@ public sealed class JobRegistry : IJobsApi
         List<JobSnapshot> kept;
         lock (_gate)
         {
-            kept = [.. _finished.Where(finished => !_unsaved.Contains(finished.Id)).Select(Snapshot)];
+            // The clearing job is still running when the saved history is cleared, so it is never in _unsaved; its kind keeps it out.
+            kept = [.. _finished.Where(finished => finished.Kind != JobKind.ClearData && !_unsaved.Contains(finished.Id)).Select(Snapshot)];
             kept.Add(Snapshot(job) with { Status = status, Cancellable = false, CancelRequested = false, FinishedAt = finishedAt, Result = result, Error = error });
         }
 
@@ -402,7 +405,7 @@ public sealed class JobRegistry : IJobsApi
                 Publish(job);
                 _running.Remove(job);
                 _finished.Add(job);
-                PruneFinished(job.GameId);
+                PruneFinished();
             }
         }
 
@@ -411,11 +414,12 @@ public sealed class JobRegistry : IJobsApi
     }
 
     // The caller holds the gate. Each game keeps its own most recent finished jobs, so a busy game never pushes another's out; the jobs
-    // that span every game are kept as one more group.
-    private void PruneFinished(string? gameId)
+    // that span every game are kept as one more group. The history file's age and count limits apply too, so a run never lists more
+    // than the next start would.
+    private void PruneFinished()
     {
-        var sameGame = _finished.Where(finished => finished.GameId == gameId).ToList();
-        foreach (var old in sameGame.Take(sameGame.Count - _finishedKept))
+        var keep = JobHistoryFile.Retain(_finished.Select(Snapshot), _time.GetUtcNow(), _finishedKept).Select(job => job.JobId).ToHashSet();
+        foreach (var old in _finished.Where(finished => !keep.Contains(finished.Id)).ToList())
         {
             _finished.Remove(old);
             _byId.Remove(old.Id);
@@ -595,7 +599,8 @@ public sealed class JobRegistry : IJobsApi
             job.FinishedAt,
             job.Result,
             job.Error,
-            job.Revision);
+            job.Revision,
+            job.Restored);
 
     private void ScheduleDelivery()
     {
@@ -742,6 +747,9 @@ public sealed class JobRegistry : IJobsApi
         public JobResult? Result { get; set; }
 
         public ErrorInfo? Error { get; set; }
+
+        // Listed from an earlier run's history file.
+        public bool Restored { get; init; }
 
         public long Revision { get; set; } = 1;
 

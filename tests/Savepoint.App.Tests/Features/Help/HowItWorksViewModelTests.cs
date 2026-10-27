@@ -243,7 +243,9 @@ public class HowItWorksViewModelTests
 
         Assert.Contains("what SavePoint is doing and has done", activity.Body, StringComparison.Ordinal);
         Assert.Contains("Details", activity.Body, StringComparison.Ordinal);
-        Assert.Contains("Cancel stops a job that can be stopped", activity.Body, StringComparison.Ordinal);
+        Assert.Contains("Cancel stops a task that can be stopped", activity.Body, StringComparison.Ordinal);
+        Assert.Contains("Finished tasks stay listed after SavePoint closes", activity.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("job", activity.Body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
