@@ -60,7 +60,7 @@ public sealed class LinuxPlatform : IPlatform
         };
 
         _steam = new SteamFolders(_paths, clock);
-        Processes = processes ?? new LinuxProcessInspector();
+        Processes = processes ?? new LinuxProcessInspector(clock: clock);
     }
 
     /// <inheritdoc />

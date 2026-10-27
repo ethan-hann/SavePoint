@@ -177,7 +177,7 @@ public class ProcessInspectorTests
     {
         using var tree = new TempTree();
         var proc = tree.Dir("proc");
-        // A container can show its own uptime beside the host's boot time; a uptime that far from it is not trusted.
+        // A container can show its own uptime beside the host's boot time; an uptime that far from it is not trusted.
         File.WriteAllText(Path.Combine(proc, "stat"), "cpu  1 2 3\nbtime 1000\nprocesses 5\n");
         File.WriteAllText(Path.Combine(proc, "uptime"), "3.00 7.50\n");
         FakeProcess(proc, "100", "game\n", "game\0", "100 (game) S 1 100 100 0 -1 4210688 0 0 0 0 0 0 0 0 20 0 1 0 250 0 0\n");
