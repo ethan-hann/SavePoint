@@ -38,6 +38,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">Unsaved changes, or a file the game's patterns name, are in the way; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left the folder half done and this one is not the switch to finish it; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFileException">On Windows, a file the switch would write or remove is a symbolic link; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Writing a file would delete a folder holding files of the player's that the switch does not remove, or making a folder would delete a file of the player's; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.NamesDifferOnlyInCaseException">The folder is on a drive that ignores case and the target point holds two names that differ only in case; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>
@@ -118,6 +119,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.FolderChangedException">The folder was replaced, moved or re-linked after it was approved; the step that would have changed files was not run (steps that finished before it are not undone). A marker that goes missing or changes in that time raises <see cref="Savepoint.Core.Errors.ConsentMarkerException"/> instead, and one that cannot be read, <see cref="Savepoint.Core.Errors.GitOperationException"/>.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point to return to; without one a discard would delete the whole folder, so nothing is touched.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFileException">On Windows, a file the discard would overwrite or remove is a symbolic link; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Restoring a file would delete a folder holding files of the player's that the discard does not remove, or restoring a folder would delete a file of the player's that the patterns name; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.NamesDifferOnlyInCaseException">The folder is on a drive that ignores case and the point holds two names that differ only in case; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The disk filled while files were restored.</exception>
@@ -220,6 +222,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.FolderChangedException">The folder was replaced, moved or re-linked after it was approved; the step that would have changed files was not run. A marker that goes missing or changes in that time raises <see cref="Savepoint.Core.Errors.ConsentMarkerException"/> instead, and one that cannot be read, <see cref="Savepoint.Core.Errors.GitOperationException"/>.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The folder has no saved point, so every file in it would count as new and be removed; nothing is touched.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way; nothing was changed.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFileException">On Windows, a new file the clean would remove is a symbolic link; nothing was changed.</exception>
     /// <exception cref="Savepoint.Core.Errors.GitOperationException">A file stayed in use through every attempt, or git failed.</exception>
     public async Task CleanAsync(RepoRef repo, CancellationToken ct = default)
     {
@@ -320,6 +323,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.DirtyWorkingTreeException">Unsaved changes, or a file the game's patterns name, are in the way.</exception>
     /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left the folder half done and this is not the switch to finish it.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link lies in the way.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFileException">On Windows, a file the switch would write or remove is a symbolic link.</exception>
     /// <exception cref="Savepoint.Core.Errors.FileFolderClashException">Writing a file would delete a folder holding files of the player's, or making a folder would delete a file of the player's.</exception>
     /// <exception cref="Savepoint.Core.Errors.NamesDifferOnlyInCaseException">The folder is on a drive that ignores case and the target holds two names that differ only in case.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileHasNoPointsException">The branch has no point to switch to.</exception>

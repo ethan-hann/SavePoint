@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
+using Savepoint.Core.Tests.Git.Engine;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -225,6 +226,45 @@ public class ProfilesCaptureTests
 
         var result = Assert.IsType<CaptureResult>(job.Result);
         Assert.Equal("error.capture.nestedRepository", result.Folders.Single(folder => folder.Role == RepoRole.Install).Error?.MessageId);
+        Assert.True(result.Folders.Single(folder => folder.Role == RepoRole.External).Ok);
+        Assert.NotEqual(JobStatus.Succeeded, job.Status);
+    }
+
+    // A mod manager's link deployment leaves file links in the game folder, and Windows git would store them as text.
+    private static GameDefinition WithFileLink(BackendWorkspace workspace)
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "file links are only refused on Windows");
+        var game = workspace.NewGame();
+        var target = Path.Combine(workspace.Root, "mod-manager", "a.esp");
+        BackendWorkspace.WriteFile(target, "a");
+        BackendWorkspace.WriteFile(Path.Combine(game.Install.Path, "mods", "b.esp"), "b");
+        Assert.SkipUnless(TestLinks.TryCreateFileLink(Path.Combine(game.Install.Path, "mods", "a.esp"), target), "this system cannot make file links (needs Developer Mode or an elevated account)");
+        return game;
+    }
+
+    [Fact]
+    public async Task A_game_folder_holding_a_file_link_is_refused_by_the_preview_and_names_the_file()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync(WithFileLink(workspace));
+
+        var preview = await workspace.Games.GetCapturePreviewAsync(game.Id, workspace.Token);
+
+        Assert.Equal("error.capture.linkedFile", preview.Error?.MessageId);
+        Assert.Equal("a.esp", preview.Error!.Args["name"]);
+    }
+
+    [Fact]
+    public async Task A_game_folder_holding_a_file_link_fails_that_folders_save_and_leaves_the_other_one_saved()
+    {
+        using var workspace = new BackendWorkspace();
+        var game = await workspace.AddGameAsync(WithFileLink(workspace));
+
+        var started = await workspace.Profiles.CreateAsync(game.Id, "Vanilla", null, "Start");
+        var job = await workspace.WaitForJobAsync(started.Value!.JobId);
+
+        var result = Assert.IsType<CaptureResult>(job.Result);
+        Assert.Equal("error.capture.linkedFile", result.Folders.Single(folder => folder.Role == RepoRole.Install).Error?.MessageId);
         Assert.True(result.Folders.Single(folder => folder.Role == RepoRole.External).Ok);
         Assert.NotEqual(JobStatus.Succeeded, job.Status);
     }

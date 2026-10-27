@@ -3,6 +3,7 @@
   "error.artwork.tooLarge": "That picture is bigger than {maxMegabytes} MB. Choose a smaller one.",
   "error.capture.cancelled": "The snapshot was canceled. Your earlier snapshots are untouched.",
   "error.capture.linkedFolder": "A folder in the game is a shortcut, which SavePoint can't safely snapshot or switch through. Replace the shortcut shown below with a real folder or move it out of the game folder, then try again.",
+  "error.capture.linkedFile": "{name} is a link to a file kept somewhere else, the kind a mod manager's link deployment makes. SavePoint can't snapshot or switch links, because a switch would replace the link with a plain file and the mod would stop loading. In your mod manager, change to hardlink or move deployment, then try again.",
   "error.capture.nestedRepository": "{count, plural, one {A folder in the game has its own hidden change-tracking folder, usually from a mod downloaded with a developer tool. SavePoint can't snapshot it.} other {# folders in the game have their own hidden change-tracking folders, usually from mods downloaded with a developer tool. SavePoint can't snapshot them.}} Move the hidden folder shown below out of the game folder, then try again.",
   "error.catalog.corrupt": "SavePoint couldn't read one of its files for your games and profiles, and left it as it is. Close and reopen SavePoint to restore the last good copy or start again.",
   "error.compaction.cancelled": "Freeing up space was canceled. Nothing was lost.",

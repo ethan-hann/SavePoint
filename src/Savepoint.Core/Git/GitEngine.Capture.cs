@@ -23,6 +23,7 @@ public sealed partial class GitEngine
     /// <exception cref="Savepoint.Core.Errors.ConsentMarkerException">The folder has no marker for this game and role.</exception>
     /// <exception cref="Savepoint.Core.Errors.InterruptedSwitchException">A stopped switch left the folder half done; finish it or discard first, so the mixture is never recorded.</exception>
     /// <exception cref="Savepoint.Core.Errors.LinkedFolderException">On Windows, a folder link holds files the capture would read; nothing was staged.</exception>
+    /// <exception cref="Savepoint.Core.Errors.LinkedFileException">On Windows, a file the capture would record is a symbolic link; nothing was staged.</exception>
     /// <exception cref="Savepoint.Core.Errors.DiskSpaceException">The storage volume has less free than the floor plus the size of the files the point would add (the exception reports both figures); no file was stored. Temporary packs a stopped capture left are removed first when they are what fills the volume.</exception>
     /// <exception cref="Savepoint.Core.Errors.DetachedCaptureNotSupportedException">The folder is on an older point and the mode does not allow capturing there.</exception>
     /// <exception cref="Savepoint.Core.Errors.ProfileNotLoadedException">A plain capture was asked for onto a branch while the folder is on another one; nothing was staged.</exception>

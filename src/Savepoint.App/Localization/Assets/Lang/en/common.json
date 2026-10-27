@@ -34,6 +34,7 @@
   "errorCard.title.fileInUse.moveSnapshots": "A file is in use, so an old copy stayed",
   "errorCard.title.fileInUse.snapshot": "A file is in use, so the snapshot didn't finish",
   "errorCard.title.fileInUse.switch": "A file is in use, so the switch stopped partway",
+  "errorCard.title.fileIsLink": "A file in the game is a link",
   "errorCard.title.fileUnreadable": "SavePoint can't read a file",
   "errorCard.title.folderBelongsElsewhere": "That folder belongs to another game",
   "errorCard.title.folderChanged": "The folder changed while SavePoint worked",

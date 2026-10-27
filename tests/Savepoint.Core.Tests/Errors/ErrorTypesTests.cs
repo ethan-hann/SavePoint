@@ -231,6 +231,8 @@ public class ErrorTypesTests
             ("path", "/games/alpha/mod/.git"), ("count", 2));
         Add("LinkedFolder", new LinkedFolderException(@"C:\Games\Alpha\Mods"), "error.capture.linkedFolder",
             ("path", @"C:\Games\Alpha\Mods"));
+        Add("LinkedFile", new LinkedFileException(@"C:\Games\Alpha\Mods\Cool Mod.esp"), "error.capture.linkedFile",
+            ("path", @"C:\Games\Alpha\Mods\Cool Mod.esp"), ("name", "Cool Mod.esp"));
         Add("SwitchNoteStuck", new SwitchNoteStuckException(RepoRole.External, @"D:\SavePoint\alpha.git\savepoint-switch.json"), "error.launch.switchNoteStuck",
             ("role", RepoRole.External), ("path", @"D:\SavePoint\alpha.git\savepoint-switch.json"));
         Add("FolderChanged", new FolderChangedException(@"C:\Games\Alpha", RepoRole.Install), "error.path.changed",

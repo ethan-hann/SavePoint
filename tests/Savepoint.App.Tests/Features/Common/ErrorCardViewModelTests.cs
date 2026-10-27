@@ -67,6 +67,21 @@ public class ErrorCardViewModelTests
     }
 
     [Fact]
+    public void A_file_link_card_names_the_file_and_points_to_the_mod_managers_other_deployment_methods()
+    {
+        var file = PathOnThisSystem("Games", "Alpha", "Mods", "Cool Mod.esp");
+
+        var card = new ErrorCardViewModel(ErrorInfo.From(new LinkedFileException(file)), _text);
+
+        Assert.Equal("A file in the game is a link", card.Title);
+        Assert.Equal(ErrorTone.Warning, card.Tone);
+        Assert.Contains("Cool Mod.esp", card.Body);
+        Assert.Contains("mod manager", card.Body);
+        Assert.Contains("hardlink or move deployment", card.Body);
+        Assert.Equal(file, card.Path);
+    }
+
+    [Fact]
     public void A_paused_free_up_promises_no_rerun_that_nothing_schedules()
     {
         var card = new ErrorCardViewModel(ErrorInfo.From(new CompactionPreemptedException("skyrim")), _text);
