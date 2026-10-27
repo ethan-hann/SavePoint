@@ -1,4 +1,5 @@
 using Savepoint.Core.Services.Storage;
+using Savepoint.Core.Tests.Git.Engine;
 
 namespace Savepoint.Core.Tests.Services.Storage;
 
@@ -102,6 +103,45 @@ public class DiskSpaceTests
     public void A_blank_path_is_refused()
     {
         Assert.Throws<ArgumentException>(() => _disk.GetFreeBytes(" "));
+    }
+
+    [Fact]
+    public void A_folder_reached_through_a_link_is_on_the_volume_the_link_leads_to()
+    {
+        using var temp = new TempFolder();
+        var elsewhere = FolderOnAnotherVolumeThan(temp.Path);
+        Assert.SkipWhen(elsewhere is null, "only one volume to be seen from here");
+        Assert.SkipUnless(TestLinks.TryCreateFolderLink(temp.Combine("link"), elsewhere!), "this account cannot create folder links");
+
+        var viaLink = _disk.GetVolumeId(temp.Combine("link", "not", "there", "yet"));
+
+        Assert.NotNull(viaLink);
+        Assert.Equal(_disk.GetVolumeId(elsewhere!), viaLink);
+        Assert.NotEqual(_disk.GetVolumeId(temp.Path), viaLink);
+        TestLinks.RemoveFolderLink(temp.Combine("link"));
+    }
+
+    [Fact]
+    public void A_folder_reached_through_a_link_reports_the_free_space_of_the_volume_the_link_leads_to()
+    {
+        using var temp = new TempFolder();
+        var elsewhere = FolderOnAnotherVolumeThan(temp.Path);
+        Assert.SkipWhen(elsewhere is null, "only one volume to be seen from here");
+        Assert.SkipUnless(TestLinks.TryCreateFolderLink(temp.Combine("link"), elsewhere!), "this account cannot create folder links");
+
+        var free = _disk.GetFreeBytes(temp.Combine("link"));
+
+        Assert.NotNull(free);
+        Assert.InRange(Math.Abs(free.Value - ReferenceFreeBytes(elsewhere!)), 0, _drift);
+        TestLinks.RemoveFolderLink(temp.Combine("link"));
+    }
+
+    // An existing folder (only read, never written) on a volume other than the one holding <path>; null when none can be found here. The
+    // tests keep their temp folder in the workspace, so the system folder (Windows) or the memory-backed one (Linux) is usually elsewhere.
+    private string? FolderOnAnotherVolumeThan(string path)
+    {
+        var here = _disk.GetVolumeId(path);
+        return new[] { Environment.GetFolderPath(Environment.SpecialFolder.Windows), "/dev/shm" }.FirstOrDefault(candidate => Directory.Exists(candidate) && _disk.GetVolumeId(candidate) is { } volume && volume != here);
     }
 
     private static long ReferenceFreeBytes(string existingFolder) => DriveHolding(existingFolder).AvailableFreeSpace;
