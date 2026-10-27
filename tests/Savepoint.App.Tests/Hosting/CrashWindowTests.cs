@@ -24,12 +24,12 @@ public class CrashWindowTests
         }
     }
 
-    private static CrashWindow Open(string? folder, Func<string, bool>? openFolder = null, Exception? crash = null, Func<string, Task>? copyText = null)
+    private static CrashWindow Open(string? folder, Func<string, Task<bool>>? openFolder = null, Exception? crash = null, Func<string, Task>? copyText = null)
     {
         var window = new CrashWindow(
             new UiFormatter(LocalizationCatalog.Current),
             new CrashReport(crash ?? Thrown("the library is gone"), "the UI thread", folder),
-            openFolder ?? (_ => true),
+            openFolder ?? (_ => Task.FromResult(true)),
             copyText,
             "9.9.9+abc1234");
         window.Show();
@@ -195,7 +195,7 @@ public class CrashWindowTests
         var window = Open(_logFolder, folder =>
         {
             opened.Add(folder);
-            return works;
+            return Task.FromResult(works);
         });
         var button = Named<Button>(window, "OpenLogFolderButton");
         var failure = Named<TextBlock>(window, "OpenFailedText");
@@ -211,6 +211,23 @@ public class CrashWindowTests
 
         Assert.True(failure.IsEffectivelyVisible);
         Assert.Equal("SavePoint couldn't open the log folder.", failure.Text);
+    }
+
+    [AvaloniaFact]
+    public void A_file_manager_that_faults_is_reported_and_does_not_crash_the_window()
+    {
+        var thrown = Open(_logFolder, _ => throw new InvalidOperationException("no file manager"));
+        var faulted = Open(_logFolder, _ => Task.FromException<bool>(new InvalidOperationException("no file manager")));
+
+        foreach (var window in new[] { thrown, faulted })
+        {
+            Click(Named<Button>(window, "OpenLogFolderButton"));
+
+            var failure = Named<TextBlock>(window, "OpenFailedText");
+            Assert.True(failure.IsEffectivelyVisible);
+            Assert.Equal("SavePoint couldn't open the log folder.", failure.Text);
+            Assert.True(window.IsVisible);
+        }
     }
 
     [AvaloniaFact]

@@ -50,6 +50,19 @@ public class AboutLogFolderTests
         Assert.Equal("SavePoint couldn't open the log folder.", toast.Message.Text);
     }
 
+    [Fact]
+    public async Task A_file_manager_that_starts_and_then_fails_is_reported_in_words()
+    {
+        var rig = await SettingsRig.ShownAsync(logFolder: _logFolder);
+        rig.Revealer.FailsAfterStarting = true;
+
+        rig.Screen.About.OpenLogFolderCommand.Execute(null);
+
+        var toast = Assert.Single(rig.Toasts.Toasts);
+        Assert.Equal(ToastKind.Error, toast.Message.Kind);
+        Assert.Equal("SavePoint couldn't open the log folder.", toast.Message.Text);
+    }
+
     [AvaloniaFact]
     public async Task The_button_shows_after_the_notices_button_when_there_is_a_folder()
     {

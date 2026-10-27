@@ -17,7 +17,7 @@ public sealed class AvaloniaCrashPresenter : ICrashPresenter
     private const int _started = 1;
     private const int _abandoned = 2;
 
-    private readonly Func<string, bool> _openFolder;
+    private readonly Func<string, Task<bool>> _openFolder;
     private readonly Func<Window?> _owner;
     private readonly TimeSpan _uiStartTimeout;
     private readonly Action<CrashWindow>? _shown;
@@ -27,7 +27,7 @@ public sealed class AvaloniaCrashPresenter : ICrashPresenter
     /// <param name="owner">The window the crash window is modal to, so nothing else in the app can be clicked; the app's main window when null.</param>
     /// <param name="uiStartTimeout">How long a crash on another thread waits for the UI thread to start showing the window before it gives up; five seconds when null.</param>
     /// <param name="shown">Called with the window once it is on screen; for tests.</param>
-    public AvaloniaCrashPresenter(Func<string, bool> openFolder, Func<Window?>? owner = null, TimeSpan? uiStartTimeout = null, Action<CrashWindow>? shown = null)
+    public AvaloniaCrashPresenter(Func<string, Task<bool>> openFolder, Func<Window?>? owner = null, TimeSpan? uiStartTimeout = null, Action<CrashWindow>? shown = null)
     {
         _openFolder = openFolder;
         _owner = owner ?? MainWindow;

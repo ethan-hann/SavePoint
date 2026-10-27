@@ -36,7 +36,7 @@ public class AvaloniaCrashPresenterTests
     public void On_the_ui_thread_the_window_is_shown_and_the_call_returns_when_it_is_closed()
     {
         var shown = new List<CrashWindow>();
-        var presenter = new AvaloniaCrashPresenter(_ => true, shown: CloseSoon(shown));
+        var presenter = new AvaloniaCrashPresenter(_ => Task.FromResult(true), shown: CloseSoon(shown));
 
         presenter.Show(Report());
 
@@ -57,7 +57,7 @@ public class AvaloniaCrashPresenterTests
             }
         }
 
-        var presenter = new AvaloniaCrashPresenter(_ => true, shown: window =>
+        var presenter = new AvaloniaCrashPresenter(_ => Task.FromResult(true), shown: window =>
         {
             Record("shown");
             window.Closed += (_, _) => Record("closed");
@@ -81,7 +81,7 @@ public class AvaloniaCrashPresenterTests
     public void A_ui_thread_that_never_gets_to_it_does_not_hold_the_crash_up_and_shows_nothing_later()
     {
         var shown = new List<CrashWindow>();
-        var presenter = new AvaloniaCrashPresenter(_ => true, uiStartTimeout: TimeSpan.FromMilliseconds(200), shown: CloseSoon(shown));
+        var presenter = new AvaloniaCrashPresenter(_ => Task.FromResult(true), uiStartTimeout: TimeSpan.FromMilliseconds(200), shown: CloseSoon(shown));
 
         var call = Task.Run(() => presenter.Show(Report()), TestContext.Current.CancellationToken);
         Assert.True(call.Wait(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken), "The call should give up by itself.");
@@ -96,7 +96,7 @@ public class AvaloniaCrashPresenterTests
         var owner = new Window();
         owner.Show();
         var shown = new List<CrashWindow>();
-        var presenter = new AvaloniaCrashPresenter(_ => true, () => owner, shown: CloseSoon(shown));
+        var presenter = new AvaloniaCrashPresenter(_ => Task.FromResult(true), () => owner, shown: CloseSoon(shown));
 
         presenter.Show(Report());
 

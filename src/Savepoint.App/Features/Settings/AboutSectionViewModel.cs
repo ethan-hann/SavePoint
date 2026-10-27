@@ -52,27 +52,27 @@ public sealed partial class AboutSectionViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(HasLogFolder))]
-    private void OpenLogFolder()
+    private async Task OpenLogFolderAsync()
     {
-        if (_environment.LogFolder is { } folder && !_environment.Revealer.Reveal(folder))
+        if (_environment.LogFolder is { } folder && !await _environment.Revealer.RevealAsync(folder))
         {
             _toasts.Show(new ToastMessage(_text.Message("settings.about.logFolderFailed"), ToastKind.Error));
         }
     }
 
     [RelayCommand(CanExecute = nameof(HasLicense))]
-    private void ShowLicense()
+    private async Task ShowLicenseAsync()
     {
-        if (LicensePath is { } path && !_environment.Revealer.Reveal(path))
+        if (LicensePath is { } path && !await _environment.Revealer.RevealAsync(path))
         {
             _toasts.Show(new ToastMessage(_text.Message("settings.about.licenseFailed"), ToastKind.Error));
         }
     }
 
     [RelayCommand(CanExecute = nameof(HasNotices))]
-    private void ShowNotices()
+    private async Task ShowNoticesAsync()
     {
-        if (NoticesPath is { } path && !_environment.Revealer.Reveal(path))
+        if (NoticesPath is { } path && !await _environment.Revealer.RevealAsync(path))
         {
             _toasts.Show(new ToastMessage(_text.Message("settings.about.noticesFailed"), ToastKind.Error));
         }
