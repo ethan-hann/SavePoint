@@ -293,7 +293,7 @@ public sealed class FakeGamesApi : IGamesApi
         _backend.Call(_api, nameof(GetCapturePreviewAsync), [gameId], () =>
         {
             var game = State.Game(gameId);
-            var empty = new CapturePreview(gameId, [.. FakeState.FoldersOf(game).Select(r => new FolderCapturePreview(r, State.Resolve(PathOf(game, r)), 0, 0, 0))], 0);
+            var empty = new CapturePreview(gameId, [.. FakeState.FoldersOf(game).Select(r => new FolderCapturePreview(r, State.Resolve(PathOf(game, r)), 0, 0, 0, State.FolderHeld(gameId, r)))], 0);
             return OperationResult.Success(State.CapturePreviews.GetValueOrDefault(gameId) ?? empty);
         });
 

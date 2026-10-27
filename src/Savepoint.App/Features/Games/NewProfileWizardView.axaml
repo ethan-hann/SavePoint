@@ -66,18 +66,20 @@
           <StackPanel x:Name="StartWithoutSavesChoice" Spacing="2" IsVisible="{Binding HasSavesFolder}">
             <CheckBox x:Name="StartWithoutSavesBox"
                       IsChecked="{Binding StartWithoutSaves, Mode=TwoWay}"
+                      IsEnabled="{Binding CanStartWithoutSaves}"
                       Content="{loc:Loc profiles.wizard.startEmpty.saves}"
                       AutomationProperties.Name="{loc:Loc profiles.wizard.startEmpty.saves}"
-                      AutomationProperties.HelpText="{loc:Loc profiles.wizard.startEmpty.savesHint}" />
-            <TextBlock x:Name="StartWithoutSavesHint" Classes="caption subtle" Margin="32,0,0,0" TextWrapping="Wrap" AutomationProperties.AccessibilityView="Raw" Text="{loc:Loc profiles.wizard.startEmpty.savesHint}" />
+                      AutomationProperties.HelpText="{Binding StartWithoutSavesHint}" />
+            <TextBlock x:Name="StartWithoutSavesHint" Classes="caption subtle" Margin="32,0,0,0" TextWrapping="Wrap" AutomationProperties.AccessibilityView="Raw" Text="{Binding StartWithoutSavesHint}" />
           </StackPanel>
           <StackPanel x:Name="StartWithoutModsChoice" Spacing="2" IsVisible="{Binding HasModsFolder}">
             <CheckBox x:Name="StartWithoutModsBox"
                       IsChecked="{Binding StartWithoutMods, Mode=TwoWay}"
+                      IsEnabled="{Binding CanStartWithoutMods}"
                       Content="{loc:Loc profiles.wizard.startEmpty.mods}"
                       AutomationProperties.Name="{loc:Loc profiles.wizard.startEmpty.mods}"
-                      AutomationProperties.HelpText="{loc:Loc profiles.wizard.startEmpty.modsHint}" />
-            <TextBlock x:Name="StartWithoutModsHint" Classes="caption subtle" Margin="32,0,0,0" TextWrapping="Wrap" AutomationProperties.AccessibilityView="Raw" Text="{loc:Loc profiles.wizard.startEmpty.modsHint}" />
+                      AutomationProperties.HelpText="{Binding StartWithoutModsHint}" />
+            <TextBlock x:Name="StartWithoutModsHint" Classes="caption subtle" Margin="32,0,0,0" TextWrapping="Wrap" AutomationProperties.AccessibilityView="Raw" Text="{Binding StartWithoutModsHint}" />
           </StackPanel>
         </StackPanel>
         <ContentControl x:Name="NamePreview" Content="{Binding Preview}" />

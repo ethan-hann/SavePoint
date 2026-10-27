@@ -70,6 +70,12 @@ public sealed class FakeProfilesApi : IProfilesApi
                 throw new ValidationException([new ValidationIssue("startEmpty", ValidationMessageIds.ProfileStartEmptyInvalid)]);
             }
 
+            // And a folder whose files no snapshot holds would lose them.
+            if ((startEmpty ?? []).Any(role => !State.FolderHeld(gameId, role)))
+            {
+                throw new ValidationException([new ValidationIssue("startEmpty", ValidationMessageIds.ProfileStartEmptyUnsaved)]);
+            }
+
             var profile = CatalogIds.NewProfile(gameId, name, State.Random) with { Notes = notes };
             State.Profiles.Add(profile);
             Load(profile);

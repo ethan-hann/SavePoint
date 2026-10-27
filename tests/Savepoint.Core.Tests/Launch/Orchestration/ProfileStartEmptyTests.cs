@@ -188,6 +188,7 @@ public class ProfileStartEmptyTests
         Assert.False(saves.MatchesTarget);
         Assert.Equal(1, saves.Switch!.FilesChanged);
         Assert.Equal(1, saves.Switch.FilesRemoved);
+        Assert.NotEmpty(preview.AvailableSaves);
         Assert.True(rig.SavesHave("slot1.sav"));
 
         var job = await rig.SwitchAsync(new LaunchTarget.ProfileTip(made.Id));

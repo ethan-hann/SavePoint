@@ -50,4 +50,30 @@ public class LaunchDialogEmptyFolderTests : IDisposable
         Assert.True(dialog.HasSaveSection);
         Assert.Equal("This replaces what's in your saves folder now.", dialog.SaveCaption);
     }
+
+    [Fact]
+    public async Task Switching_to_a_profile_with_no_saves_counts_the_files_removed_from_the_saves_folder()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { Switch = new SwitchSummary(3, 0, 0, null, 400_000, 3) } });
+
+        Assert.True(dialog.HasSavesRemoved);
+        Assert.Equal("3 files will be removed from your saves folder.", dialog.SavesRemovedText);
+    }
+
+    [Fact]
+    public async Task One_removed_save_file_reads_in_the_singular()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { Switch = new SwitchSummary(1, 0, 0, null, 400_000, 1) } });
+
+        Assert.Equal("1 file will be removed from your saves folder.", dialog.SavesRemovedText);
+    }
+
+    [Fact]
+    public async Task A_switch_that_removes_no_save_file_says_nothing_about_removal()
+    {
+        var dialog = await _rig.DialogAsync(change: preview => preview with { External = preview.External! with { Switch = new SwitchSummary(2, 0, 100, null) } });
+
+        Assert.False(dialog.HasSavesRemoved);
+        Assert.Equal(string.Empty, dialog.SavesRemovedText);
+    }
 }

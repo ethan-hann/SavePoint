@@ -195,6 +195,18 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     /// <summary>True when either box is offered.</summary>
     public bool HasStartEmptyChoices => HasSavesFolder || HasModsFolder;
 
+    /// <summary>True when the "Start with no saves" box can be ticked: the game has the folder and its current files are in a snapshot, so nothing is lost.</summary>
+    public bool CanStartWithoutSaves => HasSavesFolder && Preview.IsHeld(RepoRole.External);
+
+    /// <summary>True when the "Start with no mods" box can be ticked: the game has the folder and its current files are in a snapshot, so nothing is lost.</summary>
+    public bool CanStartWithoutMods => HasModsFolder && Preview.IsHeld(RepoRole.Mods);
+
+    /// <summary>What the saves box does, or why it is off; also its help text for a screen reader.</summary>
+    public string StartWithoutSavesHint => _text.Message(Preview.IsRead && !CanStartWithoutSaves ? "profiles.wizard.startEmpty.savesNeedSnapshot" : "profiles.wizard.startEmpty.savesHint");
+
+    /// <summary>What the mods box does, or why it is off; also its help text for a screen reader.</summary>
+    public string StartWithoutModsHint => _text.Message(Preview.IsRead && !CanStartWithoutMods ? "profiles.wizard.startEmpty.modsNeedSnapshot" : "profiles.wizard.startEmpty.modsHint");
+
     /// <summary>True when the name is not blank, which is what Continue needs.</summary>
     public bool CanContinue => TrimmedName.Length > 0;
 
@@ -284,22 +296,28 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
         {
             Preview.Fail();
         }
+
+        // What the preview says about each folder decides whether its box is offered.
+        OnPropertyChanged(nameof(CanStartWithoutSaves));
+        OnPropertyChanged(nameof(CanStartWithoutMods));
+        OnPropertyChanged(nameof(StartWithoutSavesHint));
+        OnPropertyChanged(nameof(StartWithoutModsHint));
     }
 
     partial void OnStartWithoutSavesChanged(bool value) => Preview.StartEmpty(EmptyFolders());
 
     partial void OnStartWithoutModsChanged(bool value) => Preview.StartEmpty(EmptyFolders());
 
-    // Only a folder the game has can start empty, so a box that is not offered never counts.
+    // Only a folder whose files a snapshot already holds can start empty, so a box that is off never counts, ticked or not.
     private HashSet<RepoRole> EmptyFolders()
     {
         var folders = new HashSet<RepoRole>();
-        if (StartWithoutSaves && HasSavesFolder)
+        if (StartWithoutSaves && CanStartWithoutSaves)
         {
             folders.Add(RepoRole.External);
         }
 
-        if (StartWithoutMods && HasModsFolder)
+        if (StartWithoutMods && CanStartWithoutMods)
         {
             folders.Add(RepoRole.Mods);
         }

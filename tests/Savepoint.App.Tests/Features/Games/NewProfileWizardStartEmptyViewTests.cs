@@ -11,6 +11,7 @@ using Savepoint.App.Features.Games;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Theme;
+using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
 namespace Savepoint.App.Tests.Features.Games;
@@ -18,11 +19,21 @@ namespace Savepoint.App.Tests.Features.Games;
 // The two "Start with no ..." boxes on the wizard's first step: shown per folder, named for screen readers, and reachable by keyboard.
 public class NewProfileWizardStartEmptyViewTests
 {
-    private static (ThemeHost Host, NewProfileWizardView View, NewProfileWizardViewModel Wizard) Open(GameDefinition game)
+    // The preview says whether each folder's files are already in a snapshot, which is what turns its box on.
+    private static (ThemeHost Host, NewProfileWizardView View, NewProfileWizardViewModel Wizard) Open(GameDefinition game, bool held = true)
     {
-        var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(game, 1));
+        var preview = new CapturePreview(
+            game.Id,
+            [
+                new FolderCapturePreview(RepoRole.Install, ModsSamples.InstallPath, 900, 0, 9_400_000_000),
+                .. game.Mods is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.Mods, ModsSamples.ModsResolved, 40, 40, 3_100_000_000, held)],
+                .. game.External is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.External, ModsSamples.SavesResolved, 1, 0, 2_000, held)],
+            ],
+            0);
+        var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(game, 1).WithCapturePreview(preview));
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         var wizard = new NewProfileWizardViewModel(game, backend.Games, backend.Profiles, backend.Jobs, text, new ImmediateUiDispatcher(), backend.Clock);
+        wizard.LoadPreviewAsync().GetAwaiter().GetResult();
         var view = new NewProfileWizardView { DataContext = wizard };
         var host = new ThemeHost(view, width: 700, height: 900);
         Dispatcher.UIThread.RunJobs();
@@ -49,6 +60,35 @@ public class NewProfileWizardStartEmptyViewTests
         Assert.Contains("asks first", AutomationProperties.GetHelpText(mods), StringComparison.Ordinal);
         Assert.False(saves.IsChecked);
         Assert.False(mods.IsChecked);
+    }
+
+    [AvaloniaFact]
+    public void A_folder_no_snapshot_holds_has_its_box_switched_off_with_the_reason_shown_and_read_out()
+    {
+        var (host, view, wizard) = Open(ModsSamples.SevenDays, held: false);
+        using var _ = host;
+
+        var saves = Find<CheckBox>(view, "StartWithoutSavesBox");
+        var mods = Find<CheckBox>(view, "StartWithoutModsBox");
+
+        Assert.False(saves.IsEnabled);
+        Assert.False(mods.IsEnabled);
+        Assert.Equal("Take a snapshot first, so your current saves are kept.", Find<TextBlock>(view, "StartWithoutSavesHint").Text);
+        Assert.Equal("Take a snapshot first, so your current mods are kept.", Find<TextBlock>(view, "StartWithoutModsHint").Text);
+        Assert.Equal("Take a snapshot first, so your current saves are kept.", AutomationProperties.GetHelpText(saves));
+        Assert.Equal("Take a snapshot first, so your current mods are kept.", AutomationProperties.GetHelpText(mods));
+        Assert.Equal("Start with no saves", AutomationProperties.GetName(saves));
+        Assert.False(wizard.StartWithoutSaves);
+    }
+
+    [AvaloniaFact]
+    public void A_folder_a_snapshot_holds_has_its_box_switched_on()
+    {
+        var (host, view, _) = Open(ModsSamples.SevenDays);
+        using var _ = host;
+
+        Assert.True(Find<CheckBox>(view, "StartWithoutSavesBox").IsEnabled);
+        Assert.True(Find<CheckBox>(view, "StartWithoutModsBox").IsEnabled);
     }
 
     [AvaloniaFact]

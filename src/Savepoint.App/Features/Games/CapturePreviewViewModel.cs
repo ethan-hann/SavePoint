@@ -66,6 +66,13 @@ public sealed partial class CapturePreviewViewModel : ObservableObject
         IsLoading = false;
     }
 
+    /// <summary>True once the preview was read: a box's reason is only worth giving when the answer is known.</summary>
+    internal bool IsRead => _preview is not null;
+
+    /// <summary>True when the folder's current files are already in a snapshot, so the new profile may start it empty. False when unknown.</summary>
+    /// <param name="role">The saves or mods folder.</param>
+    internal bool IsHeld(RepoRole role) => _preview?.Folders.Any(folder => folder.Role == role && folder.HeldInSnapshot) == true;
+
     internal void Fail()
     {
         _preview = null;
