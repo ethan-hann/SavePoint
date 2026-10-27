@@ -9,15 +9,27 @@ public sealed class SearchTarget
     // Fields are kept apart by a line break, which a typed word never holds, so a word is found inside one field only.
     private const char _fieldBreak = '\n';
 
-    private SearchTarget(string text, string squashed)
+    // The folded name a target built by ForName leads with; ranking looks at its words, found on first use.
+    private readonly string? _foldedName;
+    private string[]? _nameWords;
+    private string[]? _nameTails;
+
+    private SearchTarget(string text, string squashed, string? foldedName = null)
     {
         Text = text;
         Squashed = squashed;
+        _foldedName = foldedName;
     }
 
     internal string Text { get; }
 
     internal string Squashed { get; }
+
+    // The name's words; empty for a target that is not a name.
+    internal string[] NameWords => _nameWords ??= _foldedName is null ? [] : [.. WordsOf(_foldedName)];
+
+    // For each name word, the letters and digits from there to the end of the name, so "halflife" and "life" both start one.
+    internal string[] NameTails => _nameTails ??= [.. NameWords.Select((_, index) => string.Concat(NameWords.Skip(index)))];
 
     /// <summary>Builds a key from the fields an entry can be found by.</summary>
     /// <param name="fields">The entry's name, notes, dates and so on; null or empty fields are skipped.</param>
@@ -33,7 +45,7 @@ public sealed class SearchTarget
     {
         var folded = Fold(name);
         var initials = new string([.. WordsOf(folded).Select(word => word[0])]);
-        return new SearchTarget(string.Join(_fieldBreak, folded, initials), string.Join(_fieldBreak, Squash(folded), initials));
+        return new SearchTarget(string.Join(_fieldBreak, folded, initials), string.Join(_fieldBreak, Squash(folded), initials), folded);
     }
 
     // Lowercase, accents removed, apostrophes dropped: the same treatment for what is typed and what is searched.
@@ -55,7 +67,7 @@ public sealed class SearchTarget
     // Letters and digits only, so "spiderman" finds "Spider-Man".
     internal static string Squash(string folded) => new([.. folded.Where(char.IsLetterOrDigit)]);
 
-    private static IEnumerable<string> WordsOf(string folded) =>
+    internal static IEnumerable<string> WordsOf(string folded) =>
         folded.Split([.. folded.Where(letter => !char.IsLetterOrDigit(letter)).Distinct()], StringSplitOptions.RemoveEmptyEntries);
 }
 
@@ -64,9 +76,15 @@ public sealed class SearchQuery
 {
     private readonly (string Word, string Squashed)[] _words;
 
+    // The typed words split at punctuation, and the letters of all of them run together: what ranking compares to a name's start.
+    private readonly string[] _rankWords;
+    private readonly string _rankJoined;
+
     private SearchQuery((string Word, string Squashed)[] words)
     {
         _words = words;
+        _rankWords = [.. words.SelectMany(entry => SearchTarget.WordsOf(entry.Word))];
+        _rankJoined = string.Concat(_rankWords);
     }
 
     /// <summary>A query that matches every entry.</summary>
@@ -97,4 +115,25 @@ public sealed class SearchQuery
     public bool Matches(SearchTarget target) =>
         _words.All(entry => target.Text.Contains(entry.Word, StringComparison.Ordinal)
             || (entry.Squashed.Length > 0 && target.Squashed.Contains(entry.Squashed, StringComparison.Ordinal)));
+
+    /// <summary>
+    /// How well a matching name fits, lower being better: 0 when the name starts with what was typed, 1 when its first word starts with the
+    /// first typed word, 2 otherwise (including a match through initials or from the middle of a word).
+    /// </summary>
+    /// <param name="target">A name's key, from <see cref="SearchTarget.ForName"/>; any other key ranks 2.</param>
+    public int Rank(SearchTarget target)
+    {
+        var tails = target.NameTails;
+        if (tails.Length == 0 || _rankWords.Length == 0)
+        {
+            return 2;
+        }
+
+        if (tails[0].StartsWith(_rankJoined, StringComparison.Ordinal))
+        {
+            return 0;
+        }
+
+        return target.NameWords[0].StartsWith(_rankWords[0], StringComparison.Ordinal) ? 1 : 2;
+    }
 }
