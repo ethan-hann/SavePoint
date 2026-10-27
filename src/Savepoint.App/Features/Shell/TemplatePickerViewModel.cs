@@ -53,6 +53,7 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
     {
         Description = text.Message("templatePicker.body");
         NoMatchesText = text.Message("templatePicker.noMatches");
+        ClearSearchName = text.Message("search.clear");
         _all = [.. templates.Select(template => (
             new TemplateItem(template.DisplayName, new RelayCommand(() => Close(new TemplateChoice.Template(template)))),
             SearchTarget.ForName(template.DisplayName)))];
@@ -68,6 +69,13 @@ public sealed partial class TemplatePickerViewModel : DialogViewModel<TemplateCh
 
     /// <summary>"No games match your search.".</summary>
     public string NoMatchesText { get; }
+
+    /// <summary>The name of the button that clears the search, "Clear search".</summary>
+    public string ClearSearchName { get; }
+
+    /// <summary>Empties the search, which lists every template again.</summary>
+    [RelayCommand]
+    private void ClearSearch() => SearchText = string.Empty;
 
     partial void OnSearchTextChanged(string value)
     {

@@ -1,9 +1,11 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using Savepoint.App.Features.Library;
 using Savepoint.App.Tests.Features.EndToEnd;
+using Savepoint.App.Tests.Theme;
 
 namespace Savepoint.App.Tests.Features.Library;
 
@@ -42,6 +44,27 @@ public class LibraryPickerViewTests
         var order = app.Window.GetVisualDescendants().OfType<Control>().ToList();
 
         Assert.True(order.IndexOf(pointer) > order.IndexOf(list));
+    }
+
+    [AvaloniaFact]
+    public async Task A_search_nothing_matches_offers_a_named_button_to_clear_it_with_the_keyboard()
+    {
+        using var app = await AppStates.OpenAsync("library-picker-many");
+        var picker = (LibraryPickerDialogViewModel)app.Main.Dialogs.Current!;
+        var button = app.Find<Button>("ClearSearchButton");
+        Assert.False(button.IsEffectivelyVisible);
+
+        picker.SearchText = "no such game";
+        app.Settle();
+        Assert.True(button.IsEffectivelyVisible);
+        Assert.Equal("Clear search", AutomationAudit.NameOf(button));
+        Assert.True(button.Focusable && button.IsTabStop);
+
+        button.Focus();
+        app.Press(Key.Enter, PhysicalKey.Enter);
+
+        Assert.Equal(string.Empty, picker.SearchText);
+        Assert.Same(app.Find<TextBox>("SearchField"), app.Focused);
     }
 
     [AvaloniaFact]

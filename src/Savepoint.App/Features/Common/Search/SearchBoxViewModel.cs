@@ -44,6 +44,12 @@ public sealed partial class SearchBoxViewModel : ObservableObject, IDisposable
     /// <summary>Raised after <see cref="Text"/> or <see cref="Query"/> changed.</summary>
     public event EventHandler? Changed;
 
+    /// <summary>
+    /// Raised when <see cref="ClearCommand"/> ran, so the view can put the cursor back in the box: the button that ran it (a "Clear
+    /// search" under a "no matches" message) goes away with the text, and focus would be lost.
+    /// </summary>
+    public event EventHandler? Cleared;
+
     /// <summary>The box's accessible name and placeholder.</summary>
     public string Label { get; }
 
@@ -75,7 +81,11 @@ public sealed partial class SearchBoxViewModel : ObservableObject, IDisposable
 
     /// <summary>Empties the box.</summary>
     [RelayCommand(CanExecute = nameof(HasText))]
-    private void Clear() => Text = string.Empty;
+    private void Clear()
+    {
+        Text = string.Empty;
+        Cleared?.Invoke(this, EventArgs.Empty);
+    }
 
     partial void OnTextChanged(string value)
     {

@@ -64,6 +64,44 @@ public class HistorySearchTests
         Assert.Equal([_deepCave, _firstNight, _survival], Cards(rig));
     }
 
+    // Gives a sample profile notes, which History reads with the profile list.
+    private static ScenarioBuilder WithNotes(ScenarioBuilder scenario, string profileId, string notes)
+    {
+        var index = scenario.Profiles.FindIndex(entry => entry.Profile.Id == profileId);
+        scenario.Profiles[index] = (scenario.Profiles[index].Profile with { Notes = notes }, scenario.Profiles[index].Stats);
+        return scenario;
+    }
+
+    [Fact]
+    public async Task Typing_words_from_a_profiles_notes_finds_the_snapshots_that_belong_to_it()
+    {
+        var rig = await ShownAsync(new FakeBackend(WithNotes(ScenarioBuilder.Sample(), SampleScenario.SurvivalId, "Hunger and cold are on")));
+
+        rig.Screen.Search.Text = "HUNGER cold";
+
+        Assert.Equal([_deepCave, _firstNight, _survival], Cards(rig));
+    }
+
+    [Fact]
+    public async Task Words_may_come_from_a_snapshots_own_text_and_from_its_profiles_notes_together()
+    {
+        var rig = await ShownAsync(new FakeBackend(WithNotes(ScenarioBuilder.Sample(), SampleScenario.SurvivalId, "Hunger and cold are on")));
+
+        rig.Screen.Search.Text = "hunger cave";
+
+        Assert.Equal([_deepCave], Cards(rig));
+    }
+
+    [Fact]
+    public async Task A_recently_removed_snapshot_is_found_by_the_notes_of_the_profile_it_left()
+    {
+        var rig = await ShownAsync(new FakeBackend(WithNotes(RemovedSnapshotSamples.Scenario(), SampleScenario.VanillaId, "Unmodded baseline")));
+
+        rig.Screen.Search.Text = "unmodded";
+
+        Assert.Equal([_blackreach], rig.Screen.Removed.Select(removed => removed.Name));
+    }
+
     [Fact]
     public async Task Typing_a_year_and_month_finds_the_snapshots_taken_in_that_month()
     {
@@ -394,16 +432,54 @@ public class HistorySearchTests
     }
 
     [Fact]
-    public async Task The_count_left_covers_snapshots_and_recently_removed_and_is_said_once_typing_pauses()
+    public async Task The_count_left_is_said_once_typing_pauses()
     {
-        var rig = await ShownAsync(WithRemoved());
+        var rig = await ShownAsync();
 
         rig.Screen.Search.Text = "black";
         rig.Screen.Search.Text = "blackreach";
         Assert.Equal(string.Empty, rig.Screen.Search.Announcement);
         _clock.Advance(SearchBoxViewModel.AnnouncePause);
 
+        Assert.Equal("1 of 8 snapshots", rig.Screen.Search.Announcement);
+    }
+
+    [Fact]
+    public async Task While_recently_removed_is_closed_its_matches_are_counted_apart_from_the_snapshots_listed()
+    {
+        var rig = await ShownAsync(WithRemoved());
+
+        rig.Screen.Search.Text = "blackreach";
+        _clock.Advance(SearchBoxViewModel.AnnouncePause);
+
+        Assert.Equal("1 of 8 snapshots, plus 1 of 2 in Recently removed", rig.Screen.Search.Announcement);
+    }
+
+    [Fact]
+    public async Task While_recently_removed_is_open_its_matches_are_part_of_the_count()
+    {
+        var rig = await ShownAsync(WithRemoved());
+        rig.Screen.IsRemovedOpen = true;
+
+        rig.Screen.Search.Text = "blackreach";
+        _clock.Advance(SearchBoxViewModel.AnnouncePause);
+
         Assert.Equal("2 of 10 snapshots", rig.Screen.Search.Announcement);
+    }
+
+    [Fact]
+    public async Task A_game_with_only_recently_removed_snapshots_counts_them_even_while_the_section_is_closed()
+    {
+        var scenario = ScenarioBuilder.Sample().WithGame(new Savepoint.Core.Catalog.GameDefinition(Id: "bare", Name: "Bare", Install: new Savepoint.Core.Catalog.InstallLocation(@"D:\Bare")))
+            .WithRemovedSnapshot("bare", RemovedSnapshotSamples.Replaced);
+        var rig = await ShownAsync(new FakeBackend(scenario));
+        rig.Shell.SelectGame("bare");
+        await rig.Screen.ReloadAsync();
+
+        rig.Screen.Search.Text = "blackreach";
+        _clock.Advance(SearchBoxViewModel.AnnouncePause);
+
+        Assert.Equal("1 of 1 snapshot", rig.Screen.Search.Announcement);
     }
 
     [Fact]

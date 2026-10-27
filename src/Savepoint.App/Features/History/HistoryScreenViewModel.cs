@@ -315,6 +315,10 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen, 
             return;
         }
 
+        _profileNotes = profiles.Ok
+            ? profiles.Value.Where(profile => !string.IsNullOrEmpty(profile.Notes)).ToDictionary(profile => profile.Id, profile => profile.Notes!)
+            : [];
+
         var usage = await usageTask;
         FooterText = usage.Ok
             ? _deps.Text.Message("history.footer", ("size", _deps.Text.FileSize(usage.Value.BytesUsed)))

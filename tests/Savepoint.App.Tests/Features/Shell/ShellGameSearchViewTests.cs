@@ -154,6 +154,40 @@ public class ShellGameSearchViewTests
     }
 
     [AvaloniaFact]
+    public async Task Clearing_the_games_search_from_the_no_matches_message_with_the_keyboard_puts_focus_back_in_the_box()
+    {
+        using var app = await ComposedApp.StartWithViewAsync();
+        FieldOf(app, "RailSearch").Focus();
+        Type(app, "zzz");
+        var button = app.Find<Button>("RailClearSearchButton");
+        button.Focus();
+        Assert.Same(button, app.Focused);
+
+        app.Press(Key.Enter, PhysicalKey.Enter);
+        app.Settle();
+
+        Assert.Equal(string.Empty, FieldOf(app, "RailSearch").Text);
+        Assert.Same(FieldOf(app, "RailSearch"), app.Focused);
+    }
+
+    [AvaloniaFact]
+    public async Task Clearing_the_profile_search_from_the_no_matches_message_with_the_keyboard_puts_focus_back_in_the_box()
+    {
+        using var app = await ComposedApp.StartWithViewAsync();
+        FieldOf(app, "ProfileSearchBox").Focus();
+        Type(app, "zzz");
+        var button = app.Find<Button>("ProfileClearSearchButton");
+        button.Focus();
+        Assert.Same(button, app.Focused);
+
+        app.Press(Key.Enter, PhysicalKey.Enter);
+        app.Settle();
+
+        Assert.Equal(string.Empty, FieldOf(app, "ProfileSearchBox").Text);
+        Assert.Same(FieldOf(app, "ProfileSearchBox"), app.Focused);
+    }
+
+    [AvaloniaFact]
     public async Task The_count_left_is_said_through_a_live_region_once_typing_pauses()
     {
         using var app = await ComposedApp.StartWithViewAsync();

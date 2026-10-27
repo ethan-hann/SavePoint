@@ -97,7 +97,10 @@
             </ItemsControl>
           </ScrollViewer>
         </Border>
-        <TextBlock x:Name="NoMatchesText" Classes="body muted" IsVisible="{Binding ShowNoMatches}" Text="{Binding NoMatchesText}" />
+        <StackPanel x:Name="NoMatches" Spacing="8" IsVisible="{Binding ShowNoMatches}">
+          <TextBlock x:Name="NoMatchesText" Classes="body muted" Text="{Binding NoMatchesText}" />
+          <Button x:Name="ClearSearchButton" Classes="text pill" HorizontalAlignment="Left" Padding="10,4" IsVisible="{Binding ShowClearSearch}" Command="{Binding ClearSearchCommand}" Content="{Binding ClearSearchName}" />
+        </StackPanel>
       </StackPanel>
 
       <!-- After the list, so the first focus lands in the search box and the pointer is the last stop before the footer. -->

@@ -42,6 +42,7 @@ public sealed partial class HistoryScreenViewModel
     private int _typingGeneration;
     private List<PointEntry> _entries = [];
     private List<RemovedEntry> _removedEntries = [];
+    private Dictionary<string, string> _profileNotes = [];
     private DateTimeOffset _groupsNow;
     private int _visibleCount;
     private bool _searchSilent;
@@ -199,11 +200,28 @@ public sealed partial class HistoryScreenViewModel
         ShowRemovedEntries();
         if (!_searchSilent)
         {
-            Search.AnnounceAfterPause(_deps.Text.Message(
-                "search.history.count",
-                ("shown", _visibleCount + Removed.Count),
-                ("total", _entries.Count + _removedEntries.Count)));
+            Search.AnnounceAfterPause(CountMessage());
         }
+    }
+
+    // What is on screen is what is counted. Matches inside a closed Recently removed section are said apart, so a listener does not
+    // take them for snapshots in the list, and still learns they are there. With no other snapshots, the section is all there is.
+    private string CountMessage()
+    {
+        var text = _deps.Text;
+        if (IsRemovedOpen || _entries.Count == 0 || _removedEntries.Count == 0)
+        {
+            return text.Message("search.history.count", ("shown", _visibleCount + Removed.Count), ("total", _entries.Count + _removedEntries.Count));
+        }
+
+        return Removed.Count == 0
+            ? text.Message("search.history.count", ("shown", _visibleCount), ("total", _entries.Count))
+            : text.Message(
+                "search.history.countWithRemoved",
+                ("shown", _visibleCount),
+                ("total", _entries.Count),
+                ("removedShown", Removed.Count),
+                ("removedTotal", _removedEntries.Count));
     }
 
     // A search belongs to the game it was typed for.
@@ -417,8 +435,8 @@ public sealed partial class HistoryScreenViewModel
                 FocusKey = point.Id.Value,
             };
 
-            // A snapshot is found by its name, its profile, what it holds, and its date in the forms the screen shows and in ISO order.
-            entries.Add(new PointEntry(point, SearchTarget.Of(point.Name, point.ProfileName, contains, date, text.DateSearchText(point.CapturedAt)), timeline, save, card));
+            // A snapshot is found by its name, its profile and that profile's notes, what it holds, and its date in the forms the screen shows and in ISO order.
+            entries.Add(new PointEntry(point, SearchTarget.Of(point.Name, point.ProfileName, NotesOf(point.ProfileId), contains, date, text.DateSearchText(point.CapturedAt)), timeline, save, card));
         }
 
         return entries;
@@ -439,8 +457,11 @@ public sealed partial class HistoryScreenViewModel
                     _deps.Text.Message("history.removed.bringBackAutomation", ("name", snapshot.Name)),
                     _words.ItemName(snapshot.Name, detail, origin, when),
                     new AsyncRelayCommand(() => BringBackAsync(game.Id, snapshot)));
-                var target = SearchTarget.Of(snapshot.Name, snapshot.FromProfileName, detail, origin, when, _words.Date(snapshot.CapturedAt), _deps.Text.DateSearchText(snapshot.CapturedAt));
+                var target = SearchTarget.Of(snapshot.Name, snapshot.FromProfileName, NotesOf(snapshot.FromProfileId), detail, origin, when, _words.Date(snapshot.CapturedAt), _deps.Text.DateSearchText(snapshot.CapturedAt));
                 return new RemovedEntry(snapshot, target, row);
             }),
         ];
+
+    // A deleted profile (null id) has no notes left to find its snapshots by.
+    private string? NotesOf(string? profileId) => profileId is not null && _profileNotes.TryGetValue(profileId, out var notes) ? notes : null;
 }

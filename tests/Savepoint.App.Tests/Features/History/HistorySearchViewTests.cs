@@ -137,6 +137,72 @@ public class HistorySearchViewTests
         AssertTopOfTheListIsDrawn(app, 8);
     }
 
+    // Tab from where focus is until it lands on the control, or false when it comes round without.
+    private static bool TabReaches(ComposedApp app, Control target, int limit = 80)
+    {
+        for (var i = 0; i < limit; i++)
+        {
+            app.Press(Key.Tab, PhysicalKey.Tab);
+            if (ReferenceEquals(app.Focused, target))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    [AvaloniaFact]
+    public async Task The_removed_section_offers_a_named_button_to_clear_the_search_that_Tab_reaches()
+    {
+        using var app = await StartAsync(new FakeBackend(RemovedSnapshotSamples.Scenario()));
+        app.History.IsRemovedOpen = true;
+        app.Settle();
+        Field(app).Focus();
+        Type(app, "zzz");
+        var button = app.Find<Button>("RemovedClearSearchButton");
+
+        Assert.True(button.IsEffectivelyVisible);
+        Assert.Equal("Clear search", AutomationAudit.NameOf(button));
+        Assert.True(button.Focusable && button.IsTabStop);
+        Assert.True(TabReaches(app, button));
+        Assert.Empty(AutomationAudit.Problems(app.View!));
+    }
+
+    [AvaloniaFact]
+    public async Task Clearing_the_search_from_the_removed_sections_button_with_the_keyboard_puts_focus_back_in_the_search_box()
+    {
+        using var app = await StartAsync(new FakeBackend(RemovedSnapshotSamples.Scenario()));
+        app.History.IsRemovedOpen = true;
+        app.Settle();
+        Field(app).Focus();
+        Type(app, "zzz");
+        var button = app.Find<Button>("RemovedClearSearchButton");
+        button.Focus();
+
+        app.Press(Key.Enter, PhysicalKey.Enter);
+        app.Settle();
+
+        Assert.Equal(string.Empty, Field(app).Text);
+        Assert.Same(Field(app), app.Focused);
+    }
+
+    [AvaloniaFact]
+    public async Task Clearing_the_search_from_the_no_matches_message_with_the_keyboard_puts_focus_back_in_the_search_box()
+    {
+        using var app = await StartAsync();
+        Field(app).Focus();
+        Type(app, "zzz");
+        var button = app.Find<Button>("SearchEmptyClearButton");
+        Assert.True(TabReaches(app, button));
+
+        app.Press(Key.Enter, PhysicalKey.Enter);
+        app.Settle();
+
+        Assert.Equal(string.Empty, Field(app).Text);
+        Assert.Same(Field(app), app.Focused);
+    }
+
     [AvaloniaFact]
     public async Task Recently_removed_snapshots_are_narrowed_and_say_so_when_none_match()
     {

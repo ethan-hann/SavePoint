@@ -171,6 +171,32 @@ public class LibraryPickerDialogViewModelTests
     }
 
     [Fact]
+    public async Task Clearing_a_search_that_finds_nothing_lists_the_games_again()
+    {
+        var (picker, _) = await LoadedAsync(LibraryTestData.Scan(LibraryTestData.Game("Skyrim"), LibraryTestData.Game("Fallout 4")));
+        picker.SearchText = "zzz";
+        Assert.True(picker.ShowClearSearch);
+
+        picker.ClearSearchCommand.Execute(null);
+
+        Assert.Equal(string.Empty, picker.SearchText);
+        Assert.False(picker.ShowClearSearch);
+        Assert.Equal(["Fallout 4", "Skyrim"], Visible(picker));
+        Assert.Equal("Clear search", picker.ClearSearchName);
+    }
+
+    [Fact]
+    public async Task Nothing_to_clear_is_offered_when_no_game_is_left_by_hiding_the_added_ones()
+    {
+        var (picker, _) = await LoadedAsync(LibraryTestData.Scan(LibraryTestData.Game("A", addedGameId: "a-1")));
+
+        picker.HideAdded = true;
+
+        Assert.True(picker.ShowNoMatches);
+        Assert.False(picker.ShowClearSearch);
+    }
+
+    [Fact]
     public async Task Hiding_the_games_already_added_leaves_only_the_new_ones()
     {
         var (picker, _) = await LoadedAsync(LibraryTestData.Scan(LibraryTestData.Game("A", addedGameId: "a-1"), LibraryTestData.Game("B")));

@@ -73,6 +73,29 @@ public class SearchBoxViewModelTests
     }
 
     [Fact]
+    public void Clearing_says_so_for_the_view_after_the_text_is_gone_but_emptying_the_text_directly_does_not()
+    {
+        var box = Box();
+        box.Text = "sky";
+        var textWhenTold = "unset";
+        var told = 0;
+        box.Cleared += (_, _) =>
+        {
+            told++;
+            textWhenTold = box.Text;
+        };
+
+        box.Text = string.Empty;
+        Assert.Equal(0, told);
+
+        box.Text = "sky";
+        box.ClearCommand.Execute(null);
+
+        Assert.Equal(1, told);
+        Assert.Equal(string.Empty, textWhenTold);
+    }
+
+    [Fact]
     public void A_count_is_not_announced_until_typing_pauses()
     {
         var box = Box();

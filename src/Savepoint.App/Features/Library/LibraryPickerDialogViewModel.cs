@@ -101,6 +101,16 @@ public sealed partial class LibraryPickerDialogViewModel : DialogViewModel<IRead
     /// <summary>"No games match your search.".</summary>
     public string NoMatchesText => _text.Message("library.picker.noMatches");
 
+    /// <summary>True when there are no matches and the typed search is what hides the games, so clearing it helps.</summary>
+    public bool ShowClearSearch => ShowNoMatches && SearchText.Trim().Length > 0;
+
+    /// <summary>The name of the button that clears the search, "Clear search".</summary>
+    public string ClearSearchName => _text.Message("search.clear");
+
+    /// <summary>Empties the search.</summary>
+    [RelayCommand]
+    private void ClearSearch() => SearchText = string.Empty;
+
     /// <summary>One line for each store that was not found, so a missing store is not mistaken for no games.</summary>
     public IReadOnlyList<string> StoreNotes { get; private set; } = [];
 
@@ -217,6 +227,7 @@ public sealed partial class LibraryPickerDialogViewModel : DialogViewModel<IRead
 
         OnPropertyChanged(nameof(ShowEmpty));
         OnPropertyChanged(nameof(ShowNoMatches));
+        OnPropertyChanged(nameof(ShowClearSearch));
         OnPropertyChanged(nameof(ShowList));
         OnSelectionChanged();
     }

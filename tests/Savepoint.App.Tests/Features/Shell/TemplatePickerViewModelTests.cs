@@ -212,6 +212,20 @@ public class TemplatePickerViewModelTests
     }
 
     [Fact]
+    public void Clearing_a_search_nothing_matches_lists_every_template_again()
+    {
+        var picker = Picker(_names);
+        picker.SearchText = "zelda";
+
+        picker.ClearSearchCommand.Execute(null);
+
+        Assert.Equal(string.Empty, picker.SearchText);
+        Assert.False(picker.ShowNoMatches);
+        Assert.Equal(_names, Shown(picker));
+        Assert.Equal("Clear search", picker.ClearSearchName);
+    }
+
+    [Fact]
     public void Three_hundred_templates_filter_to_the_one_asked_for()
     {
         var picker = new TemplatePickerViewModel(GameTemplates.All, LibraryTestData.Text);
