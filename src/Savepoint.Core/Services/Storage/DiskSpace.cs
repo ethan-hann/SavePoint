@@ -14,6 +14,12 @@ public interface IDiskSpace
     /// <returns>The total bytes, or null when the volume cannot be determined.</returns>
     /// <exception cref="ArgumentException"><paramref name="path"/> is null, empty or blank.</exception>
     long? GetTotalBytes(string path);
+
+    /// <summary>Names the volume that holds <paramref name="path"/>, so that folders which share one can be told from folders which do not.</summary>
+    /// <param name="path">A file or folder, existing or not; the nearest existing ancestor decides the volume.</param>
+    /// <returns>A key that is equal for two paths on the same volume and differs between volumes, or null when the volume cannot be determined (the folder is then judged on its own).</returns>
+    /// <exception cref="ArgumentException"><paramref name="path"/> is null, empty or blank.</exception>
+    string? GetVolumeId(string path);
 }
 
 /// <summary>The real <see cref="IDiskSpace"/>, backed by <see cref="DriveInfo"/>.</summary>
@@ -30,10 +36,39 @@ public sealed class DiskSpace : IDiskSpace
     /// <inheritdoc/>
     public long? GetTotalBytes(string path) => Measure(path, static drive => drive.TotalSize);
 
-    private static long? Measure(string path, Func<DriveInfo, long> read)
+    /// <inheritdoc/>
+    public string? GetVolumeId(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        if (ExistingFolderOf(path) is not { } folder)
+        {
+            return null;
+        }
 
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                // A UNC share has no drive root to compare.
+                var root = Path.GetPathRoot(folder)!;
+                return root.StartsWith(@"\\", StringComparison.Ordinal) ? null : root.ToUpperInvariant();
+            }
+
+            // The mount that holds the folder is the deepest one whose path is a prefix of it.
+            return DriveInfo.GetDrives()
+                .Select(drive => Path.TrimEndingDirectorySeparator(drive.RootDirectory.FullName))
+                .Where(mount => folder == mount || folder.StartsWith(mount.EndsWith('/') ? mount : mount + '/', StringComparison.Ordinal))
+                .OrderByDescending(mount => mount.Length)
+                .FirstOrDefault();
+        }
+        catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ExistingFolderOf(string path)
+    {
         string full;
         try
         {
@@ -44,7 +79,14 @@ public sealed class DiskSpace : IDiskSpace
             return null;
         }
 
-        var folder = NearestExistingFolder(full);
+        return NearestExistingFolder(full);
+    }
+
+    private static long? Measure(string path, Func<DriveInfo, long> read)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var folder = ExistingFolderOf(path);
         if (folder is null)
         {
             return null;

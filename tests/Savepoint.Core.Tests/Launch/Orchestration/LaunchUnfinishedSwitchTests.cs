@@ -19,9 +19,13 @@ public class LaunchUnfinishedSwitchTests
     {
         using var reached = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
+        var asked = 0;
+
+        // Before the switch writes, the install folder's free space is asked three times: by the launch's check of that folder, by its check of
+        // the drive the folders share, and by the switch itself, which is the one held here.
         rig.Workspace.Disk.FreePerPath = path =>
         {
-            if (path.StartsWith(rig.InstallPath, StringComparison.OrdinalIgnoreCase) && !release.IsSet)
+            if (path.StartsWith(rig.InstallPath, StringComparison.OrdinalIgnoreCase) && !release.IsSet && Interlocked.Increment(ref asked) == 3)
             {
                 reached.Set();
                 release.Wait(_held);
