@@ -62,6 +62,7 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     /// <summary>The profile name field.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanContinue))]
+    [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
     [NotifyPropertyChangedFor(nameof(TrimmedName))]
     private string _name;
 
@@ -143,12 +144,6 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
             new WizardStepViewModel(2, text.Message("profiles.wizard.steps.check")),
             new WizardStepViewModel(3, text.Message("profiles.wizard.steps.save")),
         ];
-        ContinueCommand = new AsyncRelayCommand(ContinueAsync, () => CanContinue && Step != WizardStep.Save);
-        BackCommand = new RelayCommand(GoBack);
-        CancelCommand = new RelayCommand(() => Close(false));
-        StopSaveCommand = new AsyncRelayCommand(StopSaveAsync, () => IsSaving && !_stopRequested);
-        CloseCommand = new RelayCommand(() => Close(Created));
-        KeepWorkingCommand = new RelayCommand(() => Close(Created));
         BackgroundHint = text.Message("profiles.wizard.save.backgroundHint");
         KeepWorkingHelp = text.Message("profiles.wizard.save.keepWorkingHelp");
         ProgressText = text.Message("profiles.wizard.save.savingHint");
@@ -227,18 +222,6 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     /// <summary>The Close button after a save that ended in a card.</summary>
     public bool ShowClose => IsSaveStep && State is SaveState.Partial or SaveState.Failed or SaveState.Cancelled;
 
-    /// <summary>Goes forward: to Check from step one, and from Check starts the save.</summary>
-    public IAsyncRelayCommand ContinueCommand { get; }
-
-    /// <summary>Goes back from Check to step one.</summary>
-    public IRelayCommand BackCommand { get; }
-
-    /// <summary>Closes the wizard from step one without saving.</summary>
-    public IRelayCommand CancelCommand { get; }
-
-    /// <summary>Asks the running capture to stop.</summary>
-    public IAsyncRelayCommand StopSaveCommand { get; }
-
     /// <summary>True when <see cref="FilesText"/> has something to say.</summary>
     public bool HasFilesText => FilesText.Length > 0;
 
@@ -251,11 +234,9 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     /// <summary>What a screen reader says for the Keep working button besides its name.</summary>
     public string KeepWorkingHelp { get; }
 
-    /// <summary>Closes the wizard and leaves the running snapshot to finish in the background.</summary>
-    public IRelayCommand KeepWorkingCommand { get; }
+    private bool CanGoForward => CanContinue && Step != WizardStep.Save;
 
-    /// <summary>Closes the wizard once the save has ended.</summary>
-    public IRelayCommand CloseCommand { get; }
+    private bool CanStopSave => IsSaving && !_stopRequested;
 
     /// <inheritdoc />
     public override string Description { get; }
@@ -288,8 +269,6 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
         }
     }
 
-    partial void OnNameChanged(string value) => ContinueCommand.NotifyCanExecuteChanged();
-
     partial void OnStepChanged(WizardStep value)
     {
         UpdateSteps();
@@ -298,6 +277,8 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
 
     partial void OnStateChanged(SaveState value) => RaiseStateFlags();
 
+    /// <summary>Goes forward: to Check from step one, and from Check starts the save.</summary>
+    [RelayCommand(CanExecute = nameof(CanGoForward))]
     private async Task ContinueAsync()
     {
         // A command's Execute runs even when CanExecute is false.
@@ -317,7 +298,9 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
         }
     }
 
-    private void GoBack()
+    /// <summary>Goes back from Check to step one.</summary>
+    [RelayCommand]
+    private void Back()
     {
         if (Step == WizardStep.Check)
         {
@@ -325,6 +308,18 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
             Step = WizardStep.NameIt;
         }
     }
+
+    /// <summary>Closes the wizard from step one without saving.</summary>
+    [RelayCommand]
+    private void Cancel() => Close(false);
+
+    /// <summary>Closes the wizard and leaves the running snapshot to finish in the background.</summary>
+    [RelayCommand]
+    private void KeepWorking() => Close(Created);
+
+    /// <summary>Closes the wizard once the save has ended.</summary>
+    [RelayCommand]
+    private void Close() => Close(Created);
 
     private void UpdateSteps()
     {

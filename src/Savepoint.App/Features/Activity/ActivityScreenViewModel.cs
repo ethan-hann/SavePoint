@@ -39,7 +39,6 @@ public sealed partial class ActivityScreenViewModel : ObservableObject, IScreen,
             new ScopeOption(ActivityScope.AllGames, text.Message("activity.scope.allGames")),
         ];
         _selectedScope = ScopeOptions[_shell.SelectedGame is null ? 1 : 0];
-        ShowAllGamesCommand = new RelayCommand(() => SelectedScope = ScopeOptions[1]);
 
         // Subscribed before the list is read, so a change in between is not lost.
         _shell.PropertyChanged += OnShellChanged;
@@ -146,7 +145,8 @@ public sealed partial class ActivityScreenViewModel : ObservableObject, IScreen,
     private ScopeOption _selectedScope;
 
     /// <summary>Lists every game's jobs.</summary>
-    public IRelayCommand ShowAllGamesCommand { get; }
+    [RelayCommand]
+    private void ShowAllGames() => SelectedScope = ScopeOptions[1];
 
     /// <inheritdoc />
     public void OnShown()

@@ -21,6 +21,9 @@ public sealed partial class ProfileRowViewModel : ObservableObject
     /// <summary>True when Play can start the game: a launch flow exists, the game has no session and no profile is running.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PlayDisabledReason))]
+    [NotifyCanExecuteChangedFor(nameof(PlayCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SwitchCommand))]
+    [NotifyCanExecuteChangedFor(nameof(TakeSnapshotCommand))]
     private bool _canPlay;
 
     // statsKnown is false while the row is drawn from the profile list alone, or when the stats could not be read.
@@ -31,12 +34,6 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         Columns = columns;
         Id = profile.Id;
         GameId = profile.GameId;
-        PlayCommand = new AsyncRelayCommand(() => _actions.PlayAsync(this), () => CanPlay);
-        SwitchCommand = new AsyncRelayCommand(() => _actions.SwitchAsync(this), () => CanPlay);
-        EditCommand = new AsyncRelayCommand(() => _actions.EditAsync(this));
-        DuplicateCommand = new AsyncRelayCommand(() => _actions.DuplicateAsync(this));
-        TakeSnapshotCommand = new AsyncRelayCommand(() => _actions.TakeSnapshotAsync(this), () => CanPlay && CanOfferSnapshot && !SnapshotBusy);
-        DeleteCommand = new AsyncRelayCommand(() => _actions.DeleteAsync(this));
         Fill(profile, stats, statsKnown);
     }
 
@@ -135,23 +132,31 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         ? null
         : _text.Message(_gameRunning ? "games.profileTable.playBlocked" : "games.profileTable.playBusy");
 
+    private bool CanTakeSnapshot => CanPlay && CanOfferSnapshot && !SnapshotBusy;
+
     /// <summary>Starts the game on this profile's latest points.</summary>
-    public IAsyncRelayCommand PlayCommand { get; }
+    [RelayCommand(CanExecute = nameof(CanPlay))]
+    private Task PlayAsync() => _actions.PlayAsync(this);
 
     /// <summary>Loads this profile's latest points into the game's folders without starting the game; off whenever Play is.</summary>
-    public IAsyncRelayCommand SwitchCommand { get; }
+    [RelayCommand(CanExecute = nameof(CanPlay))]
+    private Task SwitchAsync() => _actions.SwitchAsync(this);
 
     /// <summary>Opens the edit dialog (name, notes, version).</summary>
-    public IAsyncRelayCommand EditCommand { get; }
+    [RelayCommand]
+    private Task EditAsync() => _actions.EditAsync(this);
 
     /// <summary>Opens the duplicate dialog.</summary>
-    public IAsyncRelayCommand DuplicateCommand { get; }
+    [RelayCommand]
+    private Task DuplicateAsync() => _actions.DuplicateAsync(this);
 
     /// <summary>Takes a snapshot of the game's folders as they are now into this profile; off while the game has a session, as Play is.</summary>
-    public IAsyncRelayCommand TakeSnapshotCommand { get; }
+    [RelayCommand(CanExecute = nameof(CanTakeSnapshot))]
+    private Task TakeSnapshotAsync() => _actions.TakeSnapshotAsync(this);
 
     /// <summary>Starts deleting the profile, which asks first.</summary>
-    public IAsyncRelayCommand DeleteCommand { get; }
+    [RelayCommand]
+    private Task DeleteAsync() => _actions.DeleteAsync(this);
 
     internal void Apply(Profile profile, ProfileRowStats stats, bool statsKnown = true)
     {
@@ -178,13 +183,6 @@ public sealed partial class ProfileRowViewModel : ObservableObject
         _gameRunning = gameRunning;
         CanPlay = canPlay;
         OnPropertyChanged(nameof(PlayDisabledReason));
-    }
-
-    partial void OnCanPlayChanged(bool value)
-    {
-        PlayCommand.NotifyCanExecuteChanged();
-        SwitchCommand.NotifyCanExecuteChanged();
-        TakeSnapshotCommand.NotifyCanExecuteChanged();
     }
 
     private void Fill(Profile profile, ProfileRowStats stats, bool statsKnown)

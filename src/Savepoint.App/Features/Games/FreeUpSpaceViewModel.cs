@@ -60,7 +60,6 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
         _dispatcher = dispatcher;
         _showError = showError;
         _afterRun = afterRun;
-        FreeUpCommand = new AsyncRelayCommand(FreeUpAsync, () => !IsRunning && _gameId is not null);
         _jobs.JobChanged += OnJobChanged;
     }
 
@@ -70,8 +69,7 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
     /// <summary>The button's name for a screen reader ("Free up space for Skyrim Special Edition"); empty without a game.</summary>
     public string Name => _gameId is null ? string.Empty : _text.Message("games.storageFooter.freeUpName", ("name", _gameName));
 
-    /// <summary>Starts the compaction for the game, after the player agrees when it would delete recently removed snapshots.</summary>
-    public IAsyncRelayCommand FreeUpCommand { get; }
+    private bool CanFreeUp => !IsRunning && _gameId is not null;
 
     /// <summary>Points the action at a game, or at none; a different game clears the status and follows that game's compaction if one runs.</summary>
     /// <param name="gameId">The game, or null.</param>
@@ -116,6 +114,8 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
         _jobs.JobChanged -= OnJobChanged;
     }
 
+    /// <summary>Starts the compaction for the game, after the player agrees when it would delete recently removed snapshots.</summary>
+    [RelayCommand(CanExecute = nameof(CanFreeUp))]
     private async Task FreeUpAsync()
     {
         if (_gameId is not { } gameId)

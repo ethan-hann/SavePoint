@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
@@ -155,6 +156,7 @@ public sealed partial class GamesScreenViewModel
     }
 
     // The wizard follows its own save, so closing it mid-save is fine; the table is refreshed whenever it closes.
+    [RelayCommand]
     private async Task NewProfileAsync()
     {
         if (_game is not { } game)
@@ -170,6 +172,7 @@ public sealed partial class GamesScreenViewModel
     }
 
     // Deleting a game asks for its name to be typed and is refused up front while its session is active (D13.5).
+    [RelayCommand]
     private async Task DeleteGameAsync()
     {
         if (_game is not { } game)
