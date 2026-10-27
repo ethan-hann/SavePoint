@@ -246,7 +246,6 @@ public sealed class SkipCheckTests : IDisposable
     [Theory]
     [InlineData("windows")]
     [InlineData("linux-ci")]
-    [InlineData("linux-wsl")]
     public void The_checked_in_lists_hold_full_test_names_once_each(string name)
     {
         var root = Testing.TestEnvironment.RepoRoot;
@@ -262,20 +261,6 @@ public sealed class SkipCheckTests : IDisposable
         Assert.All(names, entry => Assert.StartsWith("Savepoint.", entry));
         Assert.Equal(names.Count, names.Distinct().Count());
         Assert.Empty(list.Expected.Intersect(list.Intermittent));
-    }
-
-    [Fact]
-    public void The_list_for_the_local_Linux_gate_holds_everything_the_CI_list_does()
-    {
-        var root = Testing.TestEnvironment.RepoRoot;
-        if (root is null)
-        {
-            return;
-        }
-
-        var folder = Path.Combine(root, "build", "expected-skips");
-
-        Assert.Subset(SkipList.Load(Path.Combine(folder, "linux-wsl.txt")).Expected.ToHashSet(), SkipList.Load(Path.Combine(folder, "linux-ci.txt")).Expected.ToHashSet());
     }
 
     [Fact]

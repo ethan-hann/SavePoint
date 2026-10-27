@@ -13,7 +13,7 @@ TestResults/
 # Downloaded at build time (pinned + hash-verified by build scripts)
 resources/git/
 
-# Workspace-local toolchains (e.g. the Linux .NET SDK used under WSL)
+# Workspace-local toolchains, caches and logs (e.g. the Linux .NET SDK build/package-linux.ps1 uses under WSL)
 .tools/
 
 # Headless render output for review
