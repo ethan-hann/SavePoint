@@ -68,7 +68,20 @@ public static class PathProbes
             return longPath[(longPath.LastIndexOf('\\') + 1)..];
         }
 
-        public FileIdentity? ReadIdentity(string path) => OperatingSystem.IsWindows() ? WindowsFiles.ReadIdentity(path) : null;
+        public FileIdentity? ReadIdentity(string path)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                return WindowsFiles.ReadIdentity(path);
+            }
+
+            if (OperatingSystem.IsLinux())
+            {
+                return UnixFiles.ReadLinuxIdentity(path);
+            }
+
+            return OperatingSystem.IsMacOS() ? UnixFiles.ReadMacIdentity(path) : null;
+        }
 
         public IReadOnlyList<string> ReadFinalPaths(string path) => OperatingSystem.IsWindows() ? WindowsFiles.ReadFinalPaths(path) : [];
 

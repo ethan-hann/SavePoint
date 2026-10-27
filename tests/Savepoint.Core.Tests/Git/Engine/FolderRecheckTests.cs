@@ -697,7 +697,6 @@ public sealed class FolderRecheckTests : IDisposable
     [InlineData(Operation.Clean)]
     public async Task A_different_folder_put_at_the_same_path_before_the_step_is_refused(Operation operation)
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows tells two folders at one path apart by identity");
         var repo = await PrepareAsync(_ws, operation);
         var decoy = CopyAsDecoy(repo);
         var before = Contents(decoy);
