@@ -147,40 +147,50 @@ internal sealed class FileSystemFolderWatch : IFolderWatch
         FileSystemWatcher? watcher = null;
         try
         {
-            watcher = new FileSystemWatcher(folder)
+            var created = new FileSystemWatcher(folder)
             {
                 IncludeSubdirectories = true,
                 InternalBufferSize = _bufferBytes,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime,
             };
-            watcher.Created += OnEvent;
-            watcher.Changed += OnEvent;
-            watcher.Deleted += OnEvent;
-            watcher.Renamed += OnEvent;
-            watcher.Error += (_, _) => HandleError(folder);
-            watcher.EnableRaisingEvents = true;
+            watcher = created;
+            created.Created += OnEvent;
+            created.Changed += OnEvent;
+            created.Deleted += OnEvent;
+            created.Renamed += OnEvent;
+            created.Error += (_, _) => HandleError(folder, created);
+
+            // Registered before it is switched on, so an error it raises at once finds it and is not taken for a stale one.
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    Release(created);
+                    return;
+                }
+
+                _watchers[folder] = created;
+                _unwatched.Remove(folder);
+            }
+
+            created.EnableRaisingEvents = true;
         }
         catch (Exception e) when (e is IOException or ArgumentException or UnauthorizedAccessException or PlatformNotSupportedException or InvalidOperationException or NotSupportedException)
         {
             if (watcher is not null)
             {
+                lock (_gate)
+                {
+                    if (_watchers.TryGetValue(folder, out var registered) && ReferenceEquals(registered, watcher))
+                    {
+                        _watchers.Remove(folder);
+                    }
+                }
+
                 Release(watcher);
             }
 
             GiveUp(folder, e);
-            return;
-        }
-
-        lock (_gate)
-        {
-            if (_disposed)
-            {
-                Release(watcher);
-                return;
-            }
-
-            _watchers[folder] = watcher;
-            _unwatched.Remove(folder);
         }
     }
 
@@ -196,12 +206,19 @@ internal sealed class FileSystemFolderWatch : IFolderWatch
 
     // The operating system dropped events (its buffer overflowed) or the watch broke, so nothing says what changed: tell the listener to
     // read everything, and start the folder's watch again, which is also how a watch that stopped on its own comes back.
-    internal void HandleError(string folder)
+    // An error from a watcher that has already been replaced says nothing about the current one, and acting on it would start the folder
+    // twice and lose the first watcher.
+    internal void HandleError(string folder, FileSystemWatcher? source = null)
     {
         FileSystemWatcher? old;
         lock (_gate)
         {
             if (_disposed)
+            {
+                return;
+            }
+
+            if (source is not null && !(_watchers.TryGetValue(folder, out var current) && ReferenceEquals(current, source)))
             {
                 return;
             }

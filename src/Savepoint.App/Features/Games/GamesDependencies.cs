@@ -7,6 +7,7 @@ using Savepoint.App.Features.Settings;
 using Savepoint.App.Platform;
 using Savepoint.App.Platform.FolderWatching;
 using Savepoint.Core.Api;
+using Savepoint.Core.Diagnostics;
 
 namespace Savepoint.App.Features.Games;
 
@@ -23,6 +24,7 @@ namespace Savepoint.App.Features.Games;
 /// <param name="Revealer">Opens a game folder in the operating system's file manager.</param>
 /// <param name="Watcher">Tells the screen when files change in the folders of the game it shows.</param>
 /// <param name="Window">Says whether the window is in front; the screen reads no status while it is not.</param>
+/// <param name="Log">Where a background status read that failed is noted.</param>
 public sealed record GamesDependencies(
     IGamesApi Games,
     IProfilesApi Profiles,
@@ -35,4 +37,5 @@ public sealed record GamesDependencies(
     IGameEditorFactory Editor,
     IFileRevealer Revealer,
     IFolderWatcher Watcher,
-    IWindowActivitySource Window);
+    IWindowActivitySource Window,
+    IDiagnosticLog Log);

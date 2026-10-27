@@ -1,6 +1,7 @@
 using Savepoint.App.Features.Settings;
 using Savepoint.App.Platform.FolderWatching;
 using Savepoint.Core.Api;
+using Savepoint.Core.Diagnostics;
 
 namespace Savepoint.App;
 
@@ -49,4 +50,7 @@ public sealed record AppServices(
     /// test that has none.
     /// </summary>
     public string? LogFolder { get; init; }
+
+    /// <summary>The diagnostic log, for the screens that note a failure nobody is waiting on; null in a test that has none, which then writes nothing.</summary>
+    public IDiagnosticLog? Log { get; init; }
 }

@@ -14,6 +14,7 @@ using Savepoint.App.Tests.Features.Settings;
 using Savepoint.App.Tests.Features.Shell;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Testing;
 
 namespace Savepoint.App.Tests.Features.Games;
 
@@ -25,6 +26,7 @@ internal sealed class GamesRig
         Backend = backend;
         Watcher = new FakeFolderWatcher();
         Window = new FakeWindowActivity();
+        Log = new RecordingDiagnosticLog();
         Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         Dialogs = new FakeDialogs();
         UiDialogs = dialogs?.Invoke(Text) ?? Dialogs;
@@ -45,7 +47,8 @@ internal sealed class GamesRig
             Editor,
             Revealer,
             Watcher,
-            Window)));
+            Window,
+            Log)));
         Factory = factory;
         Shell = new ShellViewModel(new ShellDependencies(
             backend.Games,
@@ -84,6 +87,8 @@ internal sealed class GamesRig
     public FakeFolderWatcher Watcher { get; }
 
     public FakeWindowActivity Window { get; }
+
+    public RecordingDiagnosticLog Log { get; }
 
     public CapturingScreenFactory Factory { get; }
 
