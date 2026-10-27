@@ -173,9 +173,10 @@ internal sealed class CaptureRunner
         var branches = (await _services.Catalog.ListProfilesAsync(game.Id, cancellationToken).ConfigureAwait(false)).Select(listed => listed.BranchName).ToList();
         foreach (var repo in GameFolders.Repos(_services, storage, game).Where(repo => startEmpty.Contains(repo.Role)))
         {
-            if (!await StartEmptyRule.IsSafeAsync(storage.Engine, repo, branches, cancellationToken).ConfigureAwait(false))
+            var block = await StartEmptyRule.WhyNotAsync(storage.Engine, repo, branches, cancellationToken).ConfigureAwait(false);
+            if (block != StartEmptyBlock.None)
             {
-                throw StartEmptyRule.Refusal();
+                throw StartEmptyRule.Refusal(block);
             }
         }
     }
@@ -371,9 +372,13 @@ internal sealed class CaptureRunner
         try
         {
             context.AddStep(JobSteps.CaptureFolder, ("folder", repo.Role), ("path", repo.WorkTree));
-            if (plan is { StartEmpty: true } && !await StartEmptyRule.IsSafeAsync(storage.Engine, repo, profileBranches, context.CancellationToken).ConfigureAwait(false))
+            if (plan is { StartEmpty: true })
             {
-                throw StartEmptyRule.Refusal();
+                var block = await StartEmptyRule.WhyNotAsync(storage.Engine, repo, profileBranches, context.CancellationToken).ConfigureAwait(false);
+                if (block != StartEmptyBlock.None)
+                {
+                    throw StartEmptyRule.Refusal(block);
+                }
             }
 
             var existed = await storage.Engine.BranchExistsAsync(repo, branch, context.CancellationToken).ConfigureAwait(false);

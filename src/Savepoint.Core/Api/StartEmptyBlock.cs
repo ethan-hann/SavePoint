@@ -9,7 +9,7 @@ public enum StartEmptyBlock
     /// <summary>The game has no profile yet, so no snapshot holds the folder's files: the profile being made is the first one.</summary>
     FirstProfile,
 
-    /// <summary>The folder has new or changed files since its profile's last snapshot.</summary>
+    /// <summary>The folder has new or changed files since its profile's last snapshot, or SavePoint has no marker in it, so its files are in no snapshot. Files the game leaves out do not count.</summary>
     NewChanges,
 
     /// <summary>A switch of the folder stopped part way, or the folder could not be checked, so it cannot be told whether a snapshot holds its files.</summary>
