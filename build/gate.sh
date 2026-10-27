@@ -3,9 +3,9 @@
 #
 #   build/gate.sh [--allow-narrowed-tests]
 #
-# SAVEPOINT_TEST_ARGS takes only a report (--report-*) and retries of failed tests (--retry-failed-tests*). Anything else, such
-# as a filter, is refused unless --allow-narrowed-tests says it is on purpose, because a run that tests part of the code or lets a
-# failure pass would read as a passed gate.
+# SAVEPOINT_TEST_ARGS takes only a report (--report-*). Anything else, such as a filter or a retry of failed tests (the retry
+# extension is no longer part of the test projects), is refused unless --allow-narrowed-tests says it is on purpose, because a run
+# that tests part of the code or lets a failure pass would read as a passed gate.
 set -euo pipefail
 
 allow_narrowed=0
@@ -26,15 +26,15 @@ renice -n 10 $$ >/dev/null 2>&1 || true
 build_nodes="${SAVEPOINT_GATE_BUILD_NODES:-4}"
 test_threads="${SAVEPOINT_GATE_TEST_THREADS:-4}"
 
-# SAVEPOINT_TEST_ARGS is for a report (--report-*) and for retrying failed tests (--retry-failed-tests*). Any other argument, a
-# filter in whatever spelling, a response file (@file) or an option that lets failures pass, could make "gate passed" mean less
-# than a full run, so it counts as narrowing. A word without dashes is allowed only as the value of an allowed option before it.
+# SAVEPOINT_TEST_ARGS is for a report (--report-*). Any other argument, a filter in whatever spelling, a response file (@file) or
+# an option that lets failures pass (a retry of failed tests among them), could make "gate passed" mean less than a full run, so
+# it counts as narrowing. A word without dashes is allowed only as the value of an allowed option before it.
 # Prints each argument that is not allowed, one per line.
 narrowing_arguments() {
   local argument after_allowed=0
   for argument in "$@"; do
     case "$argument" in
-      --report-* | --retry-failed-tests | --retry-failed-tests=* | --retry-failed-tests-*)
+      --report-*)
         case "$argument" in
           *=*) after_allowed=0 ;;
           *) after_allowed=1 ;;
@@ -64,7 +64,7 @@ if [ -n "${SAVEPOINT_TEST_ARGS:-}" ]; then
     narrowing="$narrowing $argument"
   done < <(narrowing_arguments "${test_args[@]}")
   if [ -n "$narrowing" ] && [ "$allow_narrowed" -eq 0 ]; then
-    echo "gate refused: SAVEPOINT_TEST_ARGS holds${narrowing}, which could run only some of the tests or let a failure pass. Only a report and retries are allowed there. Unset it, or pass --allow-narrowed-tests if that is on purpose." >&2
+    echo "gate refused: SAVEPOINT_TEST_ARGS holds${narrowing}, which could run only some of the tests or let a failure pass. Only a report (--report-*) is allowed there; test retries are not available. Unset it, or pass --allow-narrowed-tests if that is on purpose." >&2
     exit 1
   fi
   if [ -n "$narrowing" ]; then
@@ -76,7 +76,7 @@ echo "==> build"
 dotnet build Savepoint.slnx -c Release -warnaserror "-m:${build_nodes}" -nodeReuse:false
 
 echo "==> test"
-# SAVEPOINT_TEST_ARGS is empty unless the caller sets it (a report, retries); no retry logic lives here.
+# SAVEPOINT_TEST_ARGS is empty unless the caller sets it (a report).
 # shellcheck disable=SC2086
 # The gate always asks for the xunit report itself (the skip check reads it), so SAVEPOINT_TEST_ARGS must not.
 results_dir="$PWD/artifacts/test-results"

@@ -13,7 +13,7 @@ TestResults/
 # Downloaded at build time (pinned + hash-verified by build scripts)
 resources/git/
 
-# Workspace-local toolchains, caches and logs (e.g. the Linux .NET SDK build/package-linux.ps1 uses under WSL)
+# Workspace-local toolchains, caches and logs (e.g. the VM gate and package logs)
 .tools/
 
 # Headless render output for review
@@ -21,7 +21,6 @@ render-output/
 
 # Agent worktrees
 .claude/worktrees/
-.linux-gate/
 
 # Nested build output
 ./src/Savepoint.App/bin/
