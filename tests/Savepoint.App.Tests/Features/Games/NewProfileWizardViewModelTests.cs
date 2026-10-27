@@ -62,9 +62,9 @@ public class NewProfileWizardViewModelTests
     // Ends the capture job before CreateAsync answers.
     private sealed class CompletingProfilesApi(FakeBackend backend, bool reportProgress = false) : IProfilesApi
     {
-        public async Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName)
+        public async Task<OperationResult<JobStarted>> CreateAsync(string gameId, string name, string? notes, string pointName, IReadOnlyCollection<RepoRole>? startEmpty = null)
         {
-            var started = await backend.Profiles.CreateAsync(gameId, name, notes, pointName);
+            var started = await backend.Profiles.CreateAsync(gameId, name, notes, pointName, startEmpty);
             if (reportProgress)
             {
                 backend.Jobs.ReportProgress(started.Value!.JobId, new JobProgress(5, 10));
@@ -306,7 +306,7 @@ public class NewProfileWizardViewModelTests
         await rig.SaveAsync("  Nolvus  ", " before the patch ");
 
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CreateAsync)));
-        Assert.Equal([SampleScenario.SkyrimId, "Nolvus", "before the patch", "Nolvus"], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, "Nolvus", "before the patch", "Nolvus"], call.Args.Take(4));
         Assert.Equal(WizardStep.Save, rig.Wizard.Step);
     }
 

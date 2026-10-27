@@ -72,6 +72,14 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     [NotifyPropertyChangedFor(nameof(HasNotes))]
     private string _notes = string.Empty;
 
+    /// <summary>The "Start with no saves" box; the saves folder gets an empty history instead of a snapshot of its files.</summary>
+    [ObservableProperty]
+    private bool _startWithoutSaves;
+
+    /// <summary>The "Start with no mods" box; the mods folder gets an empty history instead of a snapshot of its files.</summary>
+    [ObservableProperty]
+    private bool _startWithoutMods;
+
     /// <summary>Why creating the profile or retrying a folder was refused; empty when nothing is wrong.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSubmitError))]
@@ -178,6 +186,15 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
     /// <summary>True when the profile has notes, which step two shows.</summary>
     public bool HasNotes => TrimmedNotes.Length > 0;
 
+    /// <summary>True when the game has a saves folder, so "Start with no saves" is offered.</summary>
+    public bool HasSavesFolder => _game.External is not null;
+
+    /// <summary>True when the game has a mods folder outside the install, so "Start with no mods" is offered.</summary>
+    public bool HasModsFolder => _game.Mods is not null;
+
+    /// <summary>True when either box is offered.</summary>
+    public bool HasStartEmptyChoices => HasSavesFolder || HasModsFolder;
+
     /// <summary>True when the name is not blank, which is what Continue needs.</summary>
     public bool CanContinue => TrimmedName.Length > 0;
 
@@ -267,6 +284,27 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
         {
             Preview.Fail();
         }
+    }
+
+    partial void OnStartWithoutSavesChanged(bool value) => Preview.StartEmpty(EmptyFolders());
+
+    partial void OnStartWithoutModsChanged(bool value) => Preview.StartEmpty(EmptyFolders());
+
+    // Only a folder the game has can start empty, so a box that is not offered never counts.
+    private HashSet<RepoRole> EmptyFolders()
+    {
+        var folders = new HashSet<RepoRole>();
+        if (StartWithoutSaves && HasSavesFolder)
+        {
+            folders.Add(RepoRole.External);
+        }
+
+        if (StartWithoutMods && HasModsFolder)
+        {
+            folders.Add(RepoRole.Mods);
+        }
+
+        return folders;
     }
 
     partial void OnStepChanged(WizardStep value)
