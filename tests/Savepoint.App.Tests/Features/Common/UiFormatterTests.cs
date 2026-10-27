@@ -209,10 +209,32 @@ public class UiFormatterTests
     }
 
     [Fact]
-    public void Default_names_carry_the_date_as_month_day_and_two_digit_year_without_padding()
+    public void Default_names_carry_the_full_date_in_the_catalog_languages_pattern()
     {
-        Assert.Equal("7-2-26", English().NameDate(new DateTimeOffset(2026, 7, 2, 9, 0, 0, TimeSpan.Zero)));
-        Assert.Equal("12-25-27", English().NameDate(new DateTimeOffset(2027, 12, 25, 9, 0, 0, TimeSpan.Zero)));
+        Assert.Equal("Jul 2, 2026", English().NameDate(new DateTimeOffset(2026, 7, 2, 9, 0, 0, TimeSpan.Zero)));
+        Assert.Equal("Dec 25, 2027", English().NameDate(new DateTimeOffset(2027, 12, 25, 9, 0, 0, TimeSpan.Zero)));
+    }
+
+    [Fact]
+    public void Default_names_show_the_year_even_for_the_current_year()
+    {
+        Assert.Equal("Jul 8, 2026", English().NameDate(_now));
+    }
+
+    [Theory]
+    [InlineData("fr", "dd/MM/yyyy", "08-07-2026")]
+    [InlineData("de", "dd.MM.yyyy", "08.07.2026")]
+    [InlineData("ja", "yyyy/MM/dd", "2026-07-08")]
+    [InlineData("en", "MM\\/dd\\/yyyy HH:mm", "07-08-2026 12-00")]
+    public void Default_names_never_hold_a_character_a_name_could_not_carry(string locale, string pattern, string expected)
+    {
+        var json = $$"""{ "format.pattern.date": "{{pattern.Replace("\\", "\\\\", StringComparison.Ordinal)}}" }""";
+        var formatter = new UiFormatter(LocalizationCatalog.FromJson(json, locale, throwOnMissingKey: true), new FixedClock(_now), "windows", TimeZoneInfo.Utc);
+
+        var name = formatter.NameDate(_now);
+
+        Assert.Equal(expected, name);
+        Assert.DoesNotContain(name, character => "/\\:*?\"<>|".Contains(character, StringComparison.Ordinal));
     }
 
     [Theory]

@@ -17,7 +17,7 @@ namespace Savepoint.App.Features.Launch;
 /// The dialog that opens when the game exits: how long the session was, how many new files there are, and
 /// radio cards to keep it as a new point, update the latest one, or leave it. A session that started from an older
 /// point offers a new profile, continuing the profile from there, or leaving it instead (D14). It answers with the
-/// completion to apply; Escape and "Not now" answer with <see cref="SessionCompletion.Skip"/>.
+/// completion to apply; Escape and the "Not now" card answer with <see cref="SessionCompletion.Skip"/>.
 /// </summary>
 public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCompletion>
 {
@@ -42,7 +42,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
 
     /// <summary>The card the player has selected; the main button acts on it.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PrimaryLabel), nameof(ShowNotNowButton))]
+    [NotifyPropertyChangedFor(nameof(PrimaryLabel))]
     private PostPlayChoiceViewModel _selectedChoice;
 
     /// <param name="exited">The session's exit: its length, new files and the choices it allows.</param>
@@ -243,9 +243,6 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
         _ => _text.Message("launch.postPlay.saveIt"),
     };
 
-    /// <summary>True when the separate "Not now" button shows: it would only repeat the main button when that already says so.</summary>
-    public bool ShowNotNowButton => SelectedChoice.Kind != CompletionChoice.Skip;
-
     /// <inheritdoc />
     public override string Description => string.Join(' ', new[] { Body, HasNotSeenHint ? NotSeenHint : null, HasOlderNote ? OlderNote : null }.OfType<string>());
 
@@ -321,9 +318,6 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
                 break;
         }
     }
-
-    [RelayCommand]
-    private void NotNow() => Close(new SessionCompletion.Skip());
 
     private Task<bool> ConfirmMoveForwardAsync() =>
         _dialogs.ConfirmAsync(new ConfirmRequest(

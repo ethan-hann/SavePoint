@@ -19,7 +19,7 @@ public class LaunchTryAgainTargetTests : IDisposable
     private async Task FinishModdedThenHoldForVanillaAsync(ErrorInfo held)
     {
         await _f.PlayToExitedAsync();
-        _f.PostPlay.NotNowCommand.Execute(null);
+        _f.PostPlay.ChooseNotNow();
         Assert.False(_f.Flow.IsActive(FlowRig.Skyrim));
 
         var source = FakeAssert.Ok(await _f.Backend.Launch.GetPreviewAsync(FlowRig.Skyrim, LaunchRig.VanillaTip, TestContext.Current.CancellationToken));
@@ -48,7 +48,7 @@ public class LaunchTryAgainTargetTests : IDisposable
     public async Task Try_again_on_a_check_that_failed_for_any_other_reason_checks_the_profile_just_chosen_too()
     {
         await _f.PlayToExitedAsync();
-        _f.PostPlay.NotNowCommand.Execute(null);
+        _f.PostPlay.ChooseNotNow();
         _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), ErrorInfo.From(new InvalidOperationException("the scan broke")));
         await _f.Play(LaunchRig.VanillaTip);
         var startsBefore = _f.Starts().Count;

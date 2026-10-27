@@ -73,7 +73,7 @@ public class LaunchViewTests
         using var harness = await LaunchViewHarness.StartAsync();
         await PlayToExitedAsync(harness);
         var dialog = PostPlay(harness);
-        var field = harness.All<TextBox>().Single(box => box.Text == "Session - 7-8-26");
+        var field = harness.All<TextBox>().Single(box => box.Text == "Session - Jul 8, 2026");
         Assert.True(field.IsEffectivelyVisible);
 
         dialog.SelectedChoice = dialog.Choices.Single(choice => choice.Kind == CompletionChoice.Skip);
@@ -93,7 +93,35 @@ public class LaunchViewTests
         Press(harness, PhysicalKey.Enter);
 
         Assert.True(dialog.IsClosed);
-        Assert.Equal(new SessionCompletion.CaptureNew("Session - 7-8-26"), harness.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.CompleteSessionAsync)).Single().Args[1]);
+        Assert.Equal(new SessionCompletion.CaptureNew("Session - Jul 8, 2026"), harness.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.CompleteSessionAsync)).Single().Args[1]);
+    }
+
+    [AvaloniaFact]
+    public async Task The_post_play_dialog_offers_Not_now_once_while_another_choice_is_selected()
+    {
+        using var harness = await LaunchViewHarness.StartAsync();
+        await PlayToExitedAsync(harness);
+
+        var shown = harness.All<TextBlock>().Where(block => block.IsEffectivelyVisible && block.Text == "Not now");
+
+        Assert.Single(shown);
+    }
+
+    [AvaloniaFact]
+    public async Task Choosing_the_Not_now_card_and_pressing_the_main_button_leaves_the_saves_alone()
+    {
+        using var harness = await LaunchViewHarness.StartAsync();
+        await PlayToExitedAsync(harness);
+        var dialog = PostPlay(harness);
+
+        dialog.SelectedChoice = dialog.Choices.Single(choice => choice.Kind == CompletionChoice.Skip);
+        harness.Settle();
+        Assert.Equal("Not now", harness.Find<Button>("SaveButton").Content);
+        harness.Find<Button>("SaveButton").Command!.Execute(null);
+        harness.Settle();
+
+        Assert.Equal(new SessionCompletion.Skip(), harness.Backend.Calls.To<ILaunchApi>(nameof(ILaunchApi.CompleteSessionAsync)).Single().Args[1]);
+        Assert.Empty(harness.Dialogs.Stack);
     }
 
     [AvaloniaFact]

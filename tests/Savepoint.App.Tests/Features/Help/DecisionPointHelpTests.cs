@@ -205,7 +205,7 @@ public class DecisionPointHelpTests : IDisposable
 
         var first = await PlayFromOlderAsync(app);
         Assert.True(first.OlderChoiceHelp!.IsOpen);
-        first.NotNowCommand.Execute(null);
+        first.ChooseNotNow();
         var second = await PlayFromOlderAsync(app);
 
         Assert.NotSame(first, second);

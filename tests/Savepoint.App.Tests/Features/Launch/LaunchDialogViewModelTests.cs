@@ -521,7 +521,7 @@ public class LaunchDialogViewModelTests : IDisposable
         var keep = Assert.IsType<KeepAsNewProfileDialogViewModel>(Assert.Single(_rig.Dialogs.Shown));
         Assert.Equal("Keep as a new profile", keep.Title);
         Assert.Equal("SavePoint takes a snapshot of your game folders as they are now and makes it a new profile.", keep.Body);
-        Assert.Equal("Kept changes - 7-8-26", keep.Name);
+        Assert.Equal("Kept changes - Jul 8, 2026", keep.Name);
         keep.CancelCommand.Execute(null);
         await open;
     }

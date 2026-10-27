@@ -191,7 +191,7 @@ public class LaunchEndToEndTests
         app.Backend.Launch.ReportExited(_skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
         AssertPlayIs(app, false);
 
-        app.Dialog<PostPlayDialogViewModel>().NotNowCommand.Execute(null);
+        app.Dialog<PostPlayDialogViewModel>().ChooseNotNow();
 
         Assert.Null(app.Games.InlineContent);
         AssertPlayIs(app, true);
@@ -304,7 +304,7 @@ public class LaunchEndToEndTests
         Assert.False(postPlay.IsClosed);
         Assert.Equal(NavDestination.History, app.Shell.Destination);
 
-        postPlay.NotNowCommand.Execute(null);
+        postPlay.ChooseNotNow();
         app.Shell.Navigate(NavDestination.Games);
 
         Assert.Null(app.Games.InlineContent);

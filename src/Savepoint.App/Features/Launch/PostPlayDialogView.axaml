@@ -9,22 +9,17 @@
              x:DataType="launch:PostPlayDialogViewModel">
   <!--
     The post-play dialog. The choices are radio cards: arrow keys move the selection, Tab leaves the group,
-    and the name field inside the selected card is reachable by Tab.
+    and the name field inside the selected card is reachable by Tab. "Not now" is a card, not a second footer
+    button, so the footer has one button that acts on the selected card; Escape also leaves the saves alone.
   -->
   <dialogs:DialogFrame>
     <dialogs:DialogFrame.Footer>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-        <Button x:Name="NotNowButton"
-                Classes="text pill large"
-                IsVisible="{Binding ShowNotNowButton}"
-                Command="{Binding NotNowCommand}"
-                Content="{loc:Loc launch.postPlay.notNow}" />
-        <Button x:Name="SaveButton"
-                Classes="filled pill large"
-                IsDefault="True"
-                Command="{Binding SaveCommand}"
-                Content="{Binding PrimaryLabel}" />
-      </StackPanel>
+      <Button x:Name="SaveButton"
+              Classes="filled pill large"
+              HorizontalAlignment="Right"
+              IsDefault="True"
+              Command="{Binding SaveCommand}"
+              Content="{Binding PrimaryLabel}" />
     </dialogs:DialogFrame.Footer>
     <StackPanel Spacing="18">
       <StackPanel Spacing="8">

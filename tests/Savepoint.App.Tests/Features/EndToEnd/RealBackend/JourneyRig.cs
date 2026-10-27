@@ -13,6 +13,7 @@ using Savepoint.App.Features.Shell;
 using Savepoint.App.Hosting;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Contract;
+using Savepoint.App.Tests.Fakes;
 using Savepoint.App.Tests.Features.Settings;
 using Savepoint.App.Tests.Theme;
 using Savepoint.Core.Api;
@@ -269,7 +270,7 @@ internal sealed class JourneyRig : IAsyncDisposable
     // Answers "Not now" to the question that follows a session, and waits until SavePoint has let go of the game.
     public async Task SkipSessionAsync(PostPlayDialogViewModel postPlay)
     {
-        postPlay.NotNowCommand.Execute(null);
+        postPlay.ChooseNotNow();
         await WaitAsync(() => !Shell.LaunchFlow!.IsActive(Shell.SelectedGame!.Id) && Games.InlineContent is null && Games.Profiles.All(row => row.CanPlay), "the session to end and Play to come back");
     }
 

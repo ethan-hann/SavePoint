@@ -44,7 +44,7 @@ public class NewProfileWizardViewTests
         var label = harness.All<TextBlock>().First(block => block.Text == "Profile name");
         var accent = (Color)Application.Current!.FindResource("Md3PrimaryColor")!;
         Assert.Equal(accent, ((ISolidColorBrush)label.Foreground!).Color);
-        Assert.Equal("Modded playthrough - 7-8-26", field.Text);
+        Assert.Equal("Modded playthrough - Jul 8, 2026", field.Text);
     }
 
     [AvaloniaFact]
@@ -80,7 +80,7 @@ public class NewProfileWizardViewTests
         Assert.True(harness.Find<StackPanel>("CheckStep").IsEffectivelyVisible);
         Assert.True(harness.Find<Button>("BackButton").IsEffectivelyVisible);
         Assert.False(harness.Find<Button>("CancelButton").IsEffectivelyVisible);
-        Assert.Equal("Modded playthrough - 7-8-26", harness.Find<TextBlock>("CheckName").Text);
+        Assert.Equal("Modded playthrough - Jul 8, 2026", harness.Find<TextBlock>("CheckName").Text);
 
         await wizard.ContinueCommand.ExecuteAsync(null);
         harness.Settle();

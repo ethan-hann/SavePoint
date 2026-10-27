@@ -82,7 +82,7 @@ public class GamesScreenActionsTests
         await rig.Screen.Profiles[0].TakeSnapshotCommand.ExecuteAsync(null);
 
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
-        Assert.Equal([SampleScenario.SkyrimId, SampleScenario.ModdedId, "Snapshot - 7-8-26", null], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, SampleScenario.ModdedId, "Snapshot - Jul 8, 2026", null], call.Args);
         Assert.Empty(rig.Dialogs.Confirmations);
     }
 
@@ -134,7 +134,7 @@ public class GamesScreenActionsTests
         Assert.Equal("A first snapshot copies what the folder holds right now, even if that is another profile's files. The folder then belongs to Fresh profile.", question.Message);
         Assert.Equal("Take the snapshot", question.ConfirmLabel);
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
-        Assert.Equal([SampleScenario.SkyrimId, "profile-fresh", "Snapshot - 7-8-26", null], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, "profile-fresh", "Snapshot - Jul 8, 2026", null], call.Args);
     }
 
     [Fact]
@@ -207,7 +207,7 @@ public class GamesScreenActionsTests
         await rig.Screen.TakeSnapshotCommand.ExecuteAsync(null);
 
         var call = Assert.Single(rig.Backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
-        Assert.Equal([SampleScenario.SkyrimId, SampleScenario.ModdedId, "Snapshot - 7-8-26", null], call.Args);
+        Assert.Equal([SampleScenario.SkyrimId, SampleScenario.ModdedId, "Snapshot - Jul 8, 2026", null], call.Args);
     }
 
     [Fact]
