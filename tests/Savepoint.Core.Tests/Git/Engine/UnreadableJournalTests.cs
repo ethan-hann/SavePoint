@@ -152,15 +152,17 @@ public sealed class UnreadableJournalTests : IDisposable
         var (repo, points) = await _ws.TwoPointsRepoAsync();
         SwitchJournal.Write(repo.GitDir, points[0], points[1]);
         var held = new FileStream(SwitchJournal.PathIn(repo.GitDir), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(40, Ct);
-            held.Dispose();
-        }, Ct);
 
-        var note = SwitchJournal.Read(repo.GitDir);
+        // The other program lets go during the first wait, whatever the machine's speed.
+        var waits = 0;
+        var note = SwitchJournal.Read(repo.GitDir, _ =>
+        {
+            waits++;
+            held.Dispose();
+        });
 
         Assert.Equal(new InterruptedSwitch(points[0], points[1]), note);
+        Assert.Equal(1, waits);
     }
 
     [Fact]

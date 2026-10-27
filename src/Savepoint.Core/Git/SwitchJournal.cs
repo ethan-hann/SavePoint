@@ -34,8 +34,9 @@ internal static class SwitchJournal
     }
 
     // Null when no note exists. A note that exists but cannot be read or understood still says a switch started, so it is returned
-    // with no target: the folder may hold files of two points and nothing can say which.
-    public static InterruptedSwitch? Read(string gitDir)
+    // with no target: the folder may hold files of two points and nothing can say which. A test passes pause to act in the waits
+    // between the tries; the default sleeps.
+    public static InterruptedSwitch? Read(string gitDir, Action<TimeSpan>? pause = null)
     {
         if (!File.Exists(PathIn(gitDir)))
         {
@@ -46,7 +47,7 @@ internal static class SwitchJournal
         string text;
         try
         {
-            text = ReadText(PathIn(gitDir));
+            text = ReadText(PathIn(gitDir), pause ?? Thread.Sleep);
         }
         catch (FileNotFoundException)
         {
@@ -74,7 +75,7 @@ internal static class SwitchJournal
     }
 
     // A scanner can hold the file for a moment, so a few tries are made, with the same waits as Clear before the note is called unreadable.
-    private static string ReadText(string path)
+    private static string ReadText(string path, Action<TimeSpan> pause)
     {
         for (var attempt = 1; ; attempt++)
         {
@@ -84,7 +85,7 @@ internal static class SwitchJournal
             }
             catch (Exception e) when (attempt < _attempts && e is IOException and not FileNotFoundException and not DirectoryNotFoundException)
             {
-                Thread.Sleep(30 * attempt);
+                pause(TimeSpan.FromMilliseconds(30 * attempt));
             }
         }
     }
