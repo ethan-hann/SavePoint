@@ -32,6 +32,29 @@ public class CoreBackendTests
     }
 
     [Fact]
+    public void A_backend_that_fails_to_build_leaves_no_git_registry_on_the_exit_list()
+    {
+        var failing = false;
+        GitProcessRegistry? made = null;
+        using var workspace = new BackendWorkspace(options => failing
+            ? options with
+            {
+                Launch = services =>
+                {
+                    made = services.Runner.Options.Registry;
+                    throw new InvalidOperationException("the launch component could not be built");
+                },
+            }
+            : options);
+        failing = true;
+
+        Assert.Throws<InvalidOperationException>(workspace.Restart);
+
+        Assert.NotNull(made);
+        Assert.False(GitProcessRegistry.IsClosedAtExit(made));
+    }
+
+    [Fact]
     public void Every_api_is_present()
     {
         using var workspace = new BackendWorkspace();

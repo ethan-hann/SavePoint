@@ -114,6 +114,20 @@ public sealed class CoreBackend : IDisposable
         var git = options.Git ?? GitBinary.Locate(Path.Combine(platform.Directories.RuntimeDir, "git"));
         var noteFile = RunningGitNote.PathIn(platform.Directories.RuntimeDir);
         var registry = GitProcessRegistry.ForApp(noteFile, options.RunningGitNoteDelay, log);
+        try
+        {
+            return Assemble(options, platform, time, log, catalog, git, noteFile, registry);
+        }
+        catch
+        {
+            // The registry is on the list the process-exit handler closes, and no backend will ever release it.
+            registry.Release();
+            throw;
+        }
+    }
+
+    private static CoreBackend Assemble(BackendOptions options, IPlatform platform, TimeProvider time, GuardedDiagnosticLog log, CatalogStore catalog, GitBinary git, string noteFile, GitProcessRegistry registry)
+    {
         var leftovers = options.Leftovers ?? new LeftoverGits(noteFile, log, registry, options.LeftoverWait);
         var runner = new GitRunner(git, new GitRunnerOptions { Log = log, Registry = registry });
         var disk = options.DiskSpace ?? new DiskSpace();
