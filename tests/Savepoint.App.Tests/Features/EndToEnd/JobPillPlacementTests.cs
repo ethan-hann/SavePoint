@@ -280,7 +280,7 @@ public class JobPillPlacementTests
                 var moved = app.Window.GetVisualDescendants().OfType<ScrollViewer>().Where(scroller => scroller.Offset != default).ToList();
                 if (!openFreshEachTime)
                 {
-                    Assert.True(moved.Count == 0, $"{screen}, {layoutName} layout, {sizeName}: a scroll area did not start at the top; add the screen to {nameof(_opensScrolled)}.");
+                    Assert.True(moved.Count == 0, $"{screen}, {layoutName} layout, {sizeName}: a scroll area did not start at the top ({string.Join(", ", moved.Select(scroller => $"{scroller.Name ?? scroller.GetType().Name} at {scroller.Offset.Y}"))}); add the screen to {nameof(_opensScrolled)}.");
                 }
 
                 var found = overlays.SelectMany(overlay => Covered(app, overlay, scrolledToEnd: false)).Select(problem => $"{problem} (pinned)").ToList();

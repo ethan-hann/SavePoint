@@ -110,7 +110,7 @@ public class LaunchHeldFileTests
         SessionState.Completed done;
         using (HeldFiles.Hold(HeldFile(rig), kind))
         {
-            Assert.True((await rig.Launch.MarkFinishedAsync(rig.Game.Id)).Ok);
+            rig.KillGame();
             await rig.WaitForAsync<SessionState.Exited>();
             Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.UpdateExisting("Updated"))).Ok);
             done = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
@@ -259,7 +259,7 @@ public class LaunchHeldFileTests
         SessionState.Completed done;
         using (HeldFiles.Hold(HeldFile(rig), kind))
         {
-            Assert.True((await rig.Launch.MarkFinishedAsync(rig.Game.Id)).Ok);
+            rig.KillGame();
             exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
             Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.UpdateExisting("Updated"))).Ok);
             done = Assert.IsType<SessionState.Completed>((await rig.WaitForAsync<SessionState.Completed>()).State);
