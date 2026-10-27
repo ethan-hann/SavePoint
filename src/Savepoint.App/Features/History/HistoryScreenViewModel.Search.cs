@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.App.Features.Common.Search;
@@ -45,6 +46,17 @@ public sealed partial class HistoryScreenViewModel
     private int _visibleCount;
     private bool _searchSilent;
     private KindOption _currentKindOption = null!;
+    private PointGroupViewModel? _thisWeekGroup;
+    private PointGroupViewModel? _earlierGroup;
+
+    /// <summary>The "Versions &amp; mods" column, newest first; holds the entries the search leaves.</summary>
+    public ObservableCollection<TimelineEntryViewModel> Timeline { get; } = [];
+
+    /// <summary>The "Saves" column, newest first; holds the rows the search leaves.</summary>
+    public ObservableCollection<SaveRowViewModel> Saves { get; } = [];
+
+    /// <summary>The card view's groups, "Last 7 days" first; a group with no cards is left out.</summary>
+    public ObservableCollection<PointGroupViewModel> Groups { get; } = [];
 
     /// <summary>The kind chosen; the choice lasts for the session and goes back to All when another game opens.</summary>
     [ObservableProperty]
@@ -187,45 +199,67 @@ public sealed partial class HistoryScreenViewModel
         _entries = [];
         _removedEntries = [];
         _visibleCount = 0;
+        _thisWeekGroup = null;
+        _earlierGroup = null;
+        Timeline.Clear();
+        Saves.Clear();
+        Groups.Clear();
         ShowRemovedEntries();
     }
 
-    // Lists the entries the search and the kind choice leave, in the three arrangements the screen draws.
+    // The two groups last as long as the points they were built for, so a keystroke changes their cards and nothing else.
+    private void BuildGroups()
+    {
+        _thisWeekGroup = new PointGroupViewModel(_deps.Text.Message("history.group.thisWeek"));
+        _earlierGroup = new PointGroupViewModel(_deps.Text.Message("history.group.earlier"));
+    }
+
+    // Lists the entries the search and the kind choice leave, in the three arrangements the screen draws. Entries that stay are the
+    // same objects, so a card a person has focused keeps its focus while the ones around it come and go.
     private void ShowEntries()
     {
         var visible = _entries.Where(entry => Shown(entry.Point.Kind, entry.Target)).ToList();
         _visibleCount = visible.Count;
 
         var onTimeline = visible.Where(entry => entry.Timeline is not null).Select(entry => entry.Timeline!).ToList();
-        if (onTimeline.Count > 0)
+        for (var index = 0; index < onTimeline.Count; index++)
         {
             // The rail ends at the last entry that shows, whichever entry that is.
-            onTimeline[^1] = onTimeline[^1] with { IsLast = true };
+            onTimeline[index].IsLast = index == onTimeline.Count - 1;
         }
 
-        Timeline = onTimeline;
-        Saves = [.. visible.Where(entry => entry.Save is not null).Select(entry => entry.Save!)];
-        Groups = GroupsOf(visible);
+        ListSync.To(Timeline, onTimeline);
+        ListSync.To(Saves, [.. visible.Where(entry => entry.Save is not null).Select(entry => entry.Save!)]);
+        ShowGroups(visible);
         OnPropertyChanged(nameof(IsSearchEmpty));
         OnPropertyChanged(nameof(ShowPoints));
     }
 
-    private List<PointGroupViewModel> GroupsOf(List<PointEntry> visible)
+    private void ShowGroups(List<PointEntry> visible)
     {
+        if (_thisWeekGroup is null || _earlierGroup is null)
+        {
+            return;
+        }
+
         var thisWeek = visible.Where(entry => _groupsNow - entry.Point.CapturedAt < _thisWeek).Select(entry => entry.Card).ToList();
         var earlier = visible.Where(entry => _groupsNow - entry.Point.CapturedAt >= _thisWeek).Select(entry => entry.Card).ToList();
+        ListSync.To(_thisWeekGroup.Cards, thisWeek);
+        ListSync.To(_earlierGroup.Cards, earlier);
+
+        // A group with no cards is left out.
         List<PointGroupViewModel> groups = [];
         if (thisWeek.Count > 0)
         {
-            groups.Add(new PointGroupViewModel(_deps.Text.Message("history.group.thisWeek"), thisWeek));
+            groups.Add(_thisWeekGroup);
         }
 
         if (earlier.Count > 0)
         {
-            groups.Add(new PointGroupViewModel(_deps.Text.Message("history.group.earlier"), earlier));
+            groups.Add(_earlierGroup);
         }
 
-        return groups;
+        ListSync.To(Groups, groups);
     }
 
     private void SetRemoved(List<RemovedEntry> entries)
@@ -264,7 +298,6 @@ public sealed partial class HistoryScreenViewModel
                     detail,
                     stamp,
                     point.InUse,
-                    false,
                     _words.ItemName(headline, detail, stamp),
                     text.Message("history.card.goBackAutomation", ("name", point.Name)),
                     BeginCommand(game.Id, new LaunchTarget.Point(point.Id)),

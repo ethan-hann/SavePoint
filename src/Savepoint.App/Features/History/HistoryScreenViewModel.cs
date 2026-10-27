@@ -107,18 +107,6 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
     [ObservableProperty]
     private ErrorCardViewModel? _errorCard;
 
-    /// <summary>The "Versions &amp; mods" column, newest first.</summary>
-    [ObservableProperty]
-    private IReadOnlyList<TimelineEntryViewModel> _timeline = [];
-
-    /// <summary>The "Saves" column, newest first.</summary>
-    [ObservableProperty]
-    private IReadOnlyList<SaveRowViewModel> _saves = [];
-
-    /// <summary>The card view's groups, "This week" first; a group with no cards is left out.</summary>
-    [ObservableProperty]
-    private IReadOnlyList<PointGroupViewModel> _groups = [];
-
     /// <summary>The filter menu: "All profiles", then each profile of the game.</summary>
     [ObservableProperty]
     private IReadOnlyList<ProfileFilter> _filters = [];
@@ -432,9 +420,6 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
 
     private void Clear()
     {
-        Timeline = [];
-        Saves = [];
-        Groups = [];
         ClearEntries();
         RemovedError = null;
         _flowCommands.Clear();
@@ -484,6 +469,7 @@ public sealed partial class HistoryScreenViewModel : ObservableObject, IScreen
         _flowCommands.Clear();
         _entries = BuildEntries(game, points);
         _groupsNow = _deps.Clock.GetUtcNow();
+        BuildGroups();
         ShowEntries();
         State = points.Count == 0 ? HistoryState.Empty : HistoryState.Loaded;
     }

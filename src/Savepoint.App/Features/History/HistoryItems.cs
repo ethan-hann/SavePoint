@@ -1,4 +1,6 @@
+using System.Collections.ObjectModel;
 using System.Windows.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Savepoint.Core.Api;
 
@@ -24,19 +26,53 @@ public sealed record ProfileFilter(string? ProfileId, string Label);
 /// <param name="Label">Its name, already localized.</param>
 public sealed record ViewModeOption(HistoryViewMode Mode, string Label);
 
-/// <summary>One stop on the "Versions &amp; mods" timeline: a capture that changed the game's version or mods.</summary>
-/// <param name="Headline">What happened, for example "14 mod files updated".</param>
-/// <param name="Detail">The profile, and the version or size where the headline does not already say it.</param>
-/// <param name="Stamp">When it was captured, with "in use now" appended for the point the install folder holds.</param>
-/// <param name="IsInUse">True for the point the install folder holds now; its dot is filled.</param>
-/// <param name="IsLast">True for the oldest entry; the rail ends at its dot.</param>
-/// <param name="AutomationName">What assistive technology calls the entry: the headline, the detail and the stamp as one line.</param>
-/// <param name="GoBackAutomationName">The button's accessible name ("Go back and play: 14 mod files updated").</param>
-/// <param name="GoBackCommand">Starts the launch flow with both folders restored to this point.</param>
-/// <param name="SwitchAutomationName">The switch button's accessible name ("Go back without playing: 14 mod files updated").</param>
-/// <param name="SwitchCommand">Restores both folders to this point without starting the game.</param>
-public sealed record TimelineEntryViewModel(string Headline, string Detail, string Stamp, bool IsInUse, bool IsLast, string AutomationName, string GoBackAutomationName, ICommand GoBackCommand, string SwitchAutomationName, ICommand SwitchCommand)
+/// <summary>
+/// One stop on the "Versions &amp; mods" timeline: a capture that changed the game's version or mods. The search keeps the same entry
+/// on screen and only moves <see cref="IsLast"/>, so a card a person has focused stays put.
+/// </summary>
+/// <param name="headline">What happened, for example "14 mod files updated".</param>
+/// <param name="detail">The profile, and the version or size where the headline does not already say it.</param>
+/// <param name="stamp">When it was captured, with "in use now" appended for the point the install folder holds.</param>
+/// <param name="isInUse">True for the point the install folder holds now; its dot is filled.</param>
+/// <param name="automationName">What assistive technology calls the entry: the headline, the detail and the stamp as one line.</param>
+/// <param name="goBackAutomationName">The button's accessible name ("Go back and play: 14 mod files updated").</param>
+/// <param name="goBackCommand">Starts the launch flow with both folders restored to this point.</param>
+/// <param name="switchAutomationName">The switch button's accessible name ("Go back without playing: 14 mod files updated").</param>
+/// <param name="switchCommand">Restores both folders to this point without starting the game.</param>
+public sealed partial class TimelineEntryViewModel(string headline, string detail, string stamp, bool isInUse, string automationName, string goBackAutomationName, ICommand goBackCommand, string switchAutomationName, ICommand switchCommand) : ObservableObject
 {
+    /// <summary>What happened, for example "14 mod files updated".</summary>
+    public string Headline { get; } = headline;
+
+    /// <summary>The profile, and the version or size where the headline does not already say it.</summary>
+    public string Detail { get; } = detail;
+
+    /// <summary>When it was captured, with "in use now" appended for the point the install folder holds.</summary>
+    public string Stamp { get; } = stamp;
+
+    /// <summary>True for the point the install folder holds now; its dot is filled.</summary>
+    public bool IsInUse { get; } = isInUse;
+
+    /// <summary>What assistive technology calls the entry: the headline, the detail and the stamp as one line.</summary>
+    public string AutomationName { get; } = automationName;
+
+    /// <summary>The button's accessible name ("Go back and play: 14 mod files updated").</summary>
+    public string GoBackAutomationName { get; } = goBackAutomationName;
+
+    /// <summary>Starts the launch flow with both folders restored to this point.</summary>
+    public ICommand GoBackCommand { get; } = goBackCommand;
+
+    /// <summary>The switch button's accessible name ("Go back without playing: 14 mod files updated").</summary>
+    public string SwitchAutomationName { get; } = switchAutomationName;
+
+    /// <summary>Restores both folders to this point without starting the game.</summary>
+    public ICommand SwitchCommand { get; } = switchCommand;
+
+    /// <summary>True for the last entry the timeline shows; the rail ends at its dot.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRail))]
+    private bool _isLast;
+
     /// <summary>True when the entry offers "Go back and play": it is not the point the install folder holds now.</summary>
     public bool CanGoBack => !IsInUse;
 
@@ -158,10 +194,16 @@ public sealed class PointCardViewModel
     public ICommand SwitchCommand { get; }
 }
 
-/// <summary>The cards of one age group, under a heading such as "This week".</summary>
-/// <param name="Heading">The group's name.</param>
-/// <param name="Cards">Its cards, newest first.</param>
-public sealed record PointGroupViewModel(string Heading, IReadOnlyList<PointCardViewModel> Cards);
+/// <summary>The cards of one age group, under a heading such as "This week". The search keeps the group and changes which cards it lists.</summary>
+/// <param name="heading">The group's name.</param>
+public sealed class PointGroupViewModel(string heading)
+{
+    /// <summary>The group's name.</summary>
+    public string Heading { get; } = heading;
+
+    /// <summary>The cards the search leaves, newest first.</summary>
+    public ObservableCollection<PointCardViewModel> Cards { get; } = [];
+}
 
 /// <summary>One row of the "Recently removed" section: a snapshot that left a profile and can be brought back as a new one.</summary>
 public sealed class RemovedSnapshotViewModel

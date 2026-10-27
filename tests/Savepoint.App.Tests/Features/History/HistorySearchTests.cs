@@ -188,6 +188,61 @@ public class HistorySearchTests
     }
 
     [Fact]
+    public async Task Typing_keeps_the_groups_cards_and_saves_that_still_match_as_the_same_objects()
+    {
+        var rig = await ShownAsync();
+        var groupsBefore = rig.Screen.Groups.ToList();
+        var cardsBefore = rig.Screen.Groups.SelectMany(group => group.Cards).ToList();
+        var savesBefore = rig.Screen.Saves.ToList();
+
+        rig.Screen.Search.Text = "survival";
+
+        var cards = rig.Screen.Groups.SelectMany(group => group.Cards).ToList();
+        Assert.Equal([_deepCave, _firstNight, _survival], cards.Select(card => card.Name));
+        AssertSameObjects(cards, cardsBefore);
+        AssertSameObjects(rig.Screen.Groups, groupsBefore);
+        AssertSameObjects(rig.Screen.Saves, savesBefore);
+        Assert.NotEmpty(rig.Screen.Saves);
+    }
+
+    // The records here compare by value, so a rebuilt entry would pass a plain Contains.
+    private static void AssertSameObjects<T>(IEnumerable<T> after, IReadOnlyList<T> before)
+        where T : class =>
+        Assert.All(after, item => Assert.Contains(before, other => ReferenceEquals(other, item)));
+
+    [Fact]
+    public async Task A_group_that_empties_and_fills_again_comes_back_as_the_same_group()
+    {
+        var rig = await ShownAsync();
+        var earlier = rig.Screen.Groups.Single(group => group.Heading == "Earlier");
+
+        rig.Screen.Search.Text = "2026-07-05";
+        Assert.DoesNotContain(rig.Screen.Groups, group => group.Heading == "Earlier");
+        rig.Screen.Search.ClearCommand.Execute(null);
+
+        Assert.Same(earlier, rig.Screen.Groups.Single(group => group.Heading == "Earlier"));
+    }
+
+    [Fact]
+    public async Task Typing_keeps_the_timeline_entries_that_still_match_and_moves_the_rails_end_without_replacing_them()
+    {
+        var rig = await ShownAsync();
+        var before = rig.Screen.Timeline.ToList();
+
+        rig.Screen.Search.Text = "2026-07-02";
+
+        Assert.Equal(2, rig.Screen.Timeline.Count);
+        AssertSameObjects(rig.Screen.Timeline, before);
+        Assert.True(rig.Screen.Timeline[^1].IsLast);
+
+        rig.Screen.Search.ClearCommand.Execute(null);
+
+        Assert.Equal(before.Count, rig.Screen.Timeline.Count);
+        AssertSameObjects(rig.Screen.Timeline, before);
+        Assert.Equal([false, false, false, true], rig.Screen.Timeline.Select(entry => entry.IsLast));
+    }
+
+    [Fact]
     public async Task A_group_the_search_leaves_empty_is_left_out()
     {
         var rig = await ShownAsync();
