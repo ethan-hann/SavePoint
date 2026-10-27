@@ -48,6 +48,15 @@
       <Setter Property="Background" Value="{DynamicResource Md3SelectedRowBrush}" />
     </Style>
 
+    <!-- Recently removed: a short list is drawn in full, so the section is as tall as its rows wherever the screen is scrolled; a long one draws only the rows in view. -->
+    <Style Selector="ItemsControl.long">
+      <Setter Property="ItemsPanel">
+        <ItemsPanelTemplate>
+          <common:OrderedVirtualizingStackPanel />
+        </ItemsPanelTemplate>
+      </Setter>
+    </Style>
+
     <!-- The Recently removed header is a toggle that reads as a plain row: opening it must not fill it like a chosen chip. -->
     <Style Selector="ToggleButton.section-toggle">
       <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -225,7 +234,7 @@
             </Panel>
           </Grid>
         </ToggleButton>
-        <StackPanel x:Name="RemovedContent" Margin="22,0,22,18" Spacing="12" IsVisible="{Binding IsRemovedOpen}">
+        <StackPanel x:Name="RemovedContent" Margin="22,0,22,8" Spacing="12" IsVisible="{Binding IsRemovedOpen}">
             <TextBlock x:Name="RemovedNoteText" Classes="caption" FontSize="12.5" TextWrapping="Wrap" IsVisible="{Binding !HasRemovedError}" Text="{Binding RemovedNote}" />
             <TextBlock x:Name="RemovedErrorText"
                        Classes="body error"
@@ -234,19 +243,20 @@
                        AutomationProperties.LiveSetting="Polite"
                        Text="{Binding RemovedError}" />
             <TextBlock x:Name="RemovedNoMatchesLine" Classes="body" TextWrapping="Wrap" IsVisible="{Binding ShowRemovedNoMatches}" Text="{Binding RemovedNoMatchesText}" />
+            <!-- A long list scrolls inside its section and draws only the rows in view; a short one takes the room it needs. -->
+            <ScrollViewer x:Name="RemovedScroll" MaxHeight="340" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <ItemsControl x:Name="RemovedList"
+                          Classes.long="{Binding IsRemovedLong}"
                           ItemsSource="{Binding Removed}"
                           AutomationProperties.ControlTypeOverride="List"
                           AutomationProperties.Name="{Binding RemovedHeading}">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <StackPanel Spacing="10" />
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="history:RemovedSnapshotViewModel">
                   <Border Classes="save-row"
+                          Margin="0,0,0,10"
                           AutomationProperties.ControlTypeOverride="ListItem"
+                          AutomationProperties.PositionInSet="{Binding PositionInSet}"
+                          AutomationProperties.SizeOfSet="{Binding SizeOfSet}"
                           AutomationProperties.Name="{Binding ItemAutomationName}">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
                       <StackPanel Spacing="2" VerticalAlignment="Center">
@@ -267,6 +277,7 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+            </ScrollViewer>
         </StackPanel>
       </StackPanel>
     </Border>
@@ -280,9 +291,9 @@
 
         <!-- The saves column is wider: its lines carry a date and a profile name, which the timeline's do not. -->
         <Grid x:Name="ListRegion" ColumnDefinitions="4*,Auto,5*" IsVisible="{Binding IsListView}">
-          <ScrollViewer x:Name="VersionsScroll" Grid.Column="0" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="22,20,22,22" Spacing="14">
-              <StackPanel Orientation="Horizontal" Spacing="10">
+          <!-- Each column's heading stays put and its list scrolls under it, drawing only the entries in view. -->
+          <DockPanel Grid.Column="0">
+              <StackPanel DockPanel.Dock="Top" Margin="22,20,22,14" Orientation="Horizontal" Spacing="10">
                 <TextBlock Classes="icon s20 accent" Text="{x:Static theme:Icons.Folder}" />
                 <TextBlock x:Name="VersionsHeading"
                            Classes="muted"
@@ -292,14 +303,23 @@
                            VerticalAlignment="Center"
                            Text="{theme:Upper {loc:Loc history.column.versions}}" />
               </StackPanel>
+              <ScrollViewer x:Name="VersionsScroll" VerticalScrollBarVisibility="Auto">
               <ItemsControl x:Name="TimelineList"
+                            Margin="22,0,22,22"
                             ItemsSource="{Binding Timeline}"
                             AutomationProperties.ControlTypeOverride="List"
                             AutomationProperties.Name="{loc:Loc history.column.versions}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <common:OrderedVirtualizingStackPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="history:TimelineEntryViewModel">
                     <Grid ColumnDefinitions="11,14,*"
                           AutomationProperties.ControlTypeOverride="ListItem"
+                          AutomationProperties.PositionInSet="{Binding PositionInSet}"
+                          AutomationProperties.SizeOfSet="{Binding SizeOfSet}"
                           AutomationProperties.Name="{Binding AutomationName}">
                       <Grid RowDefinitions="Auto,*">
                         <Border Classes="timeline-dot" Classes.filled="{Binding IsInUse}" Margin="0,5,0,0" />
@@ -326,14 +346,13 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-            </StackPanel>
-          </ScrollViewer>
+              </ScrollViewer>
+          </DockPanel>
 
           <Border Grid.Column="1" Width="1" Background="{DynamicResource Md3OutlineVariantBrush}" />
 
-          <ScrollViewer x:Name="SavesScroll" Grid.Column="2" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="22,20,22,22" Spacing="14">
-              <StackPanel Orientation="Horizontal" Spacing="10">
+          <DockPanel Grid.Column="2">
+              <StackPanel DockPanel.Dock="Top" Margin="22,20,22,14" Orientation="Horizontal" Spacing="10">
                 <TextBlock Classes="icon s20 accent" Text="{x:Static theme:Icons.Save}" />
                 <TextBlock x:Name="SavesHeading"
                            Classes="muted"
@@ -343,20 +362,25 @@
                            VerticalAlignment="Center"
                            Text="{theme:Upper {loc:Loc history.column.saves}}" />
               </StackPanel>
+              <ScrollViewer x:Name="SavesScroll" VerticalScrollBarVisibility="Auto">
               <ItemsControl x:Name="SavesList"
+                            Margin="22,0,22,10"
                             ItemsSource="{Binding Saves}"
                             AutomationProperties.ControlTypeOverride="List"
                             AutomationProperties.Name="{loc:Loc history.column.saves}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
-                    <StackPanel Spacing="12" />
+                    <common:OrderedVirtualizingStackPanel />
                   </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="history:SaveRowViewModel">
                     <Border Classes="save-row"
                             Classes.loaded="{Binding IsLoaded}"
+                            Margin="0,0,0,12"
                             AutomationProperties.ControlTypeOverride="ListItem"
+                            AutomationProperties.PositionInSet="{Binding PositionInSet}"
+                            AutomationProperties.SizeOfSet="{Binding SizeOfSet}"
                             AutomationProperties.Name="{Binding ItemAutomationName}">
                       <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Spacing="2" VerticalAlignment="Center">
@@ -387,28 +411,32 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-            </StackPanel>
-          </ScrollViewer>
+              </ScrollViewer>
+          </DockPanel>
         </Grid>
 
+        <!-- One list for both groups: each heading and each row of cards is a line of it, and only the lines in view are drawn. -->
         <ScrollViewer x:Name="CardsRegion" IsVisible="{Binding IsCardsView}" VerticalScrollBarVisibility="Auto">
-          <ItemsControl x:Name="GroupList" Margin="22,14,22,22" ItemsSource="{Binding Groups}">
+          <ItemsControl x:Name="GroupList"
+                        Margin="15,8,15,22"
+                        ItemsSource="{Binding CardEntries}"
+                        AutomationProperties.ControlTypeOverride="List"
+                        AutomationProperties.Name="{loc:Loc history.title}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <StackPanel Spacing="6" />
+                <common:OrderedVirtualizingStackPanel />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="history:PointGroupViewModel">
-                <StackPanel>
-                  <TextBlock Classes="overline" FontSize="12.5" Margin="0,6,0,7" Text="{Binding Heading, Converter={x:Static theme:UppercaseConverter.Instance}}" />
-                  <ItemsControl Margin="-7,0"
-                                ItemsSource="{Binding Cards}"
-                                AutomationProperties.ControlTypeOverride="List"
-                                AutomationProperties.Name="{Binding Heading}">
+            <ItemsControl.DataTemplates>
+              <DataTemplate x:DataType="history:CardGroupHeadingViewModel">
+                <TextBlock Classes="overline" FontSize="12.5" Margin="7,12,0,7" Text="{Binding Heading, Converter={x:Static theme:UppercaseConverter.Instance}}" />
+              </DataTemplate>
+              <DataTemplate x:DataType="history:CardRowViewModel">
+                <!-- The row only lines its cards up; the cards are the list's items. -->
+                <ItemsControl ItemsSource="{Binding Cards}" AutomationProperties.AccessibilityView="Raw">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
-                        <common:AdaptiveUniformGrid MinItemWidth="210" MaxColumns="3" />
+                        <UniformGrid x:DataType="history:CardRowViewModel" Rows="1" Columns="{Binding Columns}" />
                       </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
@@ -417,6 +445,8 @@
                                 Classes.selected="{Binding IsLoaded}"
                                 Margin="7"
                                 AutomationProperties.ControlTypeOverride="ListItem"
+                                AutomationProperties.PositionInSet="{Binding PositionInSet}"
+                                AutomationProperties.SizeOfSet="{Binding SizeOfSet}"
                                 AutomationProperties.Name="{Binding ItemAutomationName}">
                           <StackPanel Spacing="9">
                             <Grid ColumnDefinitions="*,Auto" MinHeight="26">
@@ -450,10 +480,9 @@
                         </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                </StackPanel>
+                </ItemsControl>
               </DataTemplate>
-            </ItemsControl.ItemTemplate>
+            </ItemsControl.DataTemplates>
           </ItemsControl>
         </ScrollViewer>
       </Panel>

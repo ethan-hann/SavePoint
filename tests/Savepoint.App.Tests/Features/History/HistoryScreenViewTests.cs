@@ -46,7 +46,8 @@ public class HistoryScreenViewTests
     [AvaloniaFact]
     public async Task Cards_show_by_default_in_two_groups_with_a_button_on_every_card_but_the_loaded_one()
     {
-        using var harness = await StartAsync();
+        // Tall enough for every card to be drawn, since only the cards in view are.
+        using var harness = await StartAsync(height: 1500);
 
         var texts = harness.VisibleTexts().ToList();
 

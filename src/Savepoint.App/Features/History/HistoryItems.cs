@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Savepoint.App.Features.Common;
 using Savepoint.Core.Api;
 
 namespace Savepoint.App.Features.History;
@@ -27,6 +28,40 @@ public sealed record ProfileFilter(string? ProfileId, string Label);
 public sealed record ViewModeOption(HistoryViewMode Mode, string Label);
 
 /// <summary>
+/// An entry of one of the History lists. Only the entries near the screen get a control, so a screen reader cannot count the siblings
+/// itself: each entry carries its place and the size of its list for the view to announce.
+/// </summary>
+public abstract partial class ListedItemViewModel : ObservableObject, IFocusKeyed
+{
+    /// <summary>
+    /// What names the snapshot the entry stands for across a refresh, which builds new entries for the same snapshots: the view puts
+    /// keyboard focus back on the entry with the same key.
+    /// </summary>
+    public string FocusKey { get; init; } = string.Empty;
+
+    /// <summary>The entry's place in its list, counted from 1; 0 until the list has numbered it.</summary>
+    [ObservableProperty]
+    private int _positionInSet;
+
+    /// <summary>How many entries the list holds; 0 until the list has numbered it.</summary>
+    [ObservableProperty]
+    private int _sizeOfSet;
+
+    /// <summary>Numbers every entry of <paramref name="list"/> by its place in it, telling a bound control only about the entries that changed.</summary>
+    /// <typeparam name="T">The kind of entry.</typeparam>
+    /// <param name="list">The list as the screen shows it, in order.</param>
+    public static void Number<T>(IReadOnlyList<T> list)
+        where T : ListedItemViewModel
+    {
+        for (var index = 0; index < list.Count; index++)
+        {
+            list[index].PositionInSet = index + 1;
+            list[index].SizeOfSet = list.Count;
+        }
+    }
+}
+
+/// <summary>
 /// One stop on the "Versions &amp; mods" timeline: a capture that changed the game's version or mods. The search keeps the same entry
 /// on screen and only moves <see cref="IsLast"/>, so a card a person has focused stays put.
 /// </summary>
@@ -39,7 +74,7 @@ public sealed record ViewModeOption(HistoryViewMode Mode, string Label);
 /// <param name="goBackCommand">Starts the launch flow with both folders restored to this point.</param>
 /// <param name="switchAutomationName">The switch button's accessible name ("Go back without playing: 14 mod files updated").</param>
 /// <param name="switchCommand">Restores both folders to this point without starting the game.</param>
-public sealed partial class TimelineEntryViewModel(string headline, string detail, string stamp, bool isInUse, string automationName, string goBackAutomationName, ICommand goBackCommand, string switchAutomationName, ICommand switchCommand) : ObservableObject
+public sealed partial class TimelineEntryViewModel(string headline, string detail, string stamp, bool isInUse, string automationName, string goBackAutomationName, ICommand goBackCommand, string switchAutomationName, ICommand switchCommand) : ListedItemViewModel
 {
     /// <summary>What happened, for example "14 mod files updated".</summary>
     public string Headline { get; } = headline;
@@ -81,7 +116,7 @@ public sealed partial class TimelineEntryViewModel(string headline, string detai
 }
 
 /// <summary>One row of the "Saves" column.</summary>
-public sealed class SaveRowViewModel
+public sealed class SaveRowViewModel : ListedItemViewModel
 {
     /// <param name="point">The point it stands for.</param>
     /// <param name="detail">The date and the owning profile.</param>
@@ -133,7 +168,7 @@ public sealed class SaveRowViewModel
 }
 
 /// <summary>One card of the card view.</summary>
-public sealed class PointCardViewModel
+public sealed class PointCardViewModel : ListedItemViewModel
 {
     /// <param name="point">The point it stands for.</param>
     /// <param name="icon">The glyph for the kind of point.</param>
@@ -205,8 +240,56 @@ public sealed class PointGroupViewModel(string heading)
     public ObservableCollection<PointCardViewModel> Cards { get; } = [];
 }
 
+/// <summary>
+/// One line of the card view's single scrolling list: a group's heading or a row of cards. Entries that stand for the same thing are
+/// equal, so a search that leaves a row as it was keeps the control already drawn for it.
+/// </summary>
+public abstract record CardListEntry;
+
+/// <summary>The heading above a group's cards.</summary>
+/// <param name="Group">The group it names.</param>
+public sealed record CardGroupHeadingViewModel(PointGroupViewModel Group) : CardListEntry
+{
+    /// <summary>The group's name.</summary>
+    public string Heading => Group.Heading;
+}
+
+/// <summary>One row of cards, as many as the width of the screen has room for side by side.</summary>
+public sealed record CardRowViewModel : CardListEntry
+{
+    /// <param name="cards">The row's cards, left to right; never empty.</param>
+    /// <param name="columns">How many cards the row has room for, so a last row with fewer keeps its cards as wide as the rest.</param>
+    public CardRowViewModel(IReadOnlyList<PointCardViewModel> cards, int columns)
+    {
+        Cards = cards;
+        Columns = columns;
+    }
+
+    /// <summary>The row's cards, left to right.</summary>
+    public IReadOnlyList<PointCardViewModel> Cards { get; }
+
+    /// <summary>How many cards the row has room for.</summary>
+    public int Columns { get; }
+
+    /// <inheritdoc />
+    public bool Equals(CardRowViewModel? other) => other is not null && Columns == other.Columns && Cards.SequenceEqual(other.Cards);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Columns);
+        foreach (var card in Cards)
+        {
+            hash.Add(card);
+        }
+
+        return hash.ToHashCode();
+    }
+}
+
 /// <summary>One row of the "Recently removed" section: a snapshot that left a profile and can be brought back as a new one.</summary>
-public sealed class RemovedSnapshotViewModel
+public sealed class RemovedSnapshotViewModel : ListedItemViewModel
 {
     /// <param name="snapshot">The snapshot it stands for.</param>
     /// <param name="detail">What the snapshot held ("Saves only · 1.6.640 with 212 mod files").</param>
