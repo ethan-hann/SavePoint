@@ -3,7 +3,7 @@
 # this script and a run.env file in one folder; that folder is the only argument.
 #
 # The VM is a real Ubuntu on ext4 and the gate runs as an ordinary user, the way the CI Linux job does, so the CI skip list
-# (build/expected-skips/linux-ci.txt) applies and no test retries. One gate at a time: a second run is refused at once.
+# (build/expected-skips/linux-ci.txt) applies. One gate at a time: a second run is refused at once.
 #
 # Exit codes: the gate's own, or 75 when another gate already holds the VM, or 1 for a setup failure.
 set -euo pipefail

@@ -1,9 +1,9 @@
 #Requires -Version 7
 # Local gate: build, test, format check. Exits non-zero on the first failure.
 #
-# SAVEPOINT_TEST_ARGS takes only a report (--report-*) and retries of failed tests (--retry-failed-tests*). Anything else, such
-# as a filter, is refused unless -AllowNarrowedTests says it is on purpose, because a run that tests part of the code or lets a
-# failure pass would read as a passed gate.
+# SAVEPOINT_TEST_ARGS takes only a report (--report-*). Anything else, such as a filter or a retry of failed tests (the retry
+# extension is no longer part of the test projects), is refused unless -AllowNarrowedTests says it is on purpose, because a run
+# that tests part of the code or lets a failure pass would read as a passed gate.
 [CmdletBinding()]
 param(
     [switch]$AllowNarrowedTests
@@ -26,18 +26,18 @@ $buildNodes = if ($env:SAVEPOINT_GATE_BUILD_NODES) { $env:SAVEPOINT_GATE_BUILD_N
 $testThreads = if ($env:SAVEPOINT_GATE_TEST_THREADS) { $env:SAVEPOINT_GATE_TEST_THREADS } else { '4' }
 # Where the test step writes its xunit reports, which the skip check reads. The gate always asks for them, so SAVEPOINT_TEST_ARGS must not.
 $resultsDir = Join-Path (Get-Location) 'artifacts/test-results'
-# Extra test-platform arguments (a report, retries), space-separated, as gate.sh takes them.
+# Extra test-platform arguments (a report), space-separated, as gate.sh takes them.
 [string[]]$testArgs = if ($env:SAVEPOINT_TEST_ARGS) { @($env:SAVEPOINT_TEST_ARGS -split '\s+' | Where-Object { $_ }) } else { @() }
 
-# Says which of the arguments the gate does not take. Only a report and retries of failed tests are allowed; any other argument, a
-# filter in whatever spelling, a response file (@file) or an option that lets failures pass, could make "gate passed" mean less
-# than a full run. A word without dashes is allowed only as the value of an allowed option before it. Matching is case sensitive,
-# so an odd spelling is refused, never let through.
+# Says which of the arguments the gate does not take. Only a report is allowed; any other argument, a filter in whatever
+# spelling, a response file (@file) or an option that lets failures pass (a retry of failed tests among them), could make "gate
+# passed" mean less than a full run. A word without dashes is allowed only as the value of an allowed option before it. Matching
+# is case sensitive, so an odd spelling is refused, never let through.
 function Get-NarrowingArguments {
     param([string[]]$Arguments)
     $afterAllowed = $false
     foreach ($argument in $Arguments) {
-        if ($argument -cmatch '^--(report-[A-Za-z0-9-]+|retry-failed-tests(-[A-Za-z0-9-]+)?)(=.*)?$') {
+        if ($argument -cmatch '^--report-[A-Za-z0-9-]+(=.*)?$') {
             $afterAllowed = -not $argument.Contains('=')
         }
         elseif ($afterAllowed -and $argument -notmatch '^[-@]') {
@@ -56,7 +56,7 @@ if ($testArgs.Count -gt 0) {
     Write-Host "==> extra test arguments (SAVEPOINT_TEST_ARGS): $($testArgs -join ' ')"
     $narrowing = @(Get-NarrowingArguments $testArgs)
     if ($narrowing.Count -gt 0 -and -not $AllowNarrowedTests) {
-        Write-Host "gate refused: SAVEPOINT_TEST_ARGS holds $($narrowing -join ' '), which could run only some of the tests or let a failure pass. Only a report and retries are allowed there. Unset it, or pass -AllowNarrowedTests if that is on purpose." -ForegroundColor Red
+        Write-Host "gate refused: SAVEPOINT_TEST_ARGS holds $($narrowing -join ' '), which could run only some of the tests or let a failure pass. Only a report (--report-*) is allowed there; test retries are not available. Unset it, or pass -AllowNarrowedTests if that is on purpose." -ForegroundColor Red
         exit 1
     }
     if ($narrowing.Count -gt 0) {
