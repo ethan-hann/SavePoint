@@ -17,6 +17,6 @@ public sealed record LaunchOrchestratorOptions
     /// <summary>The Steam client the launch asks before it starts a Steam game from its program; the platform's own when null.</summary>
     public ISteamClient? Steam { get; init; }
 
-    /// <summary>How long a launch waits for a Steam client it started; the defaults when null.</summary>
+    /// <summary>How long a launch waits for a Steam client it started; the defaults when null. Building the orchestrator throws <see cref="ArgumentOutOfRangeException"/> for a negative timeout or a polling interval that is not positive.</summary>
     public SteamWaitOptions? SteamWait { get; init; }
 }

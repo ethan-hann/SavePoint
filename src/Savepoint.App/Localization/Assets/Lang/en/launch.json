@@ -99,6 +99,7 @@
   "launch.postPlay.attention.body": "{gameName} closed. Open SavePoint to choose what to keep from this session.",
   "launch.postPlay.body": "{count, plural, =0 {SavePoint found no new or changed saves to keep.} one {{countText} file in your saves folder is new or changed since you started.} other {{countText} files in your saves folder are new or changed since you started.}}",
   "launch.postPlay.choicesLabel": "What to do with this session",
+  "launch.postPlay.chooseAgain": "Choose again",
   "launch.postPlay.continueIt": "Continue",
   "launch.postPlay.defaultName": "Session - {date}",
   "launch.postPlay.failedAtStart.hint": "The program you chose closed right away with an error (code {code}), so the game didn't start. If this is a Steam game, start Steam first, then play again. Starting it Through Steam can update the game and replace the version you switched to.",

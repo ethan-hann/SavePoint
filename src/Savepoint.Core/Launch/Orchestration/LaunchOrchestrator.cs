@@ -23,6 +23,7 @@ public sealed partial class LaunchOrchestrator : ILaunchApi
         _book = new SessionBook(services.Log);
         _steam = options.Steam ?? services.Platform.Steam;
         _steamWait = options.SteamWait ?? new SteamWaitOptions();
+        _steamWait.EnsureValid();
         _starter = options.Starter ?? GameStarter.For(services.Platform, options.Session, services.Time);
 
         // The orchestrator lives as long as the process, so it follows the registry's jobs for as long.

@@ -278,10 +278,32 @@ public sealed partial class LaunchFlowViewModel
         var completed = await _deps.Launch.CompleteSessionAsync(flow.GameId, await dialog.Result);
         if (!completed.Ok)
         {
-            ShowPlainFailure(flow, completed.Error, ErrorOperation.Snapshot);
+            if (completed.Error.MessageId == "error.launch.sessionStillRunning")
+            {
+                // The session is still over and no event will announce it again, so the way back to the choices has to be on the card.
+                SetInline(flow, new ErrorCardViewModel(completed.Error, _deps.Text, [ChooseAgainAction(flow), DismissAction(flow)], operation: ErrorOperation.Snapshot));
+            }
+            else
+            {
+                ShowPlainFailure(flow, completed.Error, ErrorOperation.Snapshot);
+            }
+
             RaiseActivity();
         }
     }
+
+    private ErrorCardAction ChooseAgainAction(GameFlow flow) =>
+        new(
+            _deps.Text.Message("launch.postPlay.chooseAgain"),
+            new RelayCommand(() =>
+            {
+                SetInline(flow, null);
+                if (flow.Session is { State: SessionState.Exited exited } session)
+                {
+                    Enqueue(flow, () => HandleExitAsync(flow, session, exited));
+                }
+            }),
+            IsPrimary: true);
 
     private void ShowSaving(GameFlow flow, Guid jobId)
     {

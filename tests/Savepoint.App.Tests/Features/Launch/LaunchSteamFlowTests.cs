@@ -165,6 +165,26 @@ public class LaunchSteamFlowTests : IDisposable
         Assert.IsType<Savepoint.App.Features.Launch.RunningCardViewModel>(_f.Flow.InlineContentFor(FlowRig.Skyrim));
     }
 
+    // The service refuses a save while the game is still open; the session stays over, and the player must be able to choose again once it closes.
+    [Fact]
+    public async Task A_save_refused_because_the_game_is_still_open_offers_to_choose_again()
+    {
+        await _f.PlayToExitedAsync();
+        _f.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.CompleteSessionAsync), ErrorInfo.From(new SessionStillRunningException(FlowRig.Skyrim)));
+        await _f.PostPlay.SaveCommand.ExecuteAsync(null);
+
+        var card = _f.Inline<ErrorCardViewModel>();
+        Assert.Equal("The game is still running. Close it, then try again.", card.Body);
+        Assert.Equal(["Choose again", "Dismiss"], card.Actions.Select(action => action.Label));
+        Assert.True(FlowRig.Action(card, "Choose again").IsPrimary);
+        var dialogsBefore = _f.Dialogs.Shown.OfType<Savepoint.App.Features.Launch.PostPlayDialogViewModel>().Count();
+
+        FlowRig.Press(card, "Choose again");
+
+        Assert.Equal(dialogsBefore + 1, _f.Dialogs.Shown.OfType<Savepoint.App.Features.Launch.PostPlayDialogViewModel>().Count());
+        Assert.Null(_f.Flow.InlineContentFor(FlowRig.Skyrim));
+    }
+
     [Fact]
     public async Task A_Steam_that_did_not_come_up_says_so_and_offers_try_again()
     {

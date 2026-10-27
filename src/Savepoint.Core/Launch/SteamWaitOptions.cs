@@ -14,4 +14,19 @@ public sealed record SteamWaitOptions
 
     /// <summary>Time between two looks at Steam; must be positive.</summary>
     public TimeSpan PollInterval { get; init; } = DefaultPollInterval;
+
+    /// <summary>Throws when the timings would spin or never wait.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The timeout is negative, or the polling interval is not positive.</exception>
+    internal void EnsureValid()
+    {
+        if (Timeout < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(Timeout), Timeout, "The wait for Steam cannot be negative.");
+        }
+
+        if (PollInterval <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(PollInterval), PollInterval, "The polling interval must be positive.");
+        }
+    }
 }

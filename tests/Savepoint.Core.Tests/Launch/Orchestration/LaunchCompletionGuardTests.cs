@@ -70,7 +70,7 @@ public class LaunchCompletionGuardTests
     public async Task A_game_started_again_right_after_it_quit_is_not_saved_over()
     {
         // A relaunch shows up at the next look at the process list, so the save waits that long after the game quit before it trusts the list.
-        var session = new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(400), Grace = TimeSpan.FromSeconds(3), RelaunchWindow = TimeSpan.Zero };
+        var session = new GameSessionOptions { PollInterval = TimeSpan.FromSeconds(1), Grace = TimeSpan.FromSeconds(3), RelaunchWindow = TimeSpan.Zero };
         using var rig = await LaunchRig.CreateAsync(session: session, followProcessName: true);
         var vanilla = await rig.ProfileAsync("Vanilla");
         await rig.StartAsync(Tip(vanilla));
