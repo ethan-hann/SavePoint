@@ -15,11 +15,14 @@ public sealed class LinuxProcessInspector : IProcessInspector
     private const long _ticksPerSecond = 100;
 
     private readonly string _procRoot;
+    private readonly TimeProvider _clock;
 
     /// <param name="procRoot">Injectable so the parsing can be tested against a made-up /proc on any OS.</param>
-    public LinuxProcessInspector(string procRoot = "/proc")
+    /// <param name="clock">The wall clock the start times are dated against; the system clock when null.</param>
+    public LinuxProcessInspector(string procRoot = "/proc", TimeProvider? clock = null)
     {
         _procRoot = procRoot;
+        _clock = clock ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
