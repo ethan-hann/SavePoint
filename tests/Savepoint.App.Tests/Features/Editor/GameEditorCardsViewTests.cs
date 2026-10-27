@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
@@ -55,10 +56,52 @@ public class GameEditorCardsViewTests
         using var harness = await EditorViewHarness.StartAsync();
         harness.Edit();
 
-        foreach (var heading in new[] { "GameCardHeading", "SavesCardHeading", "ModsCardHeading", "ArtworkCardHeading" })
+        foreach (var header in new[] { "GameCardHeader", "SavesCardHeader", "ModsCardHeader", "ArtworkCardHeader" })
         {
-            Assert.Equal(2, AutomationProperties.GetHeadingLevel(harness.Find<TextBlock>(heading)));
+            var peer = ControlAutomationPeer.CreatePeerForElement(harness.Find<Control>(header));
+            Assert.Equal(2, peer.GetHeadingLevel());
+            Assert.True(peer.IsControlElement(), header);
+            Assert.True(peer.IsContentElement(), header);
         }
+    }
+
+    private static string NameForScreenReaders(Control control) => ControlAutomationPeer.CreatePeerForElement(control).GetName();
+
+    [AvaloniaFact]
+    public async Task A_screen_reader_hears_how_much_a_card_matters_as_part_of_its_heading()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit();
+
+        Assert.Equal("Game, Required", NameForScreenReaders(harness.Find<Control>("GameCardHeader")));
+        Assert.Equal("Saves, Recommended", NameForScreenReaders(harness.Find<Control>("SavesCardHeader")));
+        Assert.Equal("Mods, Optional", NameForScreenReaders(harness.Find<Control>("ModsCardHeader")));
+        Assert.Equal("Artwork, Optional", NameForScreenReaders(harness.Find<Control>("ArtworkCardHeader")));
+    }
+
+    [AvaloniaFact]
+    public async Task The_drawn_heading_and_tag_are_not_read_a_second_time_after_the_header()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit();
+
+        foreach (var name in new[] { "GameCardHeading", "GameCardTag", "SavesCardHeading", "SavesCardTag", "ModsCardHeading", "ModsCardTag", "ArtworkCardHeading", "ArtworkCardTag" })
+        {
+            Assert.False(ControlAutomationPeer.CreatePeerForElement(harness.Find<TextBlock>(name)).IsContentElement(), name);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task More_settings_is_a_heading_at_the_same_level_as_the_other_cards()
+    {
+        using var harness = await EditorViewHarness.StartAsync();
+        harness.Edit();
+
+        var toggle = harness.Find<Control>("MoreSettingsToggle");
+
+        Assert.Equal(AutomationProperties.GetHeadingLevel(harness.Find<Control>("GameCardHeader")), AutomationProperties.GetHeadingLevel(toggle));
+        Assert.Equal(2, ControlAutomationPeer.CreatePeerForElement(toggle).GetHeadingLevel());
+        Assert.Equal("More settings", NameForScreenReaders(toggle));
     }
 
     [AvaloniaFact]

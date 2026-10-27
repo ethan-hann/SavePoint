@@ -19,12 +19,6 @@ public class HorizontalOverflowAuditTests
     [MemberData(nameof(AppStates.All), MemberType = typeof(AppStates))]
     public async Task Nothing_in_the_state_spills_sideways_at_a_scaled_or_the_smallest_window(string state)
     {
-        // The editor's header buttons do not yet fit a 640 px window (Save changes ends at 647 or 705); drop this return once they wrap.
-        if (state is "editor-existing" or "editor-new")
-        {
-            return;
-        }
-
         using var app = await AppStates.OpenAsync(state);
         var problems = new List<string>();
 

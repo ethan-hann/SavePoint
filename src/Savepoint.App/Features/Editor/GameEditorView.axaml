@@ -92,9 +92,10 @@
         <!-- The game: everything a game cannot work without. -->
         <Border x:Name="GameCard" Classes="panel">
           <StackPanel Spacing="22">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-              <TextBlock x:Name="GameCardHeading" Classes="card-heading" AutomationProperties.HeadingLevel="2" Text="{loc:Loc gameEditor.card.game}" />
-              <TextBlock x:Name="GameCardTag" Grid.Column="1" Classes="caption accent" VerticalAlignment="Center" Text="{loc:Loc gameEditor.tag.required}" />
+            <!-- The header is the heading a screen reader finds, named with its tag; the two texts inside are drawn but not read again. -->
+            <Grid x:Name="GameCardHeader" ColumnDefinitions="*,Auto" ColumnSpacing="12" AutomationProperties.AccessibilityView="Content" AutomationProperties.HeadingLevel="2" AutomationProperties.Name="{Binding GameCardAutomationName}">
+              <TextBlock x:Name="GameCardHeading" Classes="card-heading" AutomationProperties.AccessibilityView="Raw" Text="{loc:Loc gameEditor.card.game}" />
+              <TextBlock x:Name="GameCardTag" Grid.Column="1" Classes="caption accent" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw" Text="{loc:Loc gameEditor.tag.required}" />
             </Grid>
 
             <StackPanel x:Name="NameBlock" Spacing="9">
@@ -239,9 +240,9 @@
         <!-- Saves: recommended, because without them a snapshot holds the game's files but not the player's progress. -->
         <Border x:Name="SavesCard" Classes="panel">
           <StackPanel Spacing="16">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-              <TextBlock x:Name="SavesCardHeading" Classes="card-heading" AutomationProperties.HeadingLevel="2" Text="{loc:Loc gameEditor.card.saves}" />
-              <TextBlock x:Name="SavesCardTag" Grid.Column="1" Classes="caption" VerticalAlignment="Center" Text="{loc:Loc gameEditor.tag.recommended}" />
+            <Grid x:Name="SavesCardHeader" ColumnDefinitions="*,Auto" ColumnSpacing="12" AutomationProperties.AccessibilityView="Content" AutomationProperties.HeadingLevel="2" AutomationProperties.Name="{Binding SavesCardAutomationName}">
+              <TextBlock x:Name="SavesCardHeading" Classes="card-heading" AutomationProperties.AccessibilityView="Raw" Text="{loc:Loc gameEditor.card.saves}" />
+              <TextBlock x:Name="SavesCardTag" Grid.Column="1" Classes="caption" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw" Text="{loc:Loc gameEditor.tag.recommended}" />
             </Grid>
 
             <StackPanel Spacing="9">
@@ -312,9 +313,9 @@
         <!-- Mods: optional. A mods folder outside the game folder, and the files inside the game folder that count as mods, side by side. -->
         <Border x:Name="ModsCard" Classes="panel">
           <StackPanel Spacing="22">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-              <TextBlock x:Name="ModsCardHeading" Classes="card-heading" AutomationProperties.HeadingLevel="2" Text="{loc:Loc gameEditor.card.mods}" />
-              <TextBlock x:Name="ModsCardTag" Grid.Column="1" Classes="caption" VerticalAlignment="Center" Text="{loc:Loc gameEditor.tag.optional}" />
+            <Grid x:Name="ModsCardHeader" ColumnDefinitions="*,Auto" ColumnSpacing="12" AutomationProperties.AccessibilityView="Content" AutomationProperties.HeadingLevel="2" AutomationProperties.Name="{Binding ModsCardAutomationName}">
+              <TextBlock x:Name="ModsCardHeading" Classes="card-heading" AutomationProperties.AccessibilityView="Raw" Text="{loc:Loc gameEditor.card.mods}" />
+              <TextBlock x:Name="ModsCardTag" Grid.Column="1" Classes="caption" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw" Text="{loc:Loc gameEditor.tag.optional}" />
             </Grid>
 
             <StackPanel Spacing="9">
@@ -380,9 +381,9 @@
         <!-- Artwork: how the game looks in the library, and where that comes from. The Steam app id its lookup uses is under More settings. -->
         <Border x:Name="ArtworkSection" Classes="panel">
           <StackPanel Spacing="16">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-              <TextBlock x:Name="ArtworkCardHeading" Classes="card-heading" AutomationProperties.HeadingLevel="2" Text="{loc:Loc gameEditor.artwork.label}" />
-              <TextBlock x:Name="ArtworkCardTag" Grid.Column="1" Classes="caption" VerticalAlignment="Center" Text="{loc:Loc gameEditor.tag.optional}" />
+            <Grid x:Name="ArtworkCardHeader" ColumnDefinitions="*,Auto" ColumnSpacing="12" AutomationProperties.AccessibilityView="Content" AutomationProperties.HeadingLevel="2" AutomationProperties.Name="{Binding ArtworkCardAutomationName}">
+              <TextBlock x:Name="ArtworkCardHeading" Classes="card-heading" AutomationProperties.AccessibilityView="Raw" Text="{loc:Loc gameEditor.artwork.label}" />
+              <TextBlock x:Name="ArtworkCardTag" Grid.Column="1" Classes="caption" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw" Text="{loc:Loc gameEditor.tag.optional}" />
             </Grid>
             <Grid ColumnDefinitions="Auto,24,*">
               <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Top">
@@ -414,6 +415,7 @@
                           Padding="0,2"
                           MinHeight="32"
                           IsChecked="{Binding IsMoreSettingsOpen, Mode=TwoWay}"
+                          AutomationProperties.HeadingLevel="2"
                           AutomationProperties.Name="{loc:Loc gameEditor.moreSettings.label}">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <TextBlock Classes="card-heading" VerticalAlignment="Center" Text="{loc:Loc gameEditor.moreSettings.label}" />
