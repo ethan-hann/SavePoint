@@ -16,7 +16,10 @@ namespace Savepoint.Core.Api;
 /// The total size, in bytes, of the files the point recorded for the install folder: the whole install as it was then, not only
 /// what changed. Null for a save-only point, which recorded no install of its own, and where SavePoint cannot tell.
 /// </param>
-/// <param name="InUse">True when the install folder holds this point now.</param>
+/// <param name="InUse">
+/// True when going back to this point would change neither the install folder nor the mods folder: each holds the profile's snapshot
+/// at or before the point, also for a folder the point itself did not record. Always false for a save-only point (D61.2).
+/// </param>
 /// <param name="LoadedNow">True when the saves folder holds this point now.</param>
 public sealed record HistoryPoint(
     HistoryPointId Id,
