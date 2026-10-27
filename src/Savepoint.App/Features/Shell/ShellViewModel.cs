@@ -85,6 +85,8 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
         LayoutToggle = new LayoutToggleViewModel(text, SetLayoutAsync, _layout);
         JobStatus = new JobStatusViewModel(text, dependencies.Toasts, id => Games.FirstOrDefault(row => row.Id == id)?.Name, jobId => dependencies.LaunchFlow.ShowsOutcomeOf(jobId), ShowActivity);
 
+        InitializeGameSearch();
+
         dependencies.LaunchFlow.SettingsSaved += OnFlowSettingsSaved;
         dependencies.Theme.LargestFittingScaleChanged += OnLargestFittingScaleChanged;
     }
@@ -278,6 +280,7 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
 
         OnPropertyChanged(nameof(IsCompact));
         OnPropertyChanged(nameof(RailWidth));
+        RefilterGames();
     }
 
     /// <summary>Tells the shell how tall the window is; the library shelf compacts below <see cref="ShortBelowHeight"/>.</summary>
@@ -319,6 +322,7 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
             return;
         }
 
+        RevealGame(row);
         Select(row);
 
         // Choosing a game on purpose puts the player back on its screen, so the help page goes first.
@@ -342,6 +346,7 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
         var row = gameId is null ? null : Games.FirstOrDefault(candidate => candidate.Id == gameId);
         if (row is not null)
         {
+            RevealGame(row);
             Select(row);
         }
 
@@ -509,6 +514,7 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
     public void Dispose()
     {
         _disposed = true;
+        GameSearch.Dispose();
         _deps.Jobs.JobChanged -= OnJobChanged;
         EndPane(except: null);
         (_deps.Artwork as IDisposable)?.Dispose();
@@ -704,6 +710,7 @@ public sealed partial class ShellViewModel : ObservableObject, IShellContext, ID
 
         var selected = rows.FirstOrDefault(row => row.Id == previous?.Id) ?? rows.FirstOrDefault();
         Select(selected, force: !Equals(previousGame, selected?.Game));
+        RefilterGames();
         RaiseShellState();
         JobStatus.Refresh();
     }

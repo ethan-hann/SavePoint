@@ -24,6 +24,7 @@ namespace Savepoint.App.Features.Shell;
 /// <param name="Artwork">Each game's artwork for its tiles; a game with none keeps its name tint.</param>
 /// <param name="LaunchFlow">The launch flow that owns starting a game.</param>
 /// <param name="LibraryRuns">Tells the exit guard while games are being added from a library; none when null.</param>
+/// <param name="Clock">Times the pause before the game search announces how many games are left; the system clock when null.</param>
 public sealed record ShellDependencies(
     IGamesApi Games,
     IProfilesApi Profiles,
@@ -38,4 +39,5 @@ public sealed record ShellDependencies(
     IReadOnlyList<IScreenFactory> Screens,
     IArtworkProvider Artwork,
     ILaunchFlowHost LaunchFlow,
-    LibraryRunTracker? LibraryRuns = null);
+    LibraryRunTracker? LibraryRuns = null,
+    TimeProvider? Clock = null);

@@ -1,0 +1,6 @@
+{
+  "search.clear": "Clear search",
+  "search.games.count": "{shownText} of {total, plural, one {{totalText} game} other {{totalText} games}}",
+  "search.games.label": "Search games",
+  "search.games.noMatch": "No games match."
+}

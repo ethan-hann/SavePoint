@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Savepoint.App.Features.Common.Search;
 
 namespace Savepoint.App.Features.Shell;
 
@@ -28,6 +29,17 @@ public partial class ShellView : UserControl
             list.AddHandler(TappedEvent, OnGameTapped, RoutingStrategies.Bubble);
             list.AddHandler(KeyDownEvent, OnGameKeyDown, RoutingStrategies.Bubble, handledEventsToo: true);
         }
+    }
+
+    /// <summary>
+    /// Puts the cursor in the search box of the screen in front; a screen with none leaves it to the games' search box, in the rail or
+    /// on the shelf, whichever shows.
+    /// </summary>
+    /// <returns>True when a search box took focus.</returns>
+    public bool FocusSearch()
+    {
+        var screenBoxes = this.FindControl<ContentControl>("ContentRegion")!.GetVisualDescendants().OfType<SearchBoxView>();
+        return screenBoxes.Concat([this.FindControl<SearchBoxView>("RailSearch")!, this.FindControl<SearchBoxView>("ShelfSearch")!]).Any(box => box.FocusSearch());
     }
 
     private void OnGameTapped(object? sender, TappedEventArgs e)

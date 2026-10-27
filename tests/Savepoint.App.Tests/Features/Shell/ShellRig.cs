@@ -16,7 +16,7 @@ namespace Savepoint.App.Tests.Features.Shell;
 // A shell wired to the fake backend with every collaborator recorded; events run inline unless a test passes a queueing dispatcher.
 internal sealed class ShellRig
 {
-    private ShellRig(FakeBackend backend, IUiDispatcher dispatcher, IReadOnlyList<IScreenFactory> screens, ILaunchFlowHost? launchFlow, IArtworkProvider? artwork)
+    private ShellRig(FakeBackend backend, IUiDispatcher dispatcher, IReadOnlyList<IScreenFactory> screens, ILaunchFlowHost? launchFlow, IArtworkProvider? artwork, TimeProvider? clock)
     {
         Backend = backend;
         Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
@@ -37,7 +37,8 @@ internal sealed class ShellRig
             Theme,
             screens,
             artwork ?? new ArtworkProvider(backend.Artwork, dispatcher),
-            launchFlow ?? new ScriptedLaunchFlow()));
+            launchFlow ?? new ScriptedLaunchFlow(),
+            Clock: clock));
     }
 
     public FakeBackend Backend { get; }
@@ -60,8 +61,9 @@ internal sealed class ShellRig
         IReadOnlyList<IScreenFactory>? screens = null,
         ILaunchFlowHost? launchFlow = null,
         IArtworkProvider? artwork = null,
-        bool standIns = true) =>
-        new(backend ?? FakeBackend.Sample(), dispatcher ?? new ImmediateUiDispatcher(), standIns ? StandInScreens.Complete(screens ?? []) : screens ?? [], launchFlow, artwork);
+        bool standIns = true,
+        TimeProvider? clock = null) =>
+        new(backend ?? FakeBackend.Sample(), dispatcher ?? new ImmediateUiDispatcher(), standIns ? StandInScreens.Complete(screens ?? []) : screens ?? [], launchFlow, artwork, clock);
 
     public static async Task<ShellRig> StartAsync(
         FakeBackend? backend = null,
@@ -69,9 +71,10 @@ internal sealed class ShellRig
         IReadOnlyList<IScreenFactory>? screens = null,
         ILaunchFlowHost? launchFlow = null,
         IArtworkProvider? artwork = null,
-        bool standIns = true)
+        bool standIns = true,
+        TimeProvider? clock = null)
     {
-        var rig = Create(backend, dispatcher, screens, launchFlow, artwork, standIns);
+        var rig = Create(backend, dispatcher, screens, launchFlow, artwork, standIns, clock);
         await rig.Shell.InitializeAsync();
         return rig;
     }

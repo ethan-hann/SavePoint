@@ -65,7 +65,8 @@ public static class AppComposition
                 ScreenFactories(feature, settingsEnvironment),
                 FeatureComposition.Artwork(feature),
                 FeatureComposition.LaunchFlow(feature),
-                libraryRuns));
+                libraryRuns,
+                feature.Clock));
         }
 
         return new MainWindowViewModel(startup, CreateShell, dialogStack, toasts, new ExitGuard(services.Jobs, pickers, text, exitWait, libraryRuns));

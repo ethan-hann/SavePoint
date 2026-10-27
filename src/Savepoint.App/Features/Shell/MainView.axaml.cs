@@ -1,7 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using Savepoint.App.Features.Common.Accessibility;
+using Savepoint.App.Features.Common.Search;
 using Savepoint.App.Features.Help;
 
 namespace Savepoint.App.Features.Shell;
@@ -103,6 +105,14 @@ public partial class MainView : UserControl, IAnnouncementHost
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (HelpKey.Matches(e.Key, e.KeyModifiers) && DataContext is MainWindowViewModel main && main.TryShowHelp())
+        {
+            e.Handled = true;
+            return;
+        }
+
+        // Not behind a dialog: the box would take focus out of reach of the dialog's own controls.
+        if (FindKey.Matches(e.Key, e.KeyModifiers) && DataContext is MainWindowViewModel { Shell: not null, Dialogs.IsOpen: false }
+            && Page.GetVisualDescendants().OfType<ShellView>().FirstOrDefault()?.FocusSearch() == true)
         {
             e.Handled = true;
         }
