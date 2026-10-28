@@ -13,7 +13,12 @@ public class StorageGateTests
         var gate = new StorageGate();
 
         using var first = await gate.EnterSharedAsync(TestContext.Current.CancellationToken);
-        using var second = await gate.EnterSharedAsync(TestContext.Current.CancellationToken);
+
+        // A second shared holder that had to wait for the first would never get in while the first is held; the deadline turns that into a failure.
+        var second = gate.EnterSharedAsync(TestContext.Current.CancellationToken);
+        using var lease = await second.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.True(second.IsCompletedSuccessfully, "the second shared holder did not get in beside the first");
     }
 
     [Fact]

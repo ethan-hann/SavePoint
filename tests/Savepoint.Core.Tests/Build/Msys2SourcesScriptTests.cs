@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Savepoint.Testing;
@@ -25,11 +26,19 @@ public class Msys2SourcesScriptTests
     // Runs pwsh on a probe script and returns its standard output.
     private static async Task<string> PwshAsync(string probe)
     {
+        var output = await RunPwshAsync(probe, TestContext.Current.CancellationToken);
+        Assert.SkipWhen(output is null, "pwsh is not installed here.");
+        return output!;
+    }
+
+    // Starts pwsh on a probe script; null when pwsh is not installed here.
+    private static async Task<string?> RunPwshAsync(string probe, CancellationToken cancellationToken)
+    {
         var folder = Directory.CreateTempSubdirectory("savepoint-msys2-probe-");
         try
         {
             var file = Path.Combine(folder.FullName, "probe.ps1");
-            await File.WriteAllTextAsync(file, probe, new UTF8Encoding(false), TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(file, probe, new UTF8Encoding(false), cancellationToken);
             var info = new ProcessStartInfo("pwsh") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
             info.ArgumentList.Add("-NoProfile");
             info.ArgumentList.Add("-NonInteractive");
@@ -45,12 +54,16 @@ public class Msys2SourcesScriptTests
                 // Not every machine has PowerShell on its path.
             }
 
-            Assert.SkipWhen(process is null, "pwsh is not installed here.");
+            if (process is null)
+            {
+                return null;
+            }
+
             using (process)
             {
-                var output = process!.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
-                var error = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
-                await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+                var output = process.StandardOutput.ReadToEndAsync(cancellationToken);
+                var error = process.StandardError.ReadToEndAsync(cancellationToken);
+                await process.WaitForExitAsync(cancellationToken);
                 var text = await output;
                 Assert.True(process.ExitCode == 0, $"pwsh failed ({process.ExitCode}): {await error}\n{text}");
                 return text;
@@ -132,22 +145,123 @@ public class Msys2SourcesScriptTests
             output);
     }
 
+    // The rows of the theories below. Their probes run in one pwsh start for the whole class (see TheoryRowsAsync), because a pwsh start
+    // costs far more than the lookup it runs.
+    private static readonly (string Name, string Source, string Mirror)[] _builtFromRows =
+    [
+        ("gcc-libs", "gcc", "msys"),
+        ("heimdal-libs", "heimdal", "msys"),
+        ("libsqlite", "sqlite", "msys"),
+        ("libreadline", "readline", "msys"),
+        ("libpcre", "pcre", "msys"),
+        ("libintl", "gettext", "msys"),
+        ("libopenssl", "openssl", "msys"),
+        ("mingw-w64-ucrt-x86_64-libatomic", "gcc", "mingw"),
+        ("mingw-w64-ucrt-x86_64-cc-libs", "gcc", "mingw"),
+        ("mingw-w64-ucrt-x86_64-libstdc++", "gcc", "mingw"),
+        ("mingw-w64-ucrt-x86_64-libwinpthread", "winpthreads", "mingw"),
+        ("mingw-w64-ucrt-x86_64-gitk", "git", "mingw"),
+    ];
+
+    private static readonly (string Name, string Source)[] _suffixedRows =
+    [
+        ("mingw-w64-ucrt-x86_64-curl-winssl", "curl"),
+        ("mingw-w64-ucrt-x86_64-libssh2-wincng", "libssh2"),
+        ("mingw-w64-ucrt-x86_64-gettext-runtime", "gettext"),
+        ("mingw-w64-ucrt-x86_64-git-gui", "git"),
+        ("mingw-w64-ucrt-x86_64-git-for-windows-addons", "git"),
+    ];
+
+    private static readonly (string Status, string Reason)[] _refusedRows =
+    [
+        ("[GNUPG:] BADSIG FA11531AA0AA7F57 Someone", "bad signature"),
+        ("[GNUPG:] ERRSIG FA11531AA0AA7F57 1 10 00 1668872992 9 5F944B027F7FE2091985AA2EFA11531AA0AA7F57", "could not be checked"),
+        ("[GNUPG:] REVKEYSIG FA11531AA0AA7F57 Someone", "revoked"),
+        ("[GNUPG:] NEWSIG", "no valid signature"),
+    ];
+
+    public static TheoryData<string, string, string> BuiltFromRows()
+    {
+        var data = new TheoryData<string, string, string>();
+        foreach (var (name, source, mirror) in _builtFromRows)
+        {
+            data.Add(name, source, mirror);
+        }
+
+        return data;
+    }
+
+    public static TheoryData<string, string> SuffixedRows()
+    {
+        var data = new TheoryData<string, string>();
+        foreach (var (name, source) in _suffixedRows)
+        {
+            data.Add(name, source);
+        }
+
+        return data;
+    }
+
+    public static TheoryData<string, string> RefusedRows()
+    {
+        var data = new TheoryData<string, string>();
+        foreach (var (status, reason) in _refusedRows)
+        {
+            data.Add(status, reason);
+        }
+
+        return data;
+    }
+
+    // One probe per theory row, keyed by the row's kind and its first value.
+    private static IEnumerable<(string Key, string Code)> TheoryRowProbes() =>
+        _builtFromRows.Select(row => ("built:" + row.Name, CandidateProbe(row.Name, "1.0-1")))
+            .Concat(_suffixedRows.Select(row => ("suffixed:" + row.Name, CandidateProbe(row.Name, "1.0-1"))))
+            .Concat(_refusedRows.Select(row => ("refused:" + row.Status, StatusProbe(row.Status))));
+
+    private const string _rowMarker = "@@row@@";
+
+    // The probes of every theory row in one pwsh start. A row that throws leaves its error as its output, so its own assertions fail and the
+    // other rows are not lost. Null when pwsh is not installed here.
+    private static readonly Lazy<Task<Dictionary<string, string>?>> _theoryRows = new(() => Task.Run(async () =>
+    {
+        var probes = TheoryRowProbes().ToList();
+        var script = new StringBuilder(LoadScript());
+        foreach (var (key, code) in probes)
+        {
+            script.Append(CultureInfo.InvariantCulture, $"[Console]::Out.Write({Quote(_rowMarker + key + _rowMarker)})\ntry {{\n{code}}} catch {{ [Console]::Out.Write(\"ERROR: $_\") }}\n");
+        }
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        var output = await RunPwshAsync(script.ToString(), timeout.Token);
+        if (output is null)
+        {
+            return null;
+        }
+
+        var rows = new Dictionary<string, string>(StringComparer.Ordinal);
+        var parts = output.Split(_rowMarker);
+        for (var i = 1; i + 1 < parts.Length; i += 2)
+        {
+            rows[parts[i]] = parts[i + 1];
+        }
+
+        return rows;
+    }));
+
+    private static async Task<string> TheoryRowAsync(string key)
+    {
+        var rows = await _theoryRows.Value;
+        Assert.SkipWhen(rows is null, "pwsh is not installed here.");
+        Assert.True(rows!.TryGetValue(key, out var output), $"The shared pwsh run has no output for {key}.");
+        return output!;
+    }
+
     [Theory]
-    [InlineData("gcc-libs", "gcc", "msys")]
-    [InlineData("heimdal-libs", "heimdal", "msys")]
-    [InlineData("libsqlite", "sqlite", "msys")]
-    [InlineData("libreadline", "readline", "msys")]
-    [InlineData("libpcre", "pcre", "msys")]
-    [InlineData("libintl", "gettext", "msys")]
-    [InlineData("libopenssl", "openssl", "msys")]
-    [InlineData("mingw-w64-ucrt-x86_64-libatomic", "gcc", "mingw")]
-    [InlineData("mingw-w64-ucrt-x86_64-cc-libs", "gcc", "mingw")]
-    [InlineData("mingw-w64-ucrt-x86_64-libstdc++", "gcc", "mingw")]
-    [InlineData("mingw-w64-ucrt-x86_64-libwinpthread", "winpthreads", "mingw")]
-    [InlineData("mingw-w64-ucrt-x86_64-gitk", "git", "mingw")]
+    [MemberData(nameof(BuiltFromRows))]
     public async Task A_package_built_from_another_package_is_looked_for_under_the_one_it_is_built_from(string name, string source, string mirror)
     {
-        var output = await PwshAsync(LoadScript() + CandidateProbe(name, "1.0-1"));
+        var output = await TheoryRowAsync("built:" + name);
 
         var prefix = mirror == "mingw" ? "mingw-w64-" : "";
         Assert.StartsWith($"{source} https://repo.msys2.org/{mirror}/sources/{prefix}{source}-1.0-1.src.tar.zst\n", output, StringComparison.Ordinal);
@@ -155,14 +269,10 @@ public class Msys2SourcesScriptTests
     }
 
     [Theory]
-    [InlineData("mingw-w64-ucrt-x86_64-curl-winssl", "curl")]
-    [InlineData("mingw-w64-ucrt-x86_64-libssh2-wincng", "libssh2")]
-    [InlineData("mingw-w64-ucrt-x86_64-gettext-runtime", "gettext")]
-    [InlineData("mingw-w64-ucrt-x86_64-git-gui", "git")]
-    [InlineData("mingw-w64-ucrt-x86_64-git-for-windows-addons", "git")]
+    [MemberData(nameof(SuffixedRows))]
     public async Task A_package_named_after_another_with_a_suffix_falls_back_to_the_shorter_name(string name, string source)
     {
-        var output = await PwshAsync(LoadScript() + CandidateProbe(name, "1.0-1"));
+        var output = await TheoryRowAsync("suffixed:" + name);
 
         Assert.Contains($"{source} https://repo.msys2.org/mingw/sources/mingw-w64-{source}-1.0-1.src.tar.zst\n", output, StringComparison.Ordinal);
     }
@@ -359,13 +469,10 @@ public class Msys2SourcesScriptTests
     }
 
     [Theory]
-    [InlineData("[GNUPG:] BADSIG FA11531AA0AA7F57 Someone", "bad signature")]
-    [InlineData("[GNUPG:] ERRSIG FA11531AA0AA7F57 1 10 00 1668872992 9 5F944B027F7FE2091985AA2EFA11531AA0AA7F57", "could not be checked")]
-    [InlineData("[GNUPG:] REVKEYSIG FA11531AA0AA7F57 Someone", "revoked")]
-    [InlineData("[GNUPG:] NEWSIG", "no valid signature")]
+    [MemberData(nameof(RefusedRows))]
     public async Task Anything_but_a_valid_signature_is_refused_with_a_reason(string status, string reason)
     {
-        var output = await PwshAsync(LoadScript() + StatusProbe(status));
+        var output = await TheoryRowAsync("refused:" + status);
 
         Assert.Contains(reason, output, StringComparison.Ordinal);
     }
