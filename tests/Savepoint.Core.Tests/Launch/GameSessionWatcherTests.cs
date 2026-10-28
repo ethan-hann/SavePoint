@@ -13,6 +13,14 @@ public class GameSessionWatcherTests
 
     private static TimeSpan Seconds(double seconds) => TimeSpan.FromSeconds(seconds);
 
+    // The rig's usual timings with the minimum run for a clean quit set outright, so these tests do not follow the default.
+    private static GameSessionOptions CleanQuitAfterTenSeconds { get; } = new()
+    {
+        PollInterval = WatcherRig.Interval,
+        Grace = WatcherRig.Grace,
+        CleanQuitMinimumRun = TimeSpan.FromSeconds(10),
+    };
+
     // ---- a program started by SavePoint, no process name ----
 
     [Fact]
@@ -419,13 +427,15 @@ public class GameSessionWatcherTests
         Assert.False(rig.Watcher.IsSettled);
     }
 
-    // A player who quits a game a few seconds in is not a store starting it again: that exits with an error, or never ran as the named game.
-    [Fact]
-    public async Task A_program_seen_under_its_name_that_quits_cleanly_inside_the_relaunch_window_ends_the_session_after_the_relaunch_guard()
+    // A player who quits a game some seconds in is not a store starting it again: that exits with an error, or within a second or two.
+    [Theory]
+    [InlineData(17)]
+    [InlineData(10)]
+    public async Task A_program_seen_under_its_name_that_quits_cleanly_after_the_minimum_run_inside_the_relaunch_window_ends_the_session_after_the_relaunch_guard(int played)
     {
-        using var rig = await WatcherRig.ProgramAsync(_name);
+        using var rig = await WatcherRig.ProgramAsync(_name, options: CleanQuitAfterTenSeconds);
         rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
-        await rig.AdvanceAsync(Seconds(17));
+        await rig.AdvanceAsync(Seconds(played));
 
         rig.Processes.Set(ScriptedInspector.Bystander);
         await rig.ExitChildAsync(0);
@@ -436,16 +446,39 @@ public class GameSessionWatcherTests
         Assert.True(rig.Watcher.IsSettled, "a clean quit waited out the whole grace");
         var outcome = await rig.OutcomeAsync();
         Assert.Equal(SessionEndKind.ChildExited, outcome.Kind);
-        Assert.Equal(Seconds(17), outcome.PlayDuration);
+        Assert.Equal(Seconds(played), outcome.PlayDuration);
         Assert.Equal(0, outcome.ChildExitCode);
+    }
+
+    // A store's relaunch stub checks for the store at startup and exits at once with code 0; the store starts the game again a little later.
+    [Fact]
+    public async Task A_program_seen_under_its_name_that_exits_cleanly_before_the_minimum_run_keeps_the_grace_and_follows_the_copy_started_later()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name, options: CleanQuitAfterTenSeconds);
+        rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(3));
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.ExitChildAsync(0);
+        await rig.AdvanceAsync(Seconds(10));
+        Assert.False(rig.Watcher.IsSettled, "a stub that exits at once is not a player who quit");
+
+        rig.Processes.Set(Copy(901), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(4));
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        var outcome = await rig.OutcomeAsync();
+        Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
+        Assert.Equal([901], outcome.FollowedPids);
     }
 
     [Fact]
     public async Task A_program_seen_under_its_name_that_quits_cleanly_and_is_started_again_within_the_guard_is_followed_to_the_new_copy()
     {
-        using var rig = await WatcherRig.ProgramAsync(_name);
+        using var rig = await WatcherRig.ProgramAsync(_name, options: CleanQuitAfterTenSeconds);
         rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
-        await rig.AdvanceAsync(Seconds(4));
+        await rig.AdvanceAsync(Seconds(12));
 
         rig.Processes.Set(ScriptedInspector.Bystander);
         await rig.ExitChildAsync(0);
@@ -571,6 +604,14 @@ public class GameSessionWatcherTests
     public void A_negative_relaunch_window_is_refused()
     {
         var options = new GameSessionOptions { RelaunchWindow = Seconds(-1) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new GameSessionWatcher(null, _name, new ScriptedInspector(), OsKind.Windows, options, TimeProvider.System));
+    }
+
+    [Fact]
+    public void A_negative_clean_quit_minimum_run_is_refused()
+    {
+        var options = new GameSessionOptions { CleanQuitMinimumRun = Seconds(-1) };
 
         Assert.Throws<ArgumentOutOfRangeException>(() => new GameSessionWatcher(null, _name, new ScriptedInspector(), OsKind.Windows, options, TimeProvider.System));
     }
