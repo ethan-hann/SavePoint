@@ -118,14 +118,15 @@ internal sealed class FakeShellContext : IShellContext
 // The editor wired to the fake backend with every collaborator recorded.
 internal sealed class EditorRig
 {
-    private EditorRig(FakeBackend backend, string os, LocalizationCatalog? catalog)
+    private EditorRig(FakeBackend backend, string os, LocalizationCatalog? catalog, IUiDispatcher? dispatcher)
     {
         Backend = backend;
         Text = new UiFormatter(catalog ?? LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, os, TimeZoneInfo.Utc);
         Dialogs = new FakeDialogs();
-        Toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
+        dispatcher ??= new ImmediateUiDispatcher();
+        Toasts = new ToastHostViewModel(new ManualTimeProvider(), dispatcher);
         Shell = new FakeShellContext(FakeAssert.Ok(backend.Games.ListAsync().GetAwaiter().GetResult()), Text);
-        Shell.Artwork = new ArtworkProvider(backend.Artwork, new ImmediateUiDispatcher());
+        Shell.Artwork = new ArtworkProvider(backend.Artwork, dispatcher);
         Factory = new GameEditorFactory(backend.Games, Dialogs, Text, Toasts, backend.Artwork);
     }
 
@@ -141,7 +142,8 @@ internal sealed class EditorRig
 
     public GameEditorFactory Factory { get; }
 
-    public static EditorRig Create(FakeBackend? backend = null, string os = "windows", LocalizationCatalog? catalog = null) => new(backend ?? FakeBackend.Sample(), os, catalog);
+    // The dispatcher stands in for the UI thread; pass a held or real one to see the editor under it.
+    public static EditorRig Create(FakeBackend? backend = null, string os = "windows", LocalizationCatalog? catalog = null, IUiDispatcher? dispatcher = null) => new(backend ?? FakeBackend.Sample(), os, catalog, dispatcher);
 
     public GameEditorViewModel Edit(string gameId = SampleScenario.SkyrimId) =>
         Assert.IsType<GameEditorViewModel>(Factory.CreateForExisting(Shell, gameId));

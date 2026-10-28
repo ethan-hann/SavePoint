@@ -49,9 +49,11 @@ internal sealed class HistoryRig
     public static async Task<HistoryRig> StartAsync(
         FakeBackend? backend = null,
         Func<IHistoryApi, IHistoryApi>? history = null,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        IUiDispatcher? dispatcher = null)
     {
         backend ??= FakeBackend.Sample();
+        dispatcher ??= new ImmediateUiDispatcher();
         var flow = new ScriptedLaunchFlow();
         var text = FormatterFor(backend);
         var services = new AppServices(
@@ -68,19 +70,19 @@ internal sealed class HistoryRig
             services,
             dialogs,
             text,
-            new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher()),
-            new ImmediateUiDispatcher());
+            new ToastHostViewModel(new ManualTimeProvider(), dispatcher),
+            dispatcher);
         var factory = new CapturingFactory(new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, clock ?? backend.Clock)));
-        var shell = await ShellRig.StartAsync(backend, screens: [factory], launchFlow: flow);
+        var shell = await ShellRig.StartAsync(backend, dispatcher, screens: [factory], launchFlow: flow);
         return new HistoryRig(shell, (HistoryScreenViewModel)factory.Created!, flow, backend, text, dialogs);
     }
 
     // Shows the screen the way the nav item does.
     public void Show() => Shell.Navigate(NavDestination.History);
 
-    public static async Task<HistoryRig> ShownAsync(FakeBackend? backend = null, TimeProvider? clock = null)
+    public static async Task<HistoryRig> ShownAsync(FakeBackend? backend = null, TimeProvider? clock = null, IUiDispatcher? dispatcher = null)
     {
-        var rig = await StartAsync(backend, clock: clock);
+        var rig = await StartAsync(backend, clock: clock, dispatcher: dispatcher);
         rig.Show();
         return rig;
     }

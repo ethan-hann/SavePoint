@@ -55,9 +55,11 @@ internal sealed class SettingsRig
         IArtworkProvider? artwork = null,
         string? logFolder = null,
         string? license = null,
-        AppsMenuEntry? appsMenu = null)
+        AppsMenuEntry? appsMenu = null,
+        IUiDispatcher? dispatcher = null)
     {
         backend ??= FakeBackend.Sample();
+        dispatcher ??= new ImmediateUiDispatcher();
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, os, HistoryRig.SampleZone);
         var services = new AppServices(
             backend.Games,
@@ -69,17 +71,17 @@ internal sealed class SettingsRig
             backend.AppStatus,
             backend.Artwork);
         var dialogs = new FakeDialogs();
-        var toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
+        var toasts = new ToastHostViewModel(new ManualTimeProvider(), dispatcher);
         var revealer = new RecordingFileRevealer();
-        var context = new FeatureContext(services, dialogs, text, toasts, new ImmediateUiDispatcher());
+        var context = new FeatureContext(services, dialogs, text, toasts, dispatcher);
         var factory = new CapturingFactory(new SettingsScreenFactory(FeatureComposition.SettingsDependenciesOf(context, new SettingsEnvironment(revealer, () => notices, version, logFolder, () => license, appsMenu))));
-        var shell = await ShellRig.StartAsync(backend, screens: [factory], artwork: artwork);
+        var shell = await ShellRig.StartAsync(backend, dispatcher, screens: [factory], artwork: artwork);
         return new SettingsRig(shell, (SettingsScreenViewModel)factory.Created!, backend, dialogs, toasts, revealer, text);
     }
 
-    public static async Task<SettingsRig> ShownAsync(FakeBackend? backend = null, string os = "windows", string? notices = null, string? logFolder = null, string? license = null, AppsMenuEntry? appsMenu = null)
+    public static async Task<SettingsRig> ShownAsync(FakeBackend? backend = null, string os = "windows", string? notices = null, string? logFolder = null, string? license = null, AppsMenuEntry? appsMenu = null, IUiDispatcher? dispatcher = null)
     {
-        var rig = await StartAsync(backend, os, notices, logFolder: logFolder, license: license, appsMenu: appsMenu);
+        var rig = await StartAsync(backend, os, notices, logFolder: logFolder, license: license, appsMenu: appsMenu, dispatcher: dispatcher);
         rig.Show();
         return rig;
     }

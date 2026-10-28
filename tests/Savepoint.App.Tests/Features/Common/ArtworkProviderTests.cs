@@ -1,53 +1,9 @@
-using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.Common;
-
-// Runs idle work only when a test says so, and optionally holds back ordinary posts too, so the order of events is the test's to pick.
-internal sealed class ManualDispatcher : IUiDispatcher
-{
-    private readonly Queue<Action> _posted = [];
-    private readonly Queue<Action> _idle = [];
-
-    public bool PostsImmediately { get; set; } = true;
-
-    public int PostedPending => _posted.Count;
-
-    public int IdlePending => _idle.Count;
-
-    public void Post(Action action)
-    {
-        if (PostsImmediately)
-        {
-            action();
-        }
-        else
-        {
-            _posted.Enqueue(action);
-        }
-    }
-
-    public void PostWhenIdle(Action action) => _idle.Enqueue(action);
-
-    public void RunPosted()
-    {
-        while (_posted.TryDequeue(out var action))
-        {
-            action();
-        }
-    }
-
-    public void RunIdle()
-    {
-        while (_idle.TryDequeue(out var action))
-        {
-            action();
-        }
-    }
-}
 
 // An artwork Api whose reads end when the test says, so reads can finish in any order.
 internal sealed class HeldArtworkApi : IArtworkApi

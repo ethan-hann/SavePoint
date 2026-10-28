@@ -15,13 +15,14 @@ internal sealed class LaunchRig : IDisposable
 {
     public static readonly TimeZoneInfo CentralDaylight = TimeZoneInfo.CreateCustomTimeZone("cdt", TimeSpan.FromHours(-5), "CDT", "CDT");
 
-    public LaunchRig(FakeBackend? backend = null)
+    public LaunchRig(FakeBackend? backend = null, IUiDispatcher? dispatcher = null)
     {
         Backend = backend ?? FakeBackend.Sample();
         Clock = new ManualTimeProvider(ScenarioBuilder.DefaultNow);
         Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), Clock, "windows", CentralDaylight);
         Dialogs = new FakeDialogs();
-        Toasts = new ToastHostViewModel(Clock, new ImmediateUiDispatcher());
+        Dispatcher = dispatcher ?? new ImmediateUiDispatcher();
+        Toasts = new ToastHostViewModel(Clock, Dispatcher);
         Awaiter = new JobAwaiter(Backend.Jobs);
         Deps = new LaunchDependencies(
             Backend.Launch,
@@ -33,11 +34,14 @@ internal sealed class LaunchRig : IDisposable
             Dialogs,
             Text,
             Toasts,
-            new ImmediateUiDispatcher(),
+            Dispatcher,
             Clock,
             Awaiter,
             Attention);
     }
+
+    // What stands in for the UI thread: immediate unless a test passed a held or real one.
+    public IUiDispatcher Dispatcher { get; }
 
     public RecordingAttention Attention { get; } = new();
 
