@@ -69,8 +69,41 @@ public class TemplateRulesTests
     {
         Assert.Contains("never shows", Found(Game(Definition() with { Notes = "Commit the branch" }), NoteProblems));
         Assert.Contains("not the link of Steam game 2", Found(Game(Definition() with { SteamAppId = 2, Launch = new LaunchConfig(LaunchMethod.Uri, Uri: "steam://rungameid/1") }), LinkProblems));
-        Assert.Contains("install folder", Found(Game(Definition() with { Install = new InstallLocation(@"C:\Games") }), ValidityProblems));
+        Assert.Contains(@"it names the install folder 'C:\Games', which no token can name", Found(Game(Definition() with { Install = new InstallLocation(@"C:\Games") }), ValidityProblems));
         Assert.Contains("display name", Found(Game(Definition()) with { DisplayName = "Other" }, ValidityProblems));
+    }
+
+    [Fact]
+    public void The_per_system_folders_of_a_template_reach_the_saves_and_mods_rules_under_their_own_system()
+    {
+        var template = Game(Definition(), new TemplateLibraryHints(
+            SavesByOs: Saves("linux", @"C:\Users\x\Saves"),
+            ModsByOs: new Dictionary<string, ModsLocation> { ["macos"] = new ModsLocation("{noSuchToken}/Mods") }));
+
+        Assert.Equal([("linux", @"C:\Users\x\Saves")], SavesPaths(template));
+        Assert.Equal([("macos", "{noSuchToken}/Mods")], ModsPaths(template));
+        Assert.Contains(@"'C:\Users\x\Saves' (linux) does not start with a path token", Found(template, t => ResolveProblems(SavesPaths(t), "external.path")));
+        Assert.Contains("'{noSuchToken}/Mods' does not resolve on macos", Found(template, t => ResolveProblems(ModsPaths(t), "mods.path")));
+    }
+
+    [Fact]
+    public void The_check_over_the_shipped_templates_fails_when_a_rule_finds_a_problem()
+    {
+        var failure = Assert.ThrowsAny<Exception>(() => AssertShippedTemplatesKeep(template => template.Id == "skyrim-se" ? ["broken on purpose"] : []));
+
+        Assert.Contains("1 problem(s)", failure.Message);
+        Assert.Contains("skyrim-se: broken on purpose", failure.Message);
+    }
+
+    [Fact]
+    public void A_rule_that_throws_on_one_template_is_reported_and_the_templates_after_it_are_still_checked()
+    {
+        var first = Game(Definition(id: "first-game", name: "First Game"));
+        var second = Game(Definition(id: "second-game", name: "Second Game"));
+
+        var problems = ProblemsIn([first, second], template => template.Id == "first-game" ? throw new InvalidOperationException("boom") : ["second is bad"]);
+
+        Assert.Equal(["first-game: the rule threw InvalidOperationException: boom", "second-game: second is bad"], problems);
     }
 
     [Fact]
