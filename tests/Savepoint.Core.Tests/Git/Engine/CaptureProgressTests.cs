@@ -53,7 +53,9 @@ public sealed class CaptureProgressTests : IDisposable
         await _ws.CaptureAsync(repo, "profile-1", progress: progress);
 
         Assert.Equal(new FileProgress(0, 1, null, 0, 3), progress.Reports[0]);
-        Assert.Equal(new FileProgress(1, 1, "new.txt", 3, 3), progress.Last);
+        // The name travels in whichever report arrives first after git prints it, so the list is compared on its own, once for the whole capture.
+        Assert.Equal(new FileProgress(1, 1, "new.txt", 3, 3), progress.Last with { NewPaths = null });
+        Assert.Equal(["new.txt"], progress.AllNewPaths);
     }
 
     [Fact]
