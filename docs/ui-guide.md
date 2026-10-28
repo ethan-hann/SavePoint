@@ -95,7 +95,7 @@ How to build a screen in `Savepoint.App`. The headless renders in `render-output
 
 ## Testing
 
-- Test view models against the scriptable fake backend (`tests/Savepoint.App.Tests/Fakes/`) with `ImmediateUiDispatcher` and `FakeDialogs`. `ScenarioBuilder.Mockup()` builds the sample library the renders show. Fake events fire synchronously.
+- Test view models against the scriptable fake backend (`tests/Savepoint.App.Tests/Fakes/`) with `ImmediateUiDispatcher` and `FakeDialogs`. `ScenarioBuilder.Mockup()` builds the sample library the renders show. Fake events fire synchronously by default; code that posts to the UI thread also needs at least one test with a held or real dispatcher and the fake's queued or background events, and a confirmation nobody answers fails the test (`.agents/coding-standards/tests-meaningful-and-fast.md`).
 - After every change to a screen, render it (set `SAVEPOINT_RENDER=1` and run its render test; Skia, 1040x660, under `render-output/<area>/`) and check the picture by eye. Use `ThemeHost` so the theme resets after each test.
 - A new tab stop goes into the screen's expected order in `TabOrderTests`, in the order it is drawn.
 - Every flow works by keyboard (Tab order, Enter and Space, Escape dismisses dialogs), with visible focus, named icon buttons, announced progress milestones, and list and table semantics through automation properties.

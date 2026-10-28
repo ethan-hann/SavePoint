@@ -50,7 +50,7 @@ Walk every question. A "yes" adds rules, and the walk goes on to the next questi
 
 **Exception - the call is the outcome:** some calls are what the screen or class is for: the definition the editor sends, the confirmation text the player reads, the program a launcher starts. Then the call is the behavior. Assert the whole call. When the call also changes something the player sees, such as a toast or a list row, assert that too.
 
-**Exception - a picture for a person:** a test that writes a PNG for someone to look at is not coverage, and it never counts as the check that a screen works. It skips unless an environment variable turns it on, as `DocScreenshotTests` does with `SAVEPOINT_DOC_SCREENSHOTS`. The gate fails on any skip its list does not name, so the test's full name goes in each list under `build/expected-skips/`. [Platform-specific code](csharp-platform-specific-code.md), section "Skip a test on an OS, and list the skip", describes the lists.
+**Exception - a picture for a person:** a test that writes a PNG for someone to look at is not coverage, and it never counts as the check that a screen works. It skips unless an environment variable turns it on, through `RenderOutput.SkipUnlessRequested` and `SAVEPOINT_RENDER` (as `DocScreenshotTests` does with `SAVEPOINT_DOC_SCREENSHOTS`). The gate fails on any skip its list does not name, so the test's full name goes in each list under `build/expected-skips/`. [Platform-specific code](csharp-platform-specific-code.md), section "Skip a test on an OS, and list the skip", describes the lists.
 
 **Exception - a child process entry point:** some test methods exist only to be started as a child copy of the test host, such as `GitProcessJobTests.Child_for_the_kill_test`. In a normal run they return at once. They are plumbing for the test that starts them, not cases to fix.
 
@@ -58,7 +58,7 @@ Walk every question. A "yes" adds rules, and the walk goes on to the next questi
 
 1. Break the product line the test names. Run the test. It must fail with an assertion failure. AGENTS.md, section "Code", asks for this mutation check when a test passes on its first run.
 2. For a theory, invert its assertion instead. Run it. Every row must fail. A row that still passes never reached the assertion.
-3. List the render checks that only measure a file. Read each hit. Every hit is a picture behind a skip switch, or a test of the tool that saves frames:
+3. List the render checks that only measure a file. Read each hit. Every hit should be a picture behind a skip switch, or a test of the tool that saves frames; hits in the classes #257 lists, `AppIconTests` and `BackendContractTests` are known and tracked there:
 
    ```bash
    grep -rn "FileInfo(path).Length\|Assert.True(File.Exists(path))\|Length > [0-9_]*0_000" tests/Savepoint.App.Tests
@@ -233,14 +233,14 @@ public void A_branch_name_git_would_refuse_is_rejected_before_any_work(string br
 **What to avoid:**
 
 ```csharp
-// The same token pattern that ShippedTemplatesTests.AssertResolves already checks on every saves folder, along with more.
+// The same token pattern that TemplateRules.ResolveProblems already checks on every saves folder, along with more.
 Assert.True(external is null || Regex.IsMatch(external.Path, @"^\{[A-Za-z]+\}"));
 ```
 
 **Examples:**
 
 - `tests/Savepoint.Core.Tests/Git/Engine/CaptureTests.cs`, `A_branch_name_git_would_refuse_is_rejected_before_any_work`: one rule, one test, a row per refused name.
-- `tests/Savepoint.Core.Tests/Catalog/ShippedTemplatesTests.cs`, `AssertResolves`: the one place that checks a saves folder's token, its `..`, and that it resolves.
+- `tests/Savepoint.Core.Tests/Catalog/TemplateRules.cs`, `ResolveProblems`: the one place that checks a saves folder's token, its `..`, and that it resolves.
 
 ### Keep the fakes honest
 
