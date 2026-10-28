@@ -55,7 +55,7 @@ Other filters are `--filter-namespace` and `--filter-method`. Add `--report-xuni
 - **Journey tests** in `tests/Savepoint.App.Tests/Features/EndToEnd/RealBackend/` build the real app through `AppBootstrap.Start` and `AppComposition` on temp folders, in a headless window, and run FakeGame as a real child process.
 - **Logging.** Tests that care about logging pass a `RecordingDiagnosticLog` (`tests/Shared`). No test opens a real log file, and a test that touches a log folder first checks that it lies inside its own temp home.
 - **OS smoke tests** make the real OS calls (a notification, opening a link). They are opt-in. Run them by hand with `SAVEPOINT_OS_SMOKE=1`, and `SAVEPOINT_SMOKE_URI` for the link opener.
-- **Headless renders** (Skia, 1040x660) go to `render-output/<area>/` when `SAVEPOINT_RENDER=1` is set; without it the render tests skip, so the gate never writes them. After a UI change, run the screen's render test with the variable set and compare the picture with the previous render of the same screen.
+- **Headless renders** (Skia, 1040x660) go to `render-output/<area>/` when `SAVEPOINT_RENDER=1` is set; without it the render-only tests skip (a few view tests still draw while they check, #257). After a UI change, run the screen's render test with the variable set and compare the picture with the previous render of the same screen.
 - **Guide images.** The headless renderer draws the images in `docs/images` from one seeded data set (`tests/Savepoint.App.Tests/Features/DocScreenshots/`: a game called Grounded, its profiles and snapshots, a fixed clock, light theme, Blue accent, 1280x800), so every run gives the same bytes. After a change to a screen they show, regenerate them and commit them with the change:
 
   ```bash
