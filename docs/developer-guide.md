@@ -77,11 +77,11 @@ Most Core tests run real git, and every git call starts a process. On some Windo
 A change is done when the gate passes. `build/gate.ps1` (Windows) and `build/gate.sh` (Linux and macOS) run four steps:
 
 1. Build with `-warnaserror`.
-2. Run every test. The xunit report goes to `artifacts/test-results`, so `SAVEPOINT_TEST_ARGS` must not ask for `--report-xunit` itself.
+2. Run every test, in four processes at once: Core, and the App tests split into the lanes `build/app-test-lanes.txt` names (EndToEnd, the real-backend journeys, and everything else) so each lane gets its own headless UI thread. A count check (`build/check-test-counts.ps1` and `.sh`) fails the gate if the lanes' tests differ from the full App test list, so a new namespace is never dropped (D70). Each process writes its xunit report to `artifacts/test-results`, so `SAVEPOINT_TEST_ARGS` must not ask for `--report-xunit` itself.
 3. Fail on a skipped test that the OS's list in `build/expected-skips/` does not name (`tools/SkipCheck`, D48). A listed test that now runs is printed as a note. A line that starts with `~` marks a timing-dependent skip. macOS has no list yet, so its gate skips this step. After a full, unnarrowed run, `dotnet run --project tools/SkipCheck -c Release --no-build -- --reports artifacts/test-results --expected build/expected-skips/windows.txt --write` rewrites a list from that run.
-4. Check formatting with `dotnet format --verify-no-changes`.
+4. Check formatting with `dotnet format --verify-no-changes`. The Windows CI job passes `-SkipFormat`, since the Linux job checks the same thing (D70); local gates always check it.
 
-The gates run at below-normal priority. They cap MSBuild at 4 nodes with no node reuse, and tests at 4 threads per module, with the App and Core test modules side by side (D48). Override the caps with `SAVEPOINT_GATE_BUILD_NODES` and `SAVEPOINT_GATE_TEST_THREADS`.
+The gates run at below-normal priority. They cap MSBuild at 4 nodes with no node reuse, and tests at 4 threads for Core and 2 for each of the three App processes, all side by side (D48, D70). Override the caps with `SAVEPOINT_GATE_BUILD_NODES` and `SAVEPOINT_GATE_TEST_THREADS`.
 
 `SAVEPOINT_TEST_ARGS` takes only a report (`--report-*`), and the gate prints it. The gate refuses anything else there: a filter could run only some tests, and test retries are not available (D60). A narrowed run is allowed when `-AllowNarrowedTests` (`--allow-narrowed-tests`) says it is on purpose, and the gate reports its pass as narrowed.
 
