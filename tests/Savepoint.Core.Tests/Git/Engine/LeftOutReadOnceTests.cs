@@ -421,8 +421,10 @@ public sealed class LeftOutReadOnceTests : IDisposable
         File.WriteAllBytes(path, good[..(good.Length / 2)]);
         var before = _ws.Invocations.Count;
 
-        await Record.ExceptionAsync(() => _ws.Engine.GetStatusAsync(repo, Ct));
+        // The save goes first: a diff over a cut-short index (status runs one) can write a whole index back where the files' stamps changed,
+        // which happens in a copied folder, and the reader then has nothing left that it cannot read.
         await Record.ExceptionAsync(() => _ws.CaptureAsync(repo with { IgnorePatterns = [] }, "profile-a", "A2", ignore: []));
+        await Record.ExceptionAsync(() => _ws.Engine.GetStatusAsync(repo, Ct));
 
         Assert.Contains(_ws.Invocations.Skip(before), IsMarkListing);
     }
