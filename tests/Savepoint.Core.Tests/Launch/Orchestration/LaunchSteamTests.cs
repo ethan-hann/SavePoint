@@ -322,8 +322,9 @@ public class LaunchSteamTests
     [Fact(Timeout = 240_000)]
     public async Task A_Steam_game_started_after_Start_Steam_and_quit_a_few_seconds_in_offers_the_after_play_choices_without_Im_done()
     {
-        // The real grace is two minutes; a game that waited it out would still be Running when the wait for the end gives up.
-        var session = new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(100), Grace = TimeSpan.FromMinutes(5) };
+        // The real grace is two minutes; a game that waited it out would still be Running when the wait for the end gives up. The stand-in
+        // quits after 1.5 s, so the minimum run for a clean quit is lowered to fit.
+        var session = new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(100), Grace = TimeSpan.FromMinutes(5), CleanQuitMinimumRun = TimeSpan.FromSeconds(1) };
         var steam = new FakeSteamClient { ReadyAfterLooks = 2 };
         var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync(
             configure: options => options with
