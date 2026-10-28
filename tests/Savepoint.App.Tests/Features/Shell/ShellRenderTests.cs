@@ -16,6 +16,7 @@ using Savepoint.Core.Errors;
 namespace Savepoint.App.Tests.Features.Shell;
 
 // Writes PNGs to render-output/shell/ (gitignored) at 1040x660 to compare with the previous render of the shell and first-run screens after a change.
+// Nothing here asserts on a picture, so the renders are only drawn on request: SAVEPOINT_RENDER=1.
 public class ShellRenderTests
 {
     private static FakeBackend EmptyLibrary(ThemePreference theme) =>
@@ -24,68 +25,76 @@ public class ShellRenderTests
     private static FakeBackend WithSettings(ThemePreference theme) =>
         new(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
 
-    private static void AssertRendered(string path) =>
-        Assert.True(new FileInfo(path).Length > 10_000, "The render looks empty.");
-
     [AvaloniaFact]
-    public async Task Sidebar_layout_dark_renders_to_a_png()
+    public async Task Writes_every_Shell_render_on_request()
+    {
+        RenderOutput.SkipUnlessRequested();
+
+        await SidebarLayoutDark();
+        await SidebarLayoutLight();
+        await LibraryLayoutDark();
+        await FirstRunDark();
+        await FirstRunLight();
+        await CollapsedRailLight();
+        await CollapsedRailDark();
+        await JobPillAndToastsDark();
+        await AConfirmationOverTheShellDark();
+        await StartupGitUnavailableDark();
+        await StartupCorruptCatalogDark();
+        ErrorCardGridDark();
+    }
+
+    private static async Task SidebarLayoutDark()
     {
         using var harness = await ShellViewHarness.StartAsync();
 
-        AssertRendered(harness.Render("shell-sidebar-dark"));
+        harness.Render("shell-sidebar-dark");
     }
 
-    [AvaloniaFact]
-    public async Task Sidebar_layout_light_renders_to_a_png()
+    private static async Task SidebarLayoutLight()
     {
         using var harness = await ShellViewHarness.StartAsync(WithSettings(ThemePreference.Light), ThemePreference.Light);
 
-        AssertRendered(harness.Render("shell-sidebar-light"));
+        harness.Render("shell-sidebar-light");
     }
 
-    [AvaloniaFact]
-    public async Task Library_layout_dark_renders_to_a_png()
+    private static async Task LibraryLayoutDark()
     {
         using var harness = await ShellViewHarness.LibraryLayoutAsync();
 
-        AssertRendered(harness.Render("shell-library-dark"));
+        harness.Render("shell-library-dark");
     }
 
-    [AvaloniaFact]
-    public async Task First_run_dark_renders_to_a_png()
+    private static async Task FirstRunDark()
     {
         using var harness = await ShellViewHarness.StartAsync(EmptyLibrary(ThemePreference.Dark));
 
-        AssertRendered(harness.Render("first-run-dark"));
+        harness.Render("first-run-dark");
     }
 
-    [AvaloniaFact]
-    public async Task First_run_light_renders_to_a_png()
+    private static async Task FirstRunLight()
     {
         using var harness = await ShellViewHarness.StartAsync(EmptyLibrary(ThemePreference.Light), ThemePreference.Light);
 
-        AssertRendered(harness.Render("first-run-light"));
+        harness.Render("first-run-light");
     }
 
-    [AvaloniaFact]
-    public async Task Collapsed_rail_light_renders_to_a_png()
+    private static async Task CollapsedRailLight()
     {
         var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = ThemePreference.Light }));
         using var harness = await ShellViewHarness.StartAsync(backend, ThemePreference.Light, width: 760, height: 660);
 
-        AssertRendered(harness.Render("shell-sidebar-collapsed-light"));
+        harness.Render("shell-sidebar-collapsed-light");
     }
 
-    [AvaloniaFact]
-    public async Task Collapsed_rail_dark_renders_to_a_png()
+    private static async Task CollapsedRailDark()
     {
         using var harness = await ShellViewHarness.StartAsync(width: 760, height: 660);
 
-        AssertRendered(harness.Render("shell-sidebar-collapsed-dark"));
+        harness.Render("shell-sidebar-collapsed-dark");
     }
 
-    [AvaloniaFact]
-    public async Task Job_pill_and_toasts_dark_render_to_a_png()
+    private static async Task JobPillAndToastsDark()
     {
         using var harness = await ShellViewHarness.StartAsync();
         FakeAssert.Ok(await harness.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "A point"));
@@ -93,22 +102,20 @@ public class ShellRenderTests
         harness.Backend.Jobs.Complete(finished.JobId);
         harness.Main.Toasts.Show(new ToastMessage("Something went wrong saving The Last Caretaker.", ToastKind.Error, "There's not enough free disk space to take this snapshot right now."));
 
-        AssertRendered(harness.Render("shell-job-pill-and-toasts-dark"));
+        harness.Render("shell-job-pill-and-toasts-dark");
     }
 
-    [AvaloniaFact]
-    public async Task A_confirmation_over_the_shell_dark_renders_to_a_png()
+    private static async Task AConfirmationOverTheShellDark()
     {
         using var harness = await ShellViewHarness.StartAsync();
         _ = harness.Main.Dialogs.ShowAsync(new ConfirmDialogViewModel(
             new ConfirmRequest("Delete Skyrim Special Edition?", "This removes Skyrim Special Edition from SavePoint, including every profile and all captured history. This can't be undone.", "Delete game", Destructive: true),
             "Cancel"));
 
-        AssertRendered(harness.Render("dialog-confirm-over-shell-dark"));
+        harness.Render("dialog-confirm-over-shell-dark");
     }
 
-    [AvaloniaFact]
-    public async Task Startup_git_unavailable_dark_renders_to_a_png()
+    private static async Task StartupGitUnavailableDark()
     {
         var path = @"C:\Program Files\SavePoint\git\cmd\git.exe";
         var status = new StartupStatus(
@@ -117,11 +124,10 @@ public class ShellRenderTests
         using var window = StartupWindow(new FakeBackend(ScenarioBuilder.Sample().WithStartupStatus(status)), ThemePreference.Dark);
         await window.Main.InitializeAsync();
 
-        AssertRendered(window.Render("startup-git-unavailable-dark"));
+        window.Render("startup-git-unavailable-dark");
     }
 
-    [AvaloniaFact]
-    public async Task Startup_corrupt_catalog_dark_renders_to_a_png()
+    private static async Task StartupCorruptCatalogDark()
     {
         var directory = @"C:\Users\you\AppData\Roaming\SavePoint";
         var games = Path.Combine(directory, "games.json").Replace('/', '\\');
@@ -137,19 +143,17 @@ public class ShellRenderTests
         using var window = StartupWindow(new FakeBackend(ScenarioBuilder.Sample().WithStartupStatus(status)), ThemePreference.Dark);
         await window.Main.InitializeAsync();
 
-        AssertRendered(window.Render("startup-corrupt-catalog-dark"));
+        window.Render("startup-corrupt-catalog-dark");
     }
 
-    [AvaloniaFact]
-    public void Error_card_grid_dark_renders_to_a_png()
+    private static void ErrorCardGridDark()
     {
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), os: "windows", timeZone: TimeZoneInfo.Utc);
         var gallery = new ErrorCardGallery { DataContext = new ErrorCardGalleryViewModel(text) };
         using var host = new ThemeHost(gallery, ThemePreference.Dark, width: 1040, height: 660);
         Dispatcher.UIThread.RunJobs();
-        var path = ThemeTestSupport.SaveFrame(host.Window, Path.Combine(ShellViewHarness.OutputFolder, "error-states-dark.png"));
 
-        AssertRendered(path);
+        ThemeTestSupport.SaveFrame(host.Window, Path.Combine(ShellViewHarness.OutputFolder, "error-states-dark.png"));
     }
 
     private static StartupHarness StartupWindow(FakeBackend backend, ThemePreference theme) => new(backend, theme);

@@ -19,6 +19,6 @@ public class LibraryErrorViewTests
         Assert.Contains("Try again", buttons);
         Assert.DoesNotContain(app.All<Button>(), button => button.IsEffectivelyVisible && AutomationAudit.NameOf(button) is "Edit game" or "New profile");
         Assert.Empty(AutomationAudit.Problems(app.Window));
-        app.Render("shell", "library-error");
+        app.RenderIfRequested("shell", "library-error");
     }
 }

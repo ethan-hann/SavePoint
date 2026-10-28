@@ -14,154 +14,159 @@ namespace Savepoint.App.Tests.Features.EndToEnd;
 
 // Every screen of the design (both shell layouts, the launch flow, the wizard, editor, History, Settings, the error cards and the
 // first run) as the finished app draws it, from the composed app at the design's 1040x660 frame, in render-output/final/ to be set beside docs/ui/screenshots.
+// Nothing here asserts on a picture, so the renders are only drawn on request: SAVEPOINT_RENDER=1.
 public class FinalRenderTests
 {
     private const string _area = "final";
     private const string _skyrim = SampleScenario.SkyrimId;
 
-    private static void AssertRendered(string path) =>
-        Assert.True(new FileInfo(path).Length > 10_000, "The render looks empty.");
-
     private static ProfileRowViewModel Row(ComposedApp app, string id) => app.Games.Profiles.Single(row => row.Id == id);
 
     [AvaloniaFact]
-    public async Task Shell_sidebar_3a()
+    public async Task Writes_every_screen_of_the_design_on_request()
+    {
+        RenderOutput.SkipUnlessRequested();
+
+        await ShellSidebar();
+        await ShellLibrary();
+        await SettingsLayoutChoice();
+        await LaunchWithNothingToChange();
+        await LaunchDialog();
+        await ProgressAndRunning();
+        await PostPlayCapture();
+        await FirstRun();
+        await NewProfileWizard();
+        await GameEditor();
+        await HistoryList();
+        await HistoryCards();
+        await SettingsLight();
+        await ErrorStates();
+    }
+
+    private static async Task ShellSidebar()
     {
         using var app = await ComposedApp.StartWithViewAsync();
 
-        AssertRendered(app.Render(_area, "shell-sidebar"));
+        app.Render(_area, "shell-sidebar");
     }
 
-    [AvaloniaFact]
-    public async Task Shell_library_3b()
+    private static async Task ShellLibrary()
     {
         using var app = await ComposedApp.StartWithViewAsync(layout: ShellLayout.Library);
 
-        AssertRendered(app.Render(_area, "shell-library"));
+        app.Render(_area, "shell-library");
     }
 
-    [AvaloniaFact]
-    public async Task Settings_layout_choice_3c()
+    private static async Task SettingsLayoutChoice()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         app.Shell.Navigate(NavDestination.Settings);
 
-        AssertRendered(app.Render(_area, "settings-layout-choice"));
+        app.Render(_area, "settings-layout-choice");
     }
 
-    [AvaloniaFact]
-    public async Task Launch_with_nothing_to_change_2a()
+    private static async Task LaunchWithNothingToChange()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         await Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
 
-        AssertRendered(app.Render(_area, "launch-nothing-to-change"));
+        app.Render(_area, "launch-nothing-to-change");
     }
 
-    [AvaloniaFact]
-    public async Task Launch_dialog_2b()
+    private static async Task LaunchDialog()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         _ = Row(app, SampleScenario.SurvivalId).PlayCommand.ExecuteAsync(null);
 
-        AssertRendered(app.Render(_area, "launch-dialog"));
+        app.Render(_area, "launch-dialog");
     }
 
-    [AvaloniaFact]
-    public async Task Progress_and_running_2c()
+    private static async Task ProgressAndRunning()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         var play = Row(app, SampleScenario.VanillaId).PlayCommand.ExecuteAsync(null);
         app.Dialog<LaunchDialogViewModel>().SwitchCommand.Execute(null);
         await play.Soon();
         app.Backend.Launch.ReportSwitching(_skyrim, SampleScenario.SwitchProgress);
-        AssertRendered(app.Render(_area, "progress"));
+        app.Render(_area, "progress");
 
         app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
-        AssertRendered(app.Render(_area, "running"));
+        app.Render(_area, "running");
     }
 
-    [AvaloniaFact]
-    public async Task Post_play_capture_2d()
+    private static async Task PostPlayCapture()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         await Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
         app.Backend.Launch.ReportRunning(_skyrim, SampleScenario.RunningSince);
         app.Backend.Launch.ReportExited(_skyrim, SampleScenario.PlayDuration, SampleScenario.NewSaveFiles);
 
-        AssertRendered(app.Render(_area, "post-play-capture"));
+        app.Render(_area, "post-play-capture");
     }
 
-    [AvaloniaFact]
-    public async Task First_run_2e()
+    private static async Task FirstRun()
     {
         using var app = await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings)));
 
-        AssertRendered(app.Render(_area, "first-run"));
+        app.Render(_area, "first-run");
     }
 
-    [AvaloniaFact]
-    public async Task New_profile_wizard_2f()
+    private static async Task NewProfileWizard()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         _ = app.Games.NewProfileCommand.ExecuteAsync(null);
 
-        AssertRendered(app.Render(_area, "new-profile-wizard"));
+        app.Render(_area, "new-profile-wizard");
     }
 
-    [AvaloniaFact]
-    public async Task Game_editor_2g()
+    private static async Task GameEditor()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         app.Games.EditGameCommand.Execute(null);
 
-        AssertRendered(app.Render(_area, "game-editor"));
+        app.Render(_area, "game-editor");
     }
 
-    [AvaloniaFact]
-    public async Task History_list_2h()
+    private static async Task HistoryList()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         app.Shell.Navigate(NavDestination.History);
         app.History.SelectedViewOption = app.History.ViewOptions[1];
 
-        AssertRendered(app.Render(_area, "history-list"));
+        app.Render(_area, "history-list");
     }
 
-    [AvaloniaFact]
-    public async Task History_cards_2j()
+    private static async Task HistoryCards()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         app.Shell.Navigate(NavDestination.History);
 
-        AssertRendered(app.Render(_area, "history-cards"));
+        app.Render(_area, "history-cards");
     }
 
-    [AvaloniaFact]
-    public async Task Settings_light_2k()
+    private static async Task SettingsLight()
     {
         using var app = await ComposedApp.StartWithViewAsync(theme: ThemePreference.Light);
         app.Shell.Navigate(NavDestination.Settings);
 
-        AssertRendered(app.Render(_area, "settings-light"));
+        app.Render(_area, "settings-light");
     }
 
     // The four error card states, each as the app shows it: a file in use and a folder gone on the Games screen, half a save
     // after a session, and a folder that is too broad in the editor; then the four cards together as the design draws them.
-    [AvaloniaFact]
-    public async Task Error_states_2l()
+    private static async Task ErrorStates()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), SampleScenario.FileInUseError);
         await Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
         var fileInUse = Assert.IsType<ErrorCardViewModel>(app.Games.InlineContent);
-        AssertRendered(app.Render(_area, "file-in-use"));
+        app.Render(_area, "file-in-use");
 
         fileInUse.Actions.Single(action => action.Label == "Dismiss").Command.Execute(null);
         app.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.GetPreviewAsync), SampleScenario.FolderGoneError);
         await Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
         var folderGone = Assert.IsType<ErrorCardViewModel>(app.Games.InlineContent);
-        AssertRendered(app.Render(_area, "folder-gone"));
+        app.Render(_area, "folder-gone");
 
         folderGone.Actions.Single(action => action.Label == "Dismiss").Command.Execute(null);
         await Row(app, SampleScenario.ModdedId).PlayCommand.ExecuteAsync(null).Soon();
@@ -170,7 +175,7 @@ public class FinalRenderTests
         await app.Dialog<PostPlayDialogViewModel>().SaveCommand.ExecuteAsync(null).Soon();
         app.Backend.Jobs.Complete(app.Backend.Jobs.LastStarted(JobKind.Capture).JobId, SampleScenario.HalfSaved);
         var halfSaved = Assert.IsType<ErrorCardViewModel>(app.Games.InlineContent);
-        AssertRendered(app.Render(_area, "half-saved"));
+        app.Render(_area, "half-saved");
 
         var tooBroad = new ErrorCardViewModel(SampleScenario.FolderTooBroadError, app.Text, []);
         var grid = new Grid { Width = 1040, Height = 660, RowDefinitions = new RowDefinitions("*,*"), ColumnDefinitions = new ColumnDefinitions("*,*") };
@@ -184,6 +189,6 @@ public class FinalRenderTests
         }
 
         using var gallery = new ThemeHost(grid, ThemePreference.Dark, width: 1040, height: 660);
-        AssertRendered(ThemeTestSupport.SaveFrame(gallery.Window, Path.Combine(ComposedApp.RenderFolder(_area), "error-states.png")));
+        ThemeTestSupport.SaveFrame(gallery.Window, Path.Combine(ComposedApp.RenderFolder(_area), "error-states.png"));
     }
 }

@@ -34,7 +34,7 @@ public class GamesHeaderTests
     {
         using var app = await ComposedApp.StartWithViewAsync(width: width, height: 660);
         app.Settle();
-        app.Render("games", $"header-sidebar-{width}");
+        app.RenderIfRequested("games", $"header-sidebar-{width}");
 
         var name = app.Find<TextBlock>("GameNameText");
         var room = width >= 1040 ? _nameRoomWithWords : _nameRoom;
@@ -50,7 +50,7 @@ public class GamesHeaderTests
     {
         using var app = await ComposedApp.StartWithViewAsync(width: width, height: 660, layout: ShellLayout.Library);
         app.Settle();
-        app.Render("games", $"header-library-{width}");
+        app.RenderIfRequested("games", $"header-library-{width}");
 
         var title = app.Find<TextBlock>("LibraryTitleText");
         Assert.True(title.Bounds.Width >= _nameRoom, $"At {width}px the title has {title.Bounds.Width:0}px.");
@@ -118,7 +118,7 @@ public class GamesHeaderTests
     {
         using var app = await ComposedApp.StartWithViewAsync(width: width, height: 660);
         app.Settle();
-        app.Render("games", $"profile-names-{width}");
+        app.RenderIfRequested("games", $"profile-names-{width}");
 
         var rows = app.Find<ItemsControl>("Rows");
         foreach (var row in rows.GetLogicalDescendants().OfType<Border>().Where(border => border.Classes.Contains("table-row")))

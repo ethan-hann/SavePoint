@@ -25,7 +25,7 @@ public class ToastPlacementTests
         app.Toasts.Show(new ToastMessage("Could not save Skyrim Special Edition.", ToastKind.Error, "There is not enough free disk space to save this profile right now."));
         app.Toasts.Show(new ToastMessage("Only part of Satisfactory was saved.", ToastKind.Warning, "A file is in use."));
         app.Settle();
-        app.Render("toasts", $"error-card-with-toasts-{width}x{height}");
+        app.RenderIfRequested("toasts", $"error-card-with-toasts-{width}x{height}");
 
         var actions = app.All<ErrorCardView>().Single().GetVisualDescendants().OfType<Button>().Where(button => button.IsEffectivelyVisible).ToList();
         var toasts = app.Find<ItemsControl>("ToastList").GetVisualDescendants().OfType<Border>().Where(border => border.Classes.Contains("panel")).ToList();

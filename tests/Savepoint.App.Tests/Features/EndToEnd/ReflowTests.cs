@@ -20,7 +20,7 @@ public class ReflowTests
         var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(AppSettings.Defaults(path)));
         using var app = await ComposedApp.StartWithViewAsync(backend, width: 640, height: 660);
         app.Settle();
-        app.Render("reflow", "first-run-long-path");
+        app.RenderIfRequested("reflow", "first-run-long-path");
 
         var note = app.Find<Border>("StorageNote");
         var text = note.GetVisualDescendants().OfType<TextBlock>().First(block => block.Inlines?.Count > 0);
@@ -40,7 +40,7 @@ public class ReflowTests
         using var app = await AppStates.OpenAsync("history-cards");
         app.Window.Width = width;
         app.Settle();
-        app.Render("reflow", $"history-cards-{width}");
+        app.RenderIfRequested("reflow", $"history-cards-{width}");
 
         var cards = app.Find<ItemsControl>("GroupList").GetVisualDescendants().OfType<UniformGrid>().Where(grid => grid.IsEffectivelyVisible).SelectMany(grid => grid.Children).ToList();
         Assert.NotEmpty(cards);
@@ -58,7 +58,7 @@ public class ReflowTests
         using var app = await AppStates.OpenAsync("how-it-works");
         app.Window.Width = width;
         app.Settle();
-        app.Render("reflow", $"how-it-works-{width}");
+        app.RenderIfRequested("reflow", $"how-it-works-{width}");
 
         var scroller = app.Find<ScrollViewer>("PageScroll");
         var pictures = app.All<HelpPictureView>().Where(picture => picture.IsEffectivelyVisible).ToList();
@@ -98,7 +98,7 @@ public class ReflowTests
         }
 
         app.Settle();
-        app.Render("reflow", $"launch-{card}-{width}");
+        app.RenderIfRequested("reflow", $"launch-{card}-{width}");
 
         var host = app.Find<ContentControl>("InlineContentHost");
         var footer = app.Find<Border>("StorageFooter");

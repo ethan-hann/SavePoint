@@ -343,7 +343,7 @@ public class JobPillPlacementTests
     }
 
     // Everything the window shows now is audited: what the pill and the toasts take clicks from or hide, and that they keep clear of each other.
-    private static List<string> Audit(ComposedApp app, ScrollMemory scrolls,bool withJob, ToastLoad toasts)
+    private static List<string> Audit(ComposedApp app, ScrollMemory scrolls, bool withJob, ToastLoad toasts)
     {
         var overlays = new List<Control>();
         var found = new List<string>();
