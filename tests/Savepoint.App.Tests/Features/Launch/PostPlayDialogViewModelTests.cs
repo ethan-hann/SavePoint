@@ -514,6 +514,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         var options = exited.Options with { NewerPointCount = 3 };
         var dialog = new PostPlayDialogViewModel(exited with { Options = options }, _moddedName, _rig.Deps);
         dialog.SelectedChoice = Card(dialog, CompletionChoice.MoveForward);
+        _rig.Dialogs.AnswerConfirm(false);
 
         await dialog.SaveCommand.ExecuteAsync(null);
 

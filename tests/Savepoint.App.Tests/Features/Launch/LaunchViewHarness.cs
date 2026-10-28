@@ -51,18 +51,19 @@ internal sealed class LaunchViewHarness : IDisposable
         FakeBackend? backend = null,
         ThemePreference theme = ThemePreference.Dark,
         double width = 1040,
-        double height = 660)
+        double height = 660,
+        IUiDispatcher? dispatcher = null)
     {
         var scenario = backend ?? new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
-        var rig = new LaunchRig(scenario);
+        var rig = new LaunchRig(scenario, dispatcher);
         var dialogs = new DialogHostViewModel();
         var real = new AvaloniaDialogs(dialogs, rig.Text, () => null);
-        var immediate = new ImmediateUiDispatcher();
+        var immediate = rig.Dispatcher;
         var deps = rig.Deps with { Dialogs = real, Awaiter = rig.Awaiter };
         var flow = new LaunchFlowViewModel(deps);
         var app = (App)Application.Current!;
         var main = new MainWindowViewModel(
-            new StartupViewModel(scenario.AppStatus, rig.Text, new ImmediateUiDispatcher()),
+            new StartupViewModel(scenario.AppStatus, rig.Text, rig.Dispatcher),
             () => new ShellViewModel(new ShellDependencies(
                 scenario.Games,
                 scenario.Profiles,

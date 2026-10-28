@@ -358,11 +358,12 @@ public class LibraryPickerDialogViewModelTests
     [Fact]
     public async Task The_scan_is_one_read_that_changes_nothing()
     {
-        var (_, backend) = await LoadedAsync(LibraryTestData.Scan(LibraryTestData.Game("A")));
+        var (picker, backend) = await LoadedAsync(LibraryTestData.Scan(LibraryTestData.Game("A")));
 
-        var calls = backend.Calls.All.Where(call => call.Api == nameof(IGamesApi)).Select(call => call.Member).ToList();
-
-        Assert.Equal([nameof(IGamesApi.ScanLibrariesAsync)], calls);
+        // The game is offered, none is selected, and the library still has no game: looking changed nothing.
+        Assert.Equal(["A"], picker.VisibleRows.Select(row => row.Name));
+        Assert.Equal(0, picker.SelectedCount);
+        Assert.Empty(backend.State.Games);
     }
 
     [Fact]

@@ -47,7 +47,7 @@ public sealed class FakeLaunchApi : ILaunchApi
             }
         }
 
-        return await _backend.Call(_api, nameof(GetPreviewAsync), [gameId, target], () =>
+        return await _backend.Call(_api, nameof(GetPreviewAsync), [gameId, target], cancellationToken, () =>
             State.LaunchPreviews.TryGetValue((gameId, target), out var preview)
                 ? OperationResult.Success(preview)
                 : throw new KeyNotFoundException($"No launch preview is scripted for {target} in game '{gameId}'."));
@@ -176,7 +176,7 @@ public sealed class FakeLaunchApi : ILaunchApi
             }
 
             var saved = new CaptureResult(profileId, State.NewPointId(), [.. FakeState.FoldersOf(game).Select(r => new FolderOutcome(r))]);
-            var jobId = _backend.Jobs.Start(JobKind.Capture, gameId, saved, job => OnCompletionFinished(gameId, completion, job), CompletionOpening(profileId, completion), JobProfileOf(profileId));
+            var jobId = _backend.Jobs.Start(JobKind.Capture, gameId, saved, job => OnSaveAfterPlayFinished(gameId, profileId, completion, job), CompletionOpening(profileId, completion), JobProfileOf(profileId));
             Publish(session with { State = new SessionState.Completing(completion, jobId) });
             return OperationResult.Success();
         });
@@ -196,7 +196,7 @@ public sealed class FakeLaunchApi : ILaunchApi
             var earlier = completed.Result?.Folders.Where(folder => folder.Ok).ToList() ?? [];
             var missing = FakeState.FoldersOf(game).Where(role => earlier.All(folder => folder.Role != role));
             var saved = new CaptureResult(completed.Result?.ProfileId ?? session.ProfileId, completed.Result?.PointId ?? State.NewPointId(), [.. earlier, .. missing.Select(role => new FolderOutcome(role))]);
-            var jobId = _backend.Jobs.Start(JobKind.Capture, gameId, saved, job => OnCompletionFinished(gameId, completed.Completion, job), CompletionOpening(saved.ProfileId, completed.Completion), JobProfileOf(saved.ProfileId));
+            var jobId = _backend.Jobs.Start(JobKind.Capture, gameId, saved, job => OnSaveAfterPlayFinished(gameId, saved.ProfileId, completed.Completion, job), CompletionOpening(saved.ProfileId, completed.Completion), JobProfileOf(saved.ProfileId));
             Publish(session with { State = new SessionState.Completing(completed.Completion, jobId) });
             return OperationResult.Success();
         });
@@ -337,17 +337,30 @@ public sealed class FakeLaunchApi : ILaunchApi
     // The first step of the snapshot taken after play, as the real work writes it: the profile and what the snapshot is called.
     private IReadOnlyList<JobLine> CompletionOpening(string profileId, SessionCompletion completion)
     {
-        var snapshot = completion switch
-        {
-            SessionCompletion.CaptureNew captured => captured.PointName,
-            SessionCompletion.UpdateExisting updated => updated.PointName,
-            SessionCompletion.ForkNewProfile forked => forked.PointName,
-            SessionCompletion.MoveForward moved => moved.PointName,
-            _ => string.Empty,
-        };
+        var snapshot = PointNameOf(completion);
         var profile = State.Profiles.FirstOrDefault(candidate => candidate.Id == profileId)?.Name ?? string.Empty;
         return [JobLine.ForStep(JobSteps.CaptureStart, ("profile", profile), ("snapshot", snapshot))];
     }
+
+    // The snapshot taken after play becomes a point of its profile before the session reports it done.
+    private void OnSaveAfterPlayFinished(string gameId, string profileId, SessionCompletion completion, JobSnapshot job)
+    {
+        if (State.Profiles.Find(profile => profile.Id == profileId && profile.GameId == gameId) is { } profile)
+        {
+            _backend.Profiles.RecordCapture(gameId, profile, PointNameOf(completion), [], job);
+        }
+
+        OnCompletionFinished(gameId, completion, job);
+    }
+
+    private static string PointNameOf(SessionCompletion completion) => completion switch
+    {
+        SessionCompletion.CaptureNew captured => captured.PointName,
+        SessionCompletion.UpdateExisting updated => updated.PointName,
+        SessionCompletion.ForkNewProfile forked => forked.PointName,
+        SessionCompletion.MoveForward moved => moved.PointName,
+        _ => string.Empty,
+    };
 
     private void OnCompletionFinished(string gameId, SessionCompletion completion, JobSnapshot job)
     {

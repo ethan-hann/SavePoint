@@ -1,3 +1,4 @@
+using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
@@ -6,21 +7,33 @@ namespace Savepoint.App.Tests.Contract;
 // What the UI would see over one session, written as lines of text so two backends can be compared and a difference reads as a diff.
 // Shared: steps both backends must answer alike. Gaps: steps where the fake is simpler than the real backend, kept apart so each
 // is pinned on its own (see BackendContractTests).
-internal sealed record ScenarioTranscript(IReadOnlyList<string> Shared, IReadOnlyList<string> Gaps);
+// Events: what a subscriber to the job and session events saw over the whole run (see ContractEvents).
+internal sealed record ScenarioTranscript(IReadOnlyList<string> Shared, IReadOnlyList<string> Gaps)
+{
+    public IReadOnlyList<string> Events { get; init; } = [];
+
+    // The launch previews the story took, as fixture text by name (see LaunchPreviewFixtures).
+    public IReadOnlyDictionary<string, string> Previews { get; init; } = new Dictionary<string, string>();
+}
 
 internal static class ContractScenario
 {
     public static async Task<ScenarioTranscript> RunAsync(ContractHarness backend, CancellationToken cancellationToken)
     {
+        using var events = new ContractEvents(backend);
         var shared = new Story();
         await RunSharedAsync(backend, shared, cancellationToken);
         await RunInterruptedSwitchAsync(backend, shared, cancellationToken);
         await RunSnapshotOfAnotherProfileAsync(backend, shared, cancellationToken);
         await RunSwitchWithoutPlayingAsync(backend, shared, cancellationToken);
         await RunModsFolderAsync(backend, shared, cancellationToken);
+        await RunCancelledReadsAsync(backend, shared);
+        await RunProgramSuggestionsAsync(backend, shared, cancellationToken);
+        await RunAfterSavesAsync(backend, shared, cancellationToken);
         var gaps = new Story();
-        await RunGapsAsync(backend, gaps, cancellationToken);
-        return new ScenarioTranscript(shared.Lines, gaps.Lines);
+        await RunGapsAsync(backend, gaps, shared, cancellationToken);
+        await events.SettledAsync(cancellationToken);
+        return new ScenarioTranscript([.. shared.Lines], [.. gaps.Lines, .. events.OnlyTheBackendDoesOnItsOwn()]) { Events = events.Describe(), Previews = shared.Previews };
     }
 
     private static async Task RunSharedAsync(ContractHarness backend, Story story, CancellationToken cancellationToken)
@@ -105,8 +118,13 @@ internal static class ContractScenario
     {
         backend.ExpectLaunch(game, profileId);
         var tip = new LaunchTarget.ProfileTip(profileId);
-        story.Add("launch preview", Show(await backend.Launch.GetPreviewAsync(game.Id, tip, cancellationToken), preview =>
+        var previewed = await backend.Launch.GetPreviewAsync(game.Id, tip, cancellationToken);
+        story.Add("launch preview", Show(previewed, preview =>
             $"banner={preview.ShowBanner} older={preview.TargetIsOlderPoint} install matches={preview.Install.MatchesTarget} dirty={preview.Install.Dirty} saves matches={preview.Folder(RepoRole.External)?.MatchesTarget} saves={preview.AvailableSaves.Count}"));
+        if (previewed.Ok)
+        {
+            story.Keep("profile-tip-clean", previewed.Value, new PreviewNames(game.Id, profileId, game.Install.Path, game.External?.Path));
+        }
 
         var started = await backend.Launch.StartAsync(game.Id, tip);
         story.Add("start launch", Show(started, _ => "job started"));
@@ -153,6 +171,10 @@ internal static class ContractScenario
         var stopped = await backend.Launch.GetPreviewAsync(game.Id, moddedTip, cancellationToken);
         story.Add("session after the switch was stopped", Describe(backend.Launch.GetSession(game.Id), story));
         story.Add("preview after the switch was stopped", Show(stopped, preview => DescribeFolders(preview, story)));
+        if (stopped.Ok)
+        {
+            story.Keep("stopped-switch", stopped.Value, new PreviewNames(game.Id, modded, game.Install.Path, game.External?.Path, vanilla));
+        }
 
         var recorded = stopped.Ok ? stopped.Value.Install.UnfinishedSwitchTarget : null;
         if (recorded is null)
@@ -165,7 +187,12 @@ internal static class ContractScenario
         story.Add("start the recorded target", Show(finishing, _ => "job started"));
         await backend.GameRunningAsync(game.Id, cancellationToken);
         backend.SwitchFinished(game, vanilla);
-        story.Add("preview after the switch was finished", Show(await backend.Launch.GetPreviewAsync(game.Id, new LaunchTarget.ProfileTip(vanilla), cancellationToken), preview => DescribeFolders(preview, story)));
+        var finishedPreview = await backend.Launch.GetPreviewAsync(game.Id, new LaunchTarget.ProfileTip(vanilla), cancellationToken);
+        story.Add("preview after the switch was finished", Show(finishedPreview, preview => DescribeFolders(preview, story)));
+        if (finishedPreview.Ok)
+        {
+            story.Keep("finished-switch", finishedPreview.Value, new PreviewNames(game.Id, vanilla, game.Install.Path, game.External?.Path, modded));
+        }
 
         ContractHarness.PlayerSaves(game);
         await backend.GameExitedAsync(game.Id, cancellationToken);
@@ -248,7 +275,7 @@ internal static class ContractScenario
         : $"{session.State.GetType().Name} profile={story.Name(session.ProfileId, "profile")} older={session.StartedFromOlderPoint} completion={(session.State as SessionState.Completed)?.Completion.GetType().Name ?? "none"} result={(session.State as SessionState.Completed)?.Result is null}";
 
     // The second game is saved once and then asked what the first save did, which is where the fake only plays its part.
-    private static async Task RunGapsAsync(ContractHarness backend, Story story, CancellationToken cancellationToken)
+    private static async Task RunGapsAsync(ContractHarness backend, Story story, Story shared, CancellationToken cancellationToken)
     {
         var game = backend.NewGame("Beta");
         await backend.Games.AddAsync(game);
@@ -262,22 +289,98 @@ internal static class ContractScenario
         await backend.GameExitedAsync(game.Id, cancellationToken);
         await backend.Launch.CompleteSessionAsync(game.Id, new SessionCompletion.Skip());
 
-        story.Add("history after the first save", Show(await backend.History.GetAsync(game.Id, null, cancellationToken), history => $"{history.Points.Count} points"));
-        story.Add("row stats after the first save", Show(await backend.Profiles.GetRowStatsAsync(game.Id, cancellationToken), stats =>
-            string.Join("; ", stats.Select(s => $"active={s.IsActive} snapshots={s.SnapshotCount}"))));
         story.Add("storage used", Show(await backend.Games.GetStorageUsageAsync(game.Id, cancellationToken), usage => $"{usage.BytesUsed > 0}"));
-        story.Add("delete preview of the active profile", Show(await backend.Profiles.GetDeletePreviewAsync(game.Id, profileId, cancellationToken), preview =>
+        shared.Add("delete preview of the active profile", Show(await backend.Profiles.GetDeletePreviewAsync(game.Id, profileId, cancellationToken), preview =>
             $"points={preview.PointsOnlyHere} blocked={preview.BlockedBy?.MessageId ?? "no"}"));
-        story.Add("delete of the active profile", Show(await backend.Profiles.DeleteAsync(game.Id, profileId), _ => "deleted"));
+        shared.Add("delete of the active profile", Show(await backend.Profiles.DeleteAsync(game.Id, profileId), _ => "deleted"));
 
         // The real backend refuses a folder that is not there; the fake takes any path, since its sample paths are on no disk.
         var noMods = backend.NewGameWithMods("Eta");
         Directory.Delete(noMods.Mods!.Path, recursive: true);
         story.Add("add a game whose mods folder is not there", Show(await backend.Games.AddAsync(noMods), outcome => outcome.GetType().Name));
+    }
 
-        using var cancelled = new CancellationTokenSource();
-        await cancelled.CancelAsync();
-        story.Add("read with a cancelled token", Show(await backend.Games.ListAsync(cancelled.Token), _ => "success"));
+    // The editor suggests which program to follow from what the install folder holds: the folder's own name, the game's name and the
+    // programs' sizes all count, so the fake has to be given the same inputs the real call gets.
+    private static async Task RunProgramSuggestionsAsync(ContractHarness backend, Story story, CancellationToken cancellationToken)
+    {
+        var cases = new (string Case, string Game, string Folder, (string Path, int Bytes)[] Programs)[]
+        {
+            ("a folder named after one of two equal programs", "Unrelated", "Zebra Quest", [("alpha.exe", 4000), ("zebraquest.exe", 4000)]),
+            ("a big program beside a small one", "Unrelated", "Stuff", [("alpha-small.exe", 2000), ("zeta-big.exe", 300_000)]),
+            ("a launcher beside the game", "Adventure", "Misc", [("launcher.exe", 500_000), ("adventure.exe", 100_000)]),
+            ("a program in a subfolder beside one at the top", "Deep", "Deep Game", [(Path.Combine("bin", "main.exe"), 90_000), ("start-here.exe", 90_000)]),
+            ("a folder with no program", "Nothing", "Empty", []),
+        };
+        foreach (var (name, game, folder, programs) in cases)
+        {
+            var definition = backend.NewGameWithPrograms(game, folder, programs);
+            story.Add($"programs found in {name}", Show(await backend.Games.ListExecutablesAsync(definition.Install.Path, game, cancellationToken), found => string.Join(", ", found.Select(path => path.Replace('\\', '/')).Order(StringComparer.Ordinal))));
+            story.Add($"program suggested for {name}", Show(await backend.Games.SuggestProcessNameAsync(definition.Install.Path, game, cancellationToken), suggested => suggested.Length == 0 ? "none" : suggested));
+        }
+    }
+
+    // Two profiles saved one after the other: what History lists, and what each profile's row says, once the saves are done.
+    private static async Task RunAfterSavesAsync(ContractHarness backend, Story story, CancellationToken cancellationToken)
+    {
+        var game = backend.NewGame("Theta");
+        await backend.Games.AddAsync(game);
+        var vanilla = await FinishCaptureAsync(backend, new Story(), await backend.Profiles.CreateAsync(game.Id, "Vanilla", null, "Fresh install"), cancellationToken) ?? "missing";
+        story.Name(vanilla, "profile");
+        await DescribeSavesAsync(backend, game, story, "after the first save", cancellationToken);
+
+        File.WriteAllText(Path.Combine(game.Install.Path, "data", "mod.pak"), "a mod");
+        var modded = await FinishCaptureAsync(backend, new Story(), await backend.Profiles.CreateAsync(game.Id, "Modded", null, "With a mod"), cancellationToken) ?? "missing";
+        story.Name(modded, "profile");
+        await DescribeSavesAsync(backend, game, story, "after the second profile was saved", cancellationToken);
+
+        story.Add("history of the first profile only", Show(await backend.History.GetAsync(game.Id, vanilla, cancellationToken), history => DescribePoints(history, story)));
+    }
+
+    private static async Task DescribeSavesAsync(ContractHarness backend, GameDefinition game, Story story, string when, CancellationToken cancellationToken)
+    {
+        story.Add($"history {when}", Show(await backend.History.GetAsync(game.Id, null, cancellationToken), history => DescribePoints(history, story)));
+        story.Add($"row stats {when}", Show(await backend.Profiles.GetRowStatsAsync(game.Id, cancellationToken), stats =>
+            string.Join("; ", stats.Select(s => $"{story.Name(s.ProfileId, "profile")} active={s.IsActive} snapshots={s.SnapshotCount} unsaved=[{string.Join(", ", s.UnsavedChanges)}] snapshot now={s.SnapshotNow} running={s.IsRunning}").Order(StringComparer.Ordinal))));
+    }
+
+    private static string DescribePoints(GameHistory history, Story story) =>
+        $"{history.Points.Count} points: " + string.Join("; ", history.Points.Select(point =>
+            $"{point.Name} kind={point.Kind} profile={story.Name(point.ProfileId, "profile")} loaded now={point.LoadedNow} in use={point.InUse} mod files changed={point.ModFilesChanged?.ToString() ?? "none"} has bytes={point.Bytes > 0}"));
+
+    // A screen cancels its reads when the player moves on, and takes the cancelled error for "nothing to show". A token that is already
+    // cancelled fails every call that takes one before it reads anything (D23).
+    private static async Task RunCancelledReadsAsync(ContractHarness backend, Story story)
+    {
+        var game = backend.NewGame("Kappa");
+        await backend.Games.AddAsync(game);
+        var tip = new LaunchTarget.ProfileTip("any-profile");
+        var token = new CancellationToken(canceled: true);
+
+        story.Add("games listed with a cancelled token", Show(await backend.Games.ListAsync(token), _ => "success"));
+        story.Add("folder status with a cancelled token", Show(await backend.Games.GetFolderStatusAsync(game.Id, token), _ => "success"));
+        story.Add("cloud saves with a cancelled token", Show(await backend.Games.GetCloudSavesAsync(game.Id, token), _ => "success"));
+        story.Add("storage used with a cancelled token", Show(await backend.Games.GetStorageUsageAsync(game.Id, token), _ => "success"));
+        story.Add("capture preview with a cancelled token", Show(await backend.Games.GetCapturePreviewAsync(game.Id, token), _ => "success"));
+        story.Add("free up space preview of a game with a cancelled token", Show(await backend.Games.GetFreeUpSpacePreviewAsync(game.Id, token), _ => "success"));
+        story.Add("free up space size of a game with a cancelled token", Show(await backend.Games.EstimateFreeUpSpaceAsync(game.Id, FreeUpSpaceToken.Nothing, token), _ => "success"));
+        story.Add("path resolved with a cancelled token", Show(await backend.Games.ResolvePathAsync("{documents}", token), _ => "success"));
+        story.Add("folder checked with a cancelled token", Show(await backend.Games.FolderExistsAsync(game.Install.Path, token), _ => "success"));
+        story.Add("programs listed with a cancelled token", Show(await backend.Games.ListExecutablesAsync(game.Install.Path, game.Name, token), _ => "success"));
+        story.Add("program name suggested with a cancelled token", Show(await backend.Games.SuggestProcessNameAsync(game.Install.Path, game.Name, token), _ => "success"));
+        story.Add("library scanned with a cancelled token", Show(await backend.Games.ScanLibrariesAsync(token), _ => "success"));
+        story.Add("profiles listed with a cancelled token", Show(await backend.Profiles.ListAsync(game.Id, token), _ => "success"));
+        story.Add("row stats with a cancelled token", Show(await backend.Profiles.GetRowStatsAsync(game.Id, token), _ => "success"));
+        story.Add("delete preview with a cancelled token", Show(await backend.Profiles.GetDeletePreviewAsync(game.Id, "any-profile", token), _ => "success"));
+        story.Add("history with a cancelled token", Show(await backend.History.GetAsync(game.Id, null, token), _ => "success"));
+        story.Add("recently removed with a cancelled token", Show(await backend.History.GetRecentlyRemovedAsync(game.Id, token), _ => "success"));
+        story.Add("settings read with a cancelled token", Show(await backend.Settings.GetAsync(token), _ => "success"));
+        story.Add("storage summary with a cancelled token", Show(await backend.Settings.GetStorageSummaryAsync(token), _ => "success"));
+        story.Add("free up space preview of every game with a cancelled token", Show(await backend.Settings.GetFreeUpSpacePreviewAsync(token), _ => "success"));
+        story.Add("free up space size of every game with a cancelled token", Show(await backend.Settings.EstimateFreeUpSpaceAsync(FreeUpSpaceToken.Nothing, token), _ => "success"));
+        story.Add("move preview with a cancelled token", Show(await backend.Settings.GetRelocationPreviewAsync(Path.Combine(backend.Root, "elsewhere"), token), _ => "success"));
+        story.Add("clear all data preview with a cancelled token", Show(await backend.Settings.GetClearAllDataPreviewAsync(token), _ => "success"));
+        story.Add("launch preview with a cancelled token", Show(await backend.Launch.GetPreviewAsync(game.Id, tip, token), _ => "success"));
     }
 
     // A snapshot copies what the folders hold, which is the profile made last, so one asked for on the profile made before it is refused before a job starts.
@@ -324,7 +427,12 @@ internal static class ContractScenario
 
         public IReadOnlyList<string> Lines => _lines;
 
+        // Previews as the fixtures hold them, by name.
+        public Dictionary<string, string> Previews { get; } = [];
+
         public void Add(string step, string seen) => _lines.Add($"{step}: {seen}");
+
+        public void Keep(string name, LaunchPreview preview, PreviewNames names) => Previews[name] = LaunchPreviewFixtures.Dump(preview, names);
 
         public string Name(string id, string kind)
         {

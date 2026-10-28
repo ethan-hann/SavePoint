@@ -35,7 +35,7 @@ public sealed class FakeGamesApi : IGamesApi
             await gate();
         }
 
-        return await _backend.Call(_api, nameof(ListAsync), [], () => OperationResult.Success<IReadOnlyList<GameDefinition>>([.. State.Games]));
+        return await _backend.Call(_api, nameof(ListAsync), [], cancellationToken, () => OperationResult.Success<IReadOnlyList<GameDefinition>>([.. State.Games]));
     }
 
     // The rules the editor said SavePoint supplied, for the last add or reconnect, so a test can see what the form sent.
@@ -211,7 +211,7 @@ public sealed class FakeGamesApi : IGamesApi
 
     public async Task<OperationResult<IReadOnlyList<FolderStatus>>> GetFolderStatusAsync(string gameId, CancellationToken cancellationToken = default)
     {
-        var answer = await _backend.Call(_api, nameof(GetFolderStatusAsync), [gameId], () =>
+        var answer = await _backend.Call(_api, nameof(GetFolderStatusAsync), [gameId], cancellationToken, () =>
         {
             var game = State.Game(gameId);
             return OperationResult.Success(State.FolderStatuses.GetValueOrDefault(gameId) ?? Statuses(game, new ConsentStatus(true, null)));
@@ -269,7 +269,7 @@ public sealed class FakeGamesApi : IGamesApi
 
     public async Task<OperationResult<CloudSaveInfo>> GetCloudSavesAsync(string gameId, CancellationToken cancellationToken = default)
     {
-        var answer = await _backend.Call(_api, nameof(GetCloudSavesAsync), [gameId], () =>
+        var answer = await _backend.Call(_api, nameof(GetCloudSavesAsync), [gameId], cancellationToken, () =>
         {
             State.Game(gameId);
             return OperationResult.Success(CloudSaves.GetValueOrDefault(gameId) ?? new CloudSaveInfo(CloudSaveState.Unknown, CloudStore.None));
@@ -283,14 +283,14 @@ public sealed class FakeGamesApi : IGamesApi
     }
 
     public Task<OperationResult<GameStorageUsage>> GetStorageUsageAsync(string gameId, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetStorageUsageAsync), [gameId], () =>
+        _backend.Call(_api, nameof(GetStorageUsageAsync), [gameId], cancellationToken, () =>
         {
             State.Game(gameId);
             return OperationResult.Success(new GameStorageUsage(gameId, State.GameBytes.GetValueOrDefault(gameId), State.VolumeTotalBytes, State.VolumeFreeBytes));
         });
 
     public Task<OperationResult<CapturePreview>> GetCapturePreviewAsync(string gameId, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetCapturePreviewAsync), [gameId], () =>
+        _backend.Call(_api, nameof(GetCapturePreviewAsync), [gameId], cancellationToken, () =>
         {
             var game = State.Game(gameId);
             // As the real backend answers: a folder with no profile to hold it is blocked by the game having no profile yet.
@@ -335,7 +335,7 @@ public sealed class FakeGamesApi : IGamesApi
             await hold.Task.WaitAsync(cancellationToken);
         }
 
-        return await _backend.Call(_api, nameof(GetFreeUpSpacePreviewAsync), [gameId], () =>
+        return await _backend.Call(_api, nameof(GetFreeUpSpacePreviewAsync), [gameId], cancellationToken, () =>
         {
             State.Game(gameId);
             return OperationResult.Success(State.FreeUpPreview(gameId));
@@ -365,7 +365,7 @@ public sealed class FakeGamesApi : IGamesApi
             return OperationResult.Failure<long>(cancelled);
         }
 
-        return await _backend.Call(_api, nameof(EstimateFreeUpSpaceAsync), [gameId, token], () =>
+        return await _backend.Call(_api, nameof(EstimateFreeUpSpaceAsync), [gameId, token], cancellationToken, () =>
         {
             State.Game(gameId);
             return OperationResult.Success(State.FreeUpEstimate);
@@ -373,14 +373,14 @@ public sealed class FakeGamesApi : IGamesApi
     }
 
     public Task<OperationResult<string>> ResolvePathAsync(string rawPath, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(ResolvePathAsync), [rawPath], () => OperationResult.Success(State.Resolve(rawPath)));
+        _backend.Call(_api, nameof(ResolvePathAsync), [rawPath], cancellationToken, () => OperationResult.Success(State.Resolve(rawPath)));
 
     public Task<OperationResult<bool>> FolderExistsAsync(string rawPath, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(FolderExistsAsync), [rawPath], () =>
+        _backend.Call(_api, nameof(FolderExistsAsync), [rawPath], cancellationToken, () =>
             OperationResult.Success(!State.MissingFolders.Contains(rawPath) && !State.MissingFolders.Contains(State.Resolve(rawPath))));
 
     public Task<OperationResult<IReadOnlyList<string>>> ListExecutablesAsync(string installPath, string gameName, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(ListExecutablesAsync), [installPath, gameName], () =>
+        _backend.Call(_api, nameof(ListExecutablesAsync), [installPath, gameName], cancellationToken, () =>
         {
             if (State.Executables.TryGetValue(installPath, out var scripted))
             {
@@ -391,15 +391,18 @@ public sealed class FakeGamesApi : IGamesApi
             return OperationResult.Success<IReadOnlyList<string>>(game?.Launch.ExePath is { } exe ? [exe] : []);
         });
 
-    // Every scripted program counts as the same size, so only names and folders decide the answer.
+    // The pick gets what the real call gives it: the install folder and its name, and each program's size. A program that is a file on
+    // disk has its real size; the sample paths are on no disk, so a scripted program there counts as 5 MB.
     public async Task<OperationResult<string>> SuggestProcessNameAsync(string installPath, string gameName, CancellationToken cancellationToken = default)
     {
         // The answer is worked out when the call is made; the gate only delays when the caller sees it.
-        var answer = await _backend.Call(_api, nameof(SuggestProcessNameAsync), [installPath, gameName], () =>
+        var answer = await _backend.Call(_api, nameof(SuggestProcessNameAsync), [installPath, gameName], cancellationToken, () =>
         {
             var programs = State.Executables.TryGetValue(installPath, out var scripted) ? scripted : [];
+            var folder = State.Resolve(installPath);
+            var found = programs.Select(path => new InstalledProgram(path, File.Exists(Path.Combine(folder, path)) ? new FileInfo(Path.Combine(folder, path)).Length : 5 << 20));
             return OperationResult.Success(
-                ProcessNameSuggester.Suggest(null, gameName, programs.Select(path => new InstalledProgram(path, 5 << 20))) ?? string.Empty);
+                ProcessNameSuggester.Suggest(Path.GetFileName(folder.TrimEnd('\\', '/')), gameName, found, folder) ?? string.Empty);
         });
         SuggestTokens.Add(cancellationToken);
         if (SuggestGate is { } gate)
@@ -417,7 +420,7 @@ public sealed class FakeGamesApi : IGamesApi
     public List<CancellationToken> SuggestTokens { get; } = [];
 
     public Task<OperationResult<GameDefinition>> ImportDefinitionAsync(string filePath, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(ImportDefinitionAsync), [filePath], () =>
+        _backend.Call(_api, nameof(ImportDefinitionAsync), [filePath], cancellationToken, () =>
             State.Imports.TryGetValue(filePath, out var definition)
                 ? OperationResult.Success(definition)
                 : throw new KeyNotFoundException($"No import is scripted for '{filePath}'."));

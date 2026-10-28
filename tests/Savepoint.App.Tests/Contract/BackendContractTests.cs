@@ -1,3 +1,5 @@
+using Savepoint.App.Tests.Fakes;
+
 namespace Savepoint.App.Tests.Contract;
 
 // The fake backend is what every screen test is written against, so it has to say what the real one says.
@@ -15,6 +17,75 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
             .Select(pair => $"fake: {pair.fakeSaw}{Environment.NewLine}real: {pair.realSaw}")
             .ToList();
         Assert.True(differences.Count == 0 && expected.Count == actual.Count, string.Join(Environment.NewLine + Environment.NewLine, differences));
+    }
+
+    // The screens learn about jobs and sessions only from these two event streams, so a subscriber must see the same states in the same order.
+    [Fact]
+    public void The_real_backend_sends_the_same_job_and_session_events_as_the_fake()
+    {
+        Assert.True(
+            runs.Fake.Events.SequenceEqual(runs.Real.Events),
+            $"fake:{Environment.NewLine}{string.Join(Environment.NewLine, runs.Fake.Events)}{Environment.NewLine}real:{Environment.NewLine}{string.Join(Environment.NewLine, runs.Real.Events)}");
+    }
+
+    // A story that raised no events in one backend would still match itself, so the streams that prove it ran are named here.
+    [Fact]
+    public void The_event_streams_of_the_story_follow_a_launch_from_start_to_a_saved_play()
+    {
+        foreach (var events in new[] { runs.Fake.Events, runs.Real.Events })
+        {
+            Assert.Contains(events, line => line.StartsWith("Launch of alpha-1: Running > Succeeded; revisions rise=True", StringComparison.Ordinal));
+            Assert.Contains(events, line => line.StartsWith("Capture of alpha-1: Running > Succeeded", StringComparison.Ordinal));
+            Assert.Contains(events, line => line.StartsWith("session of alpha-1: Preparing > Running > Exited > Completed; revisions rise=True", StringComparison.Ordinal));
+        }
+    }
+
+    // A screen that cancels a read on navigation takes "cancelled" for "nothing to show", so every read answers it in both backends.
+    [Fact]
+    public void The_shared_story_answers_every_read_given_a_cancelled_token_with_the_cancelled_error()
+    {
+        foreach (var story in new[] { runs.Fake.Shared, runs.Real.Shared })
+        {
+            var cancelled = story.Where(line => line.Contains("with a cancelled token: ", StringComparison.Ordinal)).ToList();
+            Assert.Equal(24, cancelled.Count);
+            Assert.All(cancelled, line => Assert.EndsWith(": error error.operation.cancelled", line, StringComparison.Ordinal));
+        }
+    }
+
+    // Tests that need a launch preview take one the real backend gave instead of building it by hand, so the files in Fakes/Previews have
+    // to be what the real backend still says. Run once with SAVEPOINT_CAPTURE_PREVIEWS=1 to write them again after a change on purpose.
+    [Fact]
+    public void The_launch_previews_the_fake_plays_back_are_the_ones_the_real_backend_gave()
+    {
+        Assert.Equal(["finished-switch", "profile-tip-clean", "stopped-switch"], runs.Real.Previews.Keys.Order(StringComparer.Ordinal));
+        foreach (var (name, real) in runs.Real.Previews)
+        {
+            var path = Path.Combine(LaunchPreviewFixtures.Folder, name + ".json");
+            if (Environment.GetEnvironmentVariable(LaunchPreviewFixtures.CaptureVariable) == "1")
+            {
+                Directory.CreateDirectory(LaunchPreviewFixtures.Folder);
+                File.WriteAllText(path, real);
+            }
+
+            Assert.True(File.Exists(path), $"The preview '{name}' has no file. Run once with {LaunchPreviewFixtures.CaptureVariable}=1 to write it.");
+            Assert.Equal(File.ReadAllText(path).ReplaceLineEndings("\n"), real.ReplaceLineEndings("\n"));
+            Assert.Equal(real, runs.Fake.Previews[name]);
+        }
+    }
+
+    // A story that suggested nothing, or listed no history, in both backends would still match, so the answers it has to reach are named here.
+    [Fact]
+    public void The_shared_story_suggests_programs_by_folder_name_and_size_and_lists_what_each_save_recorded()
+    {
+        foreach (var story in new[] { runs.Fake.Shared, runs.Real.Shared })
+        {
+            Assert.Contains("program suggested for a folder named after one of two equal programs: zebraquest.exe", story);
+            Assert.Contains("program suggested for a big program beside a small one: zeta-big.exe", story);
+            Assert.Contains("program suggested for a folder with no program: none", story);
+            Assert.Contains(story, line => line.StartsWith("history after the first save: 1 points: Fresh install kind=VersionModsAndSave", StringComparison.Ordinal));
+            Assert.Contains(story, line => line.StartsWith("row stats after the first save: profile#", StringComparison.Ordinal) && line.Contains("active=True snapshots=1", StringComparison.Ordinal));
+            Assert.Contains("delete of the active profile: error error.gameService.profileActive", story);
+        }
     }
 
     // A story whose launch failed to start in both backends would still match, so the steps that prove it ran are named here.
@@ -82,24 +153,18 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
     {
         Assert.Equal(
             [
-                "history after the first save: 0 points",
-                "row stats after the first save: active=False snapshots=0",
                 "storage used: False",
-                "delete preview of the active profile: points=0 blocked=no",
-                "delete of the active profile: deleted",
                 "add a game whose mods folder is not there: Added",
-                "read with a cancelled token: success",
+                "jobs the backend started by itself: none",
+                "a session reported as switching: False",
             ],
             runs.Fake.Gaps);
         Assert.Equal(
             [
-                "history after the first save: 1 points",
-                "row stats after the first save: active=True snapshots=1",
                 "storage used: True",
-                "delete preview of the active profile: points=1 blocked=error.gameService.profileActive",
-                "delete of the active profile: error error.gameService.profileActive",
                 "add a game whose mods folder is not there: error error.path.missing",
-                "read with a cancelled token: error error.operation.cancelled",
+                "jobs the backend started by itself: Compact",
+                "a session reported as switching: True",
             ],
             runs.Real.Gaps);
     }

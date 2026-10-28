@@ -224,7 +224,7 @@ public class StartupViewModelTests
         var withBackup = Corrupt("games.json", @"C:\x\games.json.bak");
         var without = Corrupt("profiles.json", null);
         var backend = Backend(WithCorrupt(withBackup, without));
-        var dialogs = new FakeDialogs();
+        var dialogs = new FakeDialogs().AnswerConfirm(true);
         var startup = new StartupViewModel(backend.AppStatus, _text, _ui, dialogs: dialogs);
         await startup.CheckAsync();
 
@@ -268,7 +268,7 @@ public class StartupViewModelTests
         Assert.Equal([file.Path, CatalogRecovery.RestoreBackup], recover.Args);
         Assert.Equal(StartupPhase.Ready, startup.Phase);
         Assert.Equal(1, ready);
-        Assert.Equal([$"The unreadable file was moved to {file.Path}.corrupt."], startup.RecoveryNotes);
+        Assert.Equal([$"The unreadable file was moved to {file.Path}.corrupt-20260708T170000000Z."], startup.RecoveryNotes);
     }
 
     [Fact]

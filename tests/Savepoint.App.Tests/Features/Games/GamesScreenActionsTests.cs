@@ -574,6 +574,7 @@ public class GamesScreenActionsTests
     public async Task Deleting_a_profile_with_nothing_only_it_holds_asks_a_plain_question()
     {
         var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(SampleScenario.VanillaId, 0)));
+        rig.Dialogs.AnswerConfirm(true);
 
         await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
 
@@ -592,6 +593,7 @@ public class GamesScreenActionsTests
     public async Task Deleting_a_profile_names_how_many_points_only_it_holds(int points, string message)
     {
         var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(SampleScenario.VanillaId, points)));
+        rig.Dialogs.AnswerConfirm(false);
 
         await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
 
@@ -607,6 +609,7 @@ public class GamesScreenActionsTests
     {
         var preview = new ProfileDeletePreview(SampleScenario.VanillaId, forGood, [new FolderPointLoss(RepoRole.Install, forGood, null)], null, back);
         var rig = await GamesRig.StartAsync(WithDeletePreview(preview));
+        rig.Dialogs.AnswerConfirm(false);
 
         await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
 
@@ -660,6 +663,7 @@ public class GamesScreenActionsTests
     {
         var rig = await GamesRig.StartAsync(WithDeletePreview(Preview(SampleScenario.VanillaId, 0)));
         rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.DeleteAsync), SampleScenario.FileInUseError);
+        rig.Dialogs.AnswerConfirm(true);
 
         await rig.Screen.Profiles[1].DeleteCommand.ExecuteAsync(null);
 
@@ -687,6 +691,7 @@ public class GamesScreenActionsTests
     public async Task Deleting_a_game_asks_once_for_its_name_then_removes_it_and_shows_the_next_one()
     {
         var rig = await GamesRig.StartAsync();
+        rig.Dialogs.AnswerConfirm(true);
 
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 
@@ -707,6 +712,7 @@ public class GamesScreenActionsTests
     public async Task A_game_with_no_profiles_says_so_in_the_question()
     {
         var rig = await GamesRig.StartAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(SampleScenario.Caretaker)));
+        rig.Dialogs.AnswerConfirm(false);
 
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 
@@ -745,6 +751,7 @@ public class GamesScreenActionsTests
     {
         var rig = await GamesRig.StartAsync();
         FakeAssert.Ok(await rig.Backend.Launch.StartAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)));
+        rig.Dialogs.AnswerConfirm(true);
 
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 
@@ -757,6 +764,7 @@ public class GamesScreenActionsTests
     public async Task Deleting_the_only_game_leaves_the_screen_without_a_game()
     {
         var rig = await GamesRig.StartAsync(new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(SampleScenario.Caretaker, 1)));
+        rig.Dialogs.AnswerConfirm(true);
 
         await rig.Screen.DeleteGameCommand.ExecuteAsync(null);
 

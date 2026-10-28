@@ -111,10 +111,13 @@ public class SettingsScreenViewModelTests
     {
         var rig = await SettingsRig.ShownAsync();
         var saves = rig.Calls<ISettingsApi>(nameof(ISettingsApi.SaveAsync));
+        var stored = rig.Backend.State.Settings;
 
         rig.Screen.Appearance.SelectedTheme = rig.Screen.Appearance.ThemeOptions.Single(option => option.Preference == ThemePreference.Dark);
 
         Assert.Equal(saves, rig.Calls<ISettingsApi>(nameof(ISettingsApi.SaveAsync)));
+        Assert.Equal(stored, rig.Backend.State.Settings);
+        Assert.Equal(ThemePreference.Dark, rig.Screen.Appearance.SelectedTheme.Preference);
     }
 
     [Fact]

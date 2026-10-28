@@ -257,6 +257,7 @@ public class LaunchSteamFlowTests : IDisposable
         await _f.PlayToExitedAsync();
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _f.Backend.Launch.CompleteGate = () => release.Task;
+        _f.Dialogs.AnswerConfirm(true);
 
         await _f.PostPlay.SaveCommand.ExecuteAsync(null);
 

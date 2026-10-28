@@ -41,7 +41,8 @@ internal sealed class ShellViewHarness : IDisposable
         ThemePreference theme = ThemePreference.Dark,
         double width = 1040,
         double height = 660,
-        bool realDialogs = false)
+        bool realDialogs = false,
+        IUiDispatcher? dispatcher = null)
     {
         backend ??= FakeBackend.Sample();
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
@@ -51,7 +52,7 @@ internal sealed class ShellViewHarness : IDisposable
             text,
             new ThemeServiceApplier(app.Theme),
             () => null,
-            new ImmediateUiDispatcher(),
+            dispatcher ?? new ImmediateUiDispatcher(),
             new ManualTimeProvider(),
             realDialogs ? null : new FakeDialogs());
         var view = new MainView { DataContext = main };

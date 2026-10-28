@@ -31,7 +31,8 @@ public class SettingsScreenViewTests
         double height = 660,
         bool realDialogs = false,
         string? notices = _notices,
-        string? license = _license)
+        string? license = _license,
+        IUiDispatcher? dispatcher = null)
     {
         backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         return ScreenHarness.StartAsync(
@@ -42,7 +43,8 @@ public class SettingsScreenViewTests
             theme,
             width,
             height,
-            realDialogs);
+            realDialogs,
+            dispatcher);
     }
 
     private static SettingsScreenViewModel Screen(ScreenHarness harness) => (SettingsScreenViewModel)harness.Shell.CurrentScreen!;

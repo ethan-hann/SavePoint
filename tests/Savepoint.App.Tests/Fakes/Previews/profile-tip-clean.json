@@ -1,0 +1,65 @@
+{
+  "GameId": "{game}",
+  "ProfileId": "{profile}",
+  "Target": {
+    "kind": "tip",
+    "profile": "{profile}"
+  },
+  "Folders": [
+    {
+      "Role": "install",
+      "Path": "{install}",
+      "MatchesTarget": true,
+      "Dirty": false,
+      "DirtyFileCount": 0,
+      "DirtyOwnerProfileId": null,
+      "Switch": null,
+      "DirtyNewFileCount": 0,
+      "UnfinishedSwitch": false,
+      "UnfinishedSwitchTarget": null,
+      "HeldBy": null,
+      "ChangesOutsideSwitchCount": 0,
+      "ReplacedFileCount": 0,
+      "ReplacedFileNames": null,
+      "StoppedSwitchUnchecked": false
+    },
+    {
+      "Role": "external",
+      "Path": "{saves}",
+      "MatchesTarget": true,
+      "Dirty": false,
+      "DirtyFileCount": 0,
+      "DirtyOwnerProfileId": null,
+      "Switch": null,
+      "DirtyNewFileCount": 0,
+      "UnfinishedSwitch": false,
+      "UnfinishedSwitchTarget": null,
+      "HeldBy": null,
+      "ChangesOutsideSwitchCount": 0,
+      "ReplacedFileCount": 0,
+      "ReplacedFileNames": null,
+      "StoppedSwitchUnchecked": false
+    }
+  ],
+  "CurrentInstall": {
+    "Version": null,
+    "ModFileCount": null
+  },
+  "TargetInstall": {
+    "Version": null,
+    "ModFileCount": null
+  },
+  "AvailableSaves": [
+    {
+      "Id": "{point:1}",
+      "Name": "Fresh install",
+      "CapturedAt": "1970-01-01T00:00:00+00:00",
+      "IsMostRecent": true
+    }
+  ],
+  "SelectedSaveId": "{point:1}",
+  "ShowBanner": true,
+  "OnlySaveDiffers": false,
+  "TargetIsOlderPoint": false,
+  "SteamNeeded": null
+}

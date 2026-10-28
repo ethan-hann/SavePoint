@@ -471,6 +471,7 @@ public class LaunchDialogViewModelTests : IDisposable
     {
         var dialog = await _rig.DialogAsync();
         _rig.Backend.FailNext<ILaunchApi>(nameof(ILaunchApi.DiscardChangesAsync), SampleScenario.FileInUseError);
+        _rig.Dialogs.AnswerConfirm(true);
 
         await dialog.UnsavedBlocks[0].DiscardCommand.ExecuteAsync(null);
 

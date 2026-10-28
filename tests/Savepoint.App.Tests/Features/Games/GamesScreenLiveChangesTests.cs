@@ -1,7 +1,6 @@
 using Savepoint.App.Features.Games;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
-using Savepoint.App.Tests.Features.Common;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
