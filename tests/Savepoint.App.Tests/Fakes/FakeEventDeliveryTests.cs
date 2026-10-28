@@ -59,23 +59,30 @@ public class FakeEventDeliveryTests
     {
         var backend = FakeBackend.Sample();
         backend.Delivery = EventDelivery.Background;
-        var seen = new List<(JobSnapshot Job, int Thread)>();
+        // The pool can hand the test's thread to the delivery after an await, so thread ids prove nothing; mark the call itself.
+        using var insideCall = new ThreadLocal<bool>();
+        var seen = new List<(JobSnapshot Job, bool InsideCall)>();
         backend.Jobs.JobChanged += (_, job) =>
         {
             lock (seen)
             {
-                seen.Add((job, Environment.CurrentManagedThreadId));
+                seen.Add((job, insideCall.Value));
             }
         };
 
-        var started = Ok(await backend.Profiles.CaptureAsync(SkyrimId, ModdedId, "Background"));
+        insideCall.Value = true;
+        var capture = backend.Profiles.CaptureAsync(SkyrimId, ModdedId, "Background");
+        insideCall.Value = false;
+        var started = Ok(await capture);
+        insideCall.Value = true;
         backend.Jobs.Complete(started.JobId);
+        insideCall.Value = false;
         await backend.WhenEventsDeliveredAsync();
 
         lock (seen)
         {
             Assert.Equal([JobStatus.Running, JobStatus.Succeeded], seen.Select(raised => raised.Job.Status));
-            Assert.All(seen, raised => Assert.NotEqual(Environment.CurrentManagedThreadId, raised.Thread));
+            Assert.All(seen, raised => Assert.False(raised.InsideCall));
         }
     }
 
