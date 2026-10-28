@@ -65,6 +65,13 @@ public sealed class ArtworkContractRuns : IAsyncLifetime
         backend.Artwork.ArtworkChanged += (_, change) => changes.Add(change.GameId);
         void Add(string step, string seen) => lines.Add($"{step}: {seen}");
 
+        // The fake delivers events in the background, so they are counted only once they have all arrived.
+        async Task<string> EventCountAsync()
+        {
+            await backend.EventsDeliveredAsync();
+            return changes.Count.ToString();
+        }
+
         var game = backend.NewGame("Alpha");
         var added = await backend.Games.AddAsync(game);
         Add("add the game", added.Ok ? "added" : "error " + added.Error.MessageId);
@@ -73,7 +80,7 @@ public sealed class ArtworkContractRuns : IAsyncLifetime
         await backend.ArtworkLookupDoneAsync(game.Id, cancellationToken);
         var png = TestImages.Write(backend.Root, "mine.png", TestImages.Png(300, 200));
         Add("choose an image", Describe(await backend.Artwork.SetCustomImageAsync(game.Id, png)));
-        Add("events after choosing", changes.Count.ToString());
+        Add("events after choosing", await EventCountAsync());
 
         var page = TestImages.Write(backend.Root, "page.png", TestImages.Html());
         Add("choose a page", Describe(await backend.Artwork.SetCustomImageAsync(game.Id, page)));
@@ -86,23 +93,23 @@ public sealed class ArtworkContractRuns : IAsyncLifetime
 
         Add("choose a huge file", Describe(await backend.Artwork.SetCustomImageAsync(game.Id, huge)));
         Add("still the first image", Describe(await backend.Artwork.GetAsync(game.Id, cancellationToken)));
-        Add("events after the refusals", changes.Count.ToString());
+        Add("events after the refusals", await EventCountAsync());
 
         Add("remove the image", Describe(await backend.Artwork.ClearCustomImageAsync(game.Id)));
         Add("remove it when there is none", Describe(await backend.Artwork.ClearCustomImageAsync(game.Id)));
-        Add("events after removing", changes.Count.ToString());
+        Add("events after removing", await EventCountAsync());
 
         var withId = game with { SteamAppId = 489830 };
         var updated = await backend.Games.UpdateAsync(withId);
         Add("store the steam app id", updated.Ok ? "updated" : "error " + updated.Error.MessageId);
         backend.SteamHasArt(game, 489830);
         Add("look again", Describe(await backend.Artwork.LookAgainAsync(game.Id)));
-        Add("events after looking", changes.Count.ToString());
+        Add("events after looking", await EventCountAsync());
         Add("get after looking", Describe(await backend.Artwork.GetAsync(game.Id, cancellationToken)));
 
         Add("the image beats Steam", Describe(await backend.Artwork.SetCustomImageAsync(game.Id, png)));
         Add("remove it again", Describe(await backend.Artwork.ClearCustomImageAsync(game.Id)));
-        Add("events at the end", changes.Count.ToString());
+        Add("events at the end", await EventCountAsync());
         Add("every event named the game", changes.All(id => id == game.Id).ToString());
 
         Add("an unknown game", string.Join(

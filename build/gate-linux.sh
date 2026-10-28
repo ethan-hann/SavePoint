@@ -34,7 +34,7 @@ mkdir -p "$root/logs" "$root/incoming"
 # The lock is taken before the tree is touched, so a refused run changes nothing. Its holder is written beside it because opening
 # the lock file for writing would erase it.
 exec 9>>"$root/gate.lock"
-if ! flock -n 9; then
+if ! flock -n 9 && ! { vm_free_stale_lock "$root/gate.lock" "$root/gate.holder" && flock -w 10 9; }; then
   echo "gate-linux: another gate is running on this VM; this run is refused and changed nothing." >&2
   [ -f "$root/gate.holder" ] && sed 's/^/gate-linux:   /' "$root/gate.holder" >&2
   exit 75
@@ -103,7 +103,7 @@ fi
 export PATH="$pwsh_root:$PATH"
 
 # Settings the driver passes on; unset ones keep gate.sh's defaults.
-for name in SAVEPOINT_TEST_ARGS SAVEPOINT_GATE_BUILD_NODES SAVEPOINT_GATE_TEST_THREADS; do
+for name in SAVEPOINT_TEST_ARGS SAVEPOINT_GATE_BUILD_NODES SAVEPOINT_GATE_TEST_THREADS SAVEPOINT_GATE_APP_LANES; do
   if [ -n "${!name:-}" ]; then export "$name"; else unset "$name"; fi
 done
 gate_args=()

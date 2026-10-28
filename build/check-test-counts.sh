@@ -25,7 +25,7 @@ for report in "$@"; do
     exit 1
   fi
   # A test element ends in type="<class>" method="<name>"; a method counts once however many rows its cases have.
-  count="$({ grep -o 'type="[^"]*" method="[^"]*"' "$report" || true; } | sort -u | wc -l | tr -d ' ')"
+  count="$({ grep -o 'type="[^"]*" method="[^"]*"' "$report" || true; } | LC_ALL=C sort -u | wc -l | tr -d ' ')"
   sum=$((sum + count))
   parts="${parts:+$parts + }$count"
 done

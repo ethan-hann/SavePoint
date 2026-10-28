@@ -6,13 +6,58 @@
 # a gate would starve the tests that depend on timing, with no retries left (D60.3). The lock sits in the account's home, outside
 # both folders, and its holder is written beside it because opening the lock file for writing would erase it.
 #
+# The wait, in seconds, between the steps of clearing a stale lock (a note must stay stale across it, a program gets this long to end).
+vm_stale_settle="${SAVEPOINT_VM_STALE_SETTLE_SECONDS:-3}"
+
+# Says whether the run that a holder note names is over: there is no note, it names no process, the process does not exist, or the
+# note was written before the machine last booted (so a process number the new boot reused cannot keep it alive).
+# vm_holder_is_stale <holder note>
+vm_holder_is_stale() {
+  local holder="$1" pid boot
+  [ -f "$holder" ] || return 0
+  pid="$(sed -n 's/.*pid \([0-9][0-9]*\).*/\1/p' "$holder" | head -n 1)"
+  [ -n "$pid" ] || return 0
+  kill -0 "$pid" 2>/dev/null || return 0
+  boot="$(sed -n 's/^btime //p' /proc/stat 2>/dev/null | head -n 1)"
+  if [ -n "$boot" ] && [ "$(stat -c %Y "$holder")" -lt "$boot" ]; then
+    return 0
+  fi
+  return 1
+}
+
+# For a lock that is held although its note says the run is over: ends the programs that still have the lock file open (what a
+# killed run's children leave behind). The kernel drops a lock with its process, so after a reset nothing holds it and this is not
+# needed; it is for the orphans of a run that was killed. Returns 0 when it ended some, 1 when the holder is alive or none is found.
+# The note must be stale twice, a few seconds apart, so a run that has just taken the lock and not yet written its note is left alone.
+# vm_free_stale_lock <lock file> <holder note>
+vm_free_stale_lock() {
+  local lock="$1" holder="$2" fd pid pids=()
+  vm_holder_is_stale "$holder" || return 1
+  sleep "$vm_stale_settle"
+  vm_holder_is_stale "$holder" || return 1
+  for fd in /proc/[0-9]*/fd/*; do
+    [ "$(readlink "$fd" 2>/dev/null)" = "$lock" ] || continue
+    pid="${fd#/proc/}"
+    pid="${pid%%/*}"
+    [ "$pid" = "$$" ] || pids+=("$pid")
+  done
+  [ "${#pids[@]}" -gt 0 ] || return 1
+  echo "the note beside $lock names a run that is over, but process ${pids[*]} still holds the lock; ending it." >&2
+  kill -TERM "${pids[@]}" 2>/dev/null || true
+  sleep "$vm_stale_settle"
+  kill -KILL "${pids[@]}" 2>/dev/null || true
+  sleep 1
+  return 0
+}
+
 # vm_take_heavy_lock <what is running> <commit>
 # Takes the lock on file descriptor 8 for the rest of the script, or says who holds it and exits with 75, before anything is changed.
+# A lock held only by leftovers of a run that is over is cleared first (see vm_free_stale_lock).
 vm_take_heavy_lock() {
   local dir="$HOME/.savepoint-vm"
   mkdir -p "$dir"
   exec 8>>"$dir/heavy.lock"
-  if ! flock -n 8; then
+  if ! flock -n 8 && ! { vm_free_stale_lock "$dir/heavy.lock" "$dir/heavy.holder" && flock -w 10 8; }; then
     echo "$1: the VM is busy with another heavy run (a gate or a package build); this run is refused and changed nothing. Run it again when that one has finished." >&2
     [ -f "$dir/heavy.holder" ] && sed 's/^/'"$1"':   /' "$dir/heavy.holder" >&2
     exit 75

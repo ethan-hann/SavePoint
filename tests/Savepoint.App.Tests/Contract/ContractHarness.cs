@@ -61,6 +61,10 @@ internal abstract class ContractHarness : IAsyncDisposable
     // one that is still running when the story puts Steam's files in place could keep half of them, so the story waits for it first.
     public virtual Task ArtworkLookupDoneAsync(string gameId, CancellationToken cancellationToken) => Task.CompletedTask;
 
+    // Returns once every event the calls so far raised has reached its subscribers. The real backend raises them before the call returns
+    // (or from the thread a story already waits for), but the fake delivers them in the background, so a story that counts events waits here.
+    public virtual Task EventsDeliveredAsync() => Task.CompletedTask;
+
     // Tells the backend which profile is about to be launched, so a fake can be scripted with what the real one works out for itself.
     public virtual void ExpectLaunch(GameDefinition game, string profileId)
     {
@@ -232,6 +236,8 @@ internal sealed class FakeContractHarness : ContractHarness
     }
 
     public override void FolderIsMissing(string path) => _backend.State.MissingFolders.Add(path);
+
+    public override Task EventsDeliveredAsync() => _backend.WhenEventsDeliveredAsync();
 
     public override void ProgramsAre(string installPath, IReadOnlyList<string> programs) => _backend.State.Executables[installPath] = programs;
 

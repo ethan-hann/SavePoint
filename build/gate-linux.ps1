@@ -114,7 +114,7 @@ try {
         SAVEPOINT_TEST_ARGS = $TestArgs
     }
     # The caps gate.sh reads; unset means its own defaults.
-    foreach ($name in 'SAVEPOINT_GATE_BUILD_NODES', 'SAVEPOINT_GATE_TEST_THREADS') {
+    foreach ($name in 'SAVEPOINT_GATE_BUILD_NODES', 'SAVEPOINT_GATE_TEST_THREADS', 'SAVEPOINT_GATE_APP_LANES') {
         $value = [Environment]::GetEnvironmentVariable($name)
         if ($value) { $settings[$name] = $value }
     }
