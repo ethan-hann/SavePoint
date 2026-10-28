@@ -31,6 +31,7 @@ public class GameEditorFolderMismatchTests
     public async Task The_question_names_the_folder_and_both_counts_and_saves_nothing_until_it_is_answered_yes()
     {
         var rig = EditorRig.Create();
+        rig.Dialogs.AnswerConfirm(false);
         var editor = Moved(rig);
 
         await Save(rig, editor);
@@ -41,12 +42,14 @@ public class GameEditorFolderMismatchTests
         Assert.Contains("212", asked.Message);
         Assert.Contains(@"Somewhere Else", asked.Message);
         Assert.True(asked.Destructive);
+        Assert.Equal(false, Assert.Single(rig.Calls("UpdateAsync")).Args[1]);
     }
 
     [Fact]
     public async Task Answering_yes_repeats_the_save_with_the_change_confirmed()
     {
         var rig = EditorRig.Create();
+        rig.Dialogs.AnswerConfirm(true);
         var editor = Moved(rig);
 
         await Save(rig, editor);

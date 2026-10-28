@@ -442,7 +442,7 @@ public class StorageSectionViewModelTests
         rig.Backend.Jobs.Complete(job.JobId, new StorageRelocationResult(SampleScenario.StorageRoot, _newRoot, 10, [new ClearFailure(@"D:\Old\game-1\install.git", ErrorInfo.From(new GameRunningException("game-1", "Skyrim")))]));
         Assert.NotNull(Storage(rig).LeftBehind);
 
-        rig.Dialogs.AnswerFolder(@"F:\Other");
+        rig.Dialogs.AnswerFolder(@"F:\Other").AnswerConfirm(true);
         await Storage(rig).ChangeCommand.ExecuteAsync(null);
 
         Assert.Null(Storage(rig).LeftBehind);

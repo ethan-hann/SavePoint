@@ -70,6 +70,7 @@ public class LibraryRunExitTests
     {
         var (guard, dialogs, tracker) = Build();
         var run = tracker.Begin(() => { });
+        dialogs.AnswerConfirm(true);
         dialogs.WhileConfirming = _ =>
         {
             run.Dispose();

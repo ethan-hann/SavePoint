@@ -224,7 +224,7 @@ public class StartupViewModelTests
         var withBackup = Corrupt("games.json", @"C:\x\games.json.bak");
         var without = Corrupt("profiles.json", null);
         var backend = Backend(WithCorrupt(withBackup, without));
-        var dialogs = new FakeDialogs();
+        var dialogs = new FakeDialogs().AnswerConfirm(true);
         var startup = new StartupViewModel(backend.AppStatus, _text, _ui, dialogs: dialogs);
         await startup.CheckAsync();
 

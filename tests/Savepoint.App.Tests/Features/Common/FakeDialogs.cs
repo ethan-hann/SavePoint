@@ -2,7 +2,8 @@ using Savepoint.App.Features.Common.Dialogs;
 
 namespace Savepoint.App.Tests.Fakes;
 
-// Records every request and answers from queues a test fills; with a queue empty, a confirmation is accepted and a pick is cancelled.
+// Records every request and answers from queues a test fills; with a queue empty, a pick is cancelled and a confirmation fails the test
+// unless DefaultConfirmAnswer says what to answer.
 public sealed class FakeDialogs : IDialogs
 {
     private readonly Queue<bool> _confirmAnswers = [];
@@ -28,7 +29,9 @@ public sealed class FakeDialogs : IDialogs
     // Dialogs shown through ShowAsync, oldest first; a test answers one by calling the commands on its view model.
     public List<IDialogViewModel> Shown { get; } = [];
 
-    public bool DefaultConfirmAnswer { get; set; } = true;
+    // What a confirmation nobody queued an answer for gets. Null, the default, fails the test: a destructive question that is accepted
+    // without anyone having said yes would pass whether or not the screen asked it.
+    public bool? DefaultConfirmAnswer { get; set; }
 
     // Runs while a confirmation is open, before it is answered, for a test that needs something to happen during the question.
     public Func<ConfirmRequest, Task>? WhileConfirming { get; set; }
@@ -93,7 +96,12 @@ public sealed class FakeDialogs : IDialogs
             await during(request);
         }
 
-        return _confirmAnswers.TryDequeue(out var answer) ? answer : DefaultConfirmAnswer;
+        if (_confirmAnswers.TryDequeue(out var answer))
+        {
+            return answer;
+        }
+
+        return DefaultConfirmAnswer ?? throw new Xunit.Sdk.XunitException($"The screen asked \"{request.Title}\" and the test queued no answer. Say yes or no with AnswerConfirm, or set DefaultConfirmAnswer.");
     }
 
     public Task<string?> PickFolderAsync(FolderPickRequest request)
