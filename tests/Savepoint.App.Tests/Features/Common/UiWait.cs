@@ -15,7 +15,12 @@ internal static class UiWait
                 return false;
             }
 
-            Dispatcher.UIThread.RunJobs();
+            // A plain test resumes on a pool thread, where running the UI thread's queue throws; its work needs no pumping there.
+            if (Dispatcher.UIThread.CheckAccess())
+            {
+                Dispatcher.UIThread.RunJobs();
+            }
+
             await Task.Delay(10, TestContext.Current.CancellationToken);
         }
 
