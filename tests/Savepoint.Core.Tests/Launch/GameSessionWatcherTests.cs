@@ -418,6 +418,61 @@ public class GameSessionWatcherTests
         Assert.False(rig.Watcher.IsSettled);
     }
 
+    // A player who quits a game a few seconds in is not a store starting it again: that exits with an error, or never ran as the named game.
+    [Fact]
+    public async Task A_program_seen_under_its_name_that_quits_cleanly_inside_the_relaunch_window_ends_the_session_after_the_relaunch_guard()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(17));
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.ExitChildAsync(0);
+        await rig.AdvanceAsync(Seconds(2));
+        Assert.False(rig.Watcher.IsSettled, "a copy started at once would be listed at the next look");
+        await rig.AdvanceAsync(Seconds(2));
+
+        Assert.True(rig.Watcher.IsSettled, "a clean quit waited out the whole grace");
+        var outcome = await rig.OutcomeAsync();
+        Assert.Equal(SessionEndKind.ChildExited, outcome.Kind);
+        Assert.Equal(Seconds(17), outcome.PlayDuration);
+        Assert.Equal(0, outcome.ChildExitCode);
+    }
+
+    [Fact]
+    public async Task A_program_seen_under_its_name_that_quits_cleanly_and_is_started_again_within_the_guard_is_followed_to_the_new_copy()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(4));
+
+        rig.Processes.Set(Copy(901), ScriptedInspector.Bystander);
+        await rig.ExitChildAsync(0);
+        await rig.AdvanceAsync(Seconds(10));
+        Assert.False(rig.Watcher.IsSettled);
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        var outcome = await rig.OutcomeAsync();
+        Assert.Equal(SessionEndKind.NamedProcessEnded, outcome.Kind);
+        Assert.Equal([901], outcome.FollowedPids);
+    }
+
+    [Fact]
+    public async Task A_program_seen_under_its_name_that_exits_with_an_error_inside_the_relaunch_window_keeps_the_whole_grace()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name, options: new GameSessionOptions { PollInterval = WatcherRig.Interval, Grace = TimeSpan.FromMinutes(2) });
+        rig.Processes.Set(Copy(rig.Child!.Pid), ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(4));
+
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.ExitChildAsync(1);
+        await rig.AdvanceAsync(Seconds(100));
+
+        Assert.False(rig.Watcher.IsSettled, "a store may start the game again a minute after an error exit");
+    }
+
     [Fact]
     public async Task A_slow_quit_is_not_settled_on_a_read_that_could_not_be_made_and_ends_at_the_exit_on_the_next_one()
     {
