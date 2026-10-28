@@ -33,6 +33,7 @@ public sealed record GameSessionOptions
     /// <summary>
     /// The longest run after which the started program's exit still gets the <see cref="Grace"/> to be followed by a new copy under
     /// its own name. It applies only when the started program is itself the named process; after a longer run its exit ends the session.
+    /// Inside it, a clean exit (code 0) of a program seen under the name waits only two polling intervals, an error exit the whole grace.
     /// </summary>
     public TimeSpan RelaunchWindow { get; init; } = DefaultRelaunchWindow;
 

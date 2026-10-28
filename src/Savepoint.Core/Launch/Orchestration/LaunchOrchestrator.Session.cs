@@ -63,7 +63,8 @@ public sealed partial class LaunchOrchestrator
             var ambiguous = outcome.AmbiguousHandoverPids.Count > 0
                 ? $"; followed none of the game-folder processes {string.Join(", ", outcome.AmbiguousHandoverPids)} that started right after the starter, since more than one could be the game"
                 : "";
-            _services.Log.Information($"Launch session for {gameId} (job {launchJobId}): ended as {outcome.Kind}; {started}, followed pids {followed}{ambiguous}.");
+            var exit = outcome.ChildExitCode is { } code ? $"; the program exited with code {code}" : "";
+            _services.Log.Information($"Launch session for {gameId} (job {launchJobId}): ended as {outcome.Kind}; {started}, followed pids {followed}{exit}{ambiguous}.");
         }
 
         var endedAt = outcome?.EndedAt ?? _services.Time.GetUtcNow();
