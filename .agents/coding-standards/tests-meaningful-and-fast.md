@@ -5,9 +5,9 @@ paths:
 
 # Tests that can fail and run fast
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date Created:** 2026-10-27 18:21
-- **Last Updated:** 2026-10-27 19:20
+- **Last Updated:** 2026-10-27 21:45
 - **Applies To:**
   - Any test case, theory, fake, rig, or test helper in `tests/`.
 
@@ -175,7 +175,7 @@ Assert.Single(rig.Backend.Calls.To<ISettingsApi>(nameof(ISettingsApi.GetStorageS
 Every row of a theory must run the assertion. Do not take a whole data set as rows and then skip the rows that lack the field. The skip can be an `if`, an `x is null ||`, or a loop over an empty list. Use one of two shapes:
 
 1. **Filter the rows.** The `MemberData` source yields only the items that carry the field under test.
-2. **Loop in one test.** A single `[Fact]` visits every item and collects each failure with the item's id. It asserts once, with all the failures in the message. It also asserts that the set it visited is not empty, or a separate test guards that data set, so an empty loop cannot pass.
+2. **Loop in one test.** A single `[Fact]` visits every item and collects each failure with the item's id. It asserts once, with all the failures in the message. It also asserts that the set it visited is not empty, or a separate test guards that data set, so an empty loop cannot pass. When a loop visits the set in parts, such as one system's folders or one optional field, the guard counts each part on its own, because a large part satisfies a count of the whole.
 
 Use the loop when two things hold. Each row would be a cheap check on one data item. The set has hundreds of items, such as the shipped templates or the color goldens. A row per item there adds thousands of cases and no coverage. Keep a row per item when each row is expensive and its name tells the reader which item broke. An example is `AppStates.All`, where every row opens a different state.
 
@@ -214,7 +214,7 @@ public void Notes_use_plain_words(string id)
 **Examples:**
 
 - `tests/Savepoint.App.Tests/Theme/Material/Md3PaletteGoldenTests.cs`, `SchemeIds`: builds filtered rows. `The_golden_file_covers_every_group_the_tests_rely_on` guards the data.
-- `tests/Savepoint.Core.Tests/Catalog/ShippedTemplatesTests.cs`, `Notes_say_nothing_about_cloud_saves`: the loop shape. `GameTemplatesTests.Ships_the_skyrim_template_and_many_more` guards the template set.
+- `tests/Savepoint.Core.Tests/Catalog/ShippedTemplatesTests.cs`, `Notes_say_nothing_about_cloud_saves`: the loop shape. `GameTemplatesTests.Ships_the_skyrim_template_and_many_more` guards the template set, and `The_data_each_rule_loops_over_is_there_in_every_part_the_rules_check` guards each part the rules loop over.
 - `tests/Savepoint.App.Tests/Localization/ErrorCopyTests.cs`, `Every_error_key_in_the_catalog_has_a_sample_error`: a loop with a coverage guard, reported through `LintAssert.NoProblems`.
 
 ### Extend the test that already checks the behavior
@@ -244,11 +244,12 @@ Assert.True(external is null || Regex.IsMatch(external.Path, @"^\{[A-Za-z]+\}"))
 
 ### Keep the fakes honest
 
-App tests run against `FakeBackend`, so a fake that behaves unlike the real backend lets a real bug pass. Three rules apply to a fake or rig that more than one test class uses:
+App tests run against `FakeBackend`, so a fake that behaves unlike the real backend lets a real bug pass. Four rules apply to a fake or rig that more than one test class uses:
 
 1. **Compare what the tests rely on.** When App tests depend on a fake member's ordering, errors, events, threading, or cancellation, a contract story in `tests/Savepoint.App.Tests/Contract/` runs that behavior on the fake and the real backend. The story compares the two. The story also names the steps that prove it ran, so two runs that failed the same way cannot match. A fake's own test that claims it works "like the real" code proves nothing about the real code.
 2. **Honor the cancellation token.** A fake member that takes a `CancellationToken` fails as canceled when the token is canceled, as the real Api does in `ApiGuard.RunAsync`. A fake that ignores the token hands a screen success where the app gets `error.operation.cancelled`.
 3. **Hold deferred work back in at least one test.** Code that reacts to an event, a timer, or a `Post` or `PostWhenIdle` call gets at least one test where that work waits. The test runs the work itself. Use `ManualDispatcher` with `PostsImmediately = false`, or `AvaloniaUiDispatcher` in a view test. `ImmediateUiDispatcher` runs every post at once, inside the caller's stack. The app runs `Post` at once only when the caller is already on the UI thread. It queues `Post` from any other thread, and it always queues `PostWhenIdle`. So the instant dispatcher alone cannot catch the #246 kind of crash. A shared rig takes a `dispatcher` parameter and hands it to everything it builds that posts, toasts included.
+4. **Record a question nobody answered.** A command that asks a question and gets no answer fails inside the command's task, and many tests start a command with `_ = ...ExecuteAsync(null)` and never look at that task. So a fake that throws on an unanswered request also records the request, and a check at the end of the test fails it. `FakeDialogs.Unanswered` and `FailOnUnansweredConfirmationAttribute` do this for confirmations. A test that provokes the unanswered question on purpose clears the list.
 
 **Correct usage:**
 
@@ -278,9 +279,8 @@ Assert.Equal(1, h.Reads);
 // Contract: the fake's own test claims to match the real work, and nothing runs the real work to compare.
 public async Task A_snapshot_named_after_its_profile_opens_with_the_first_snapshot_step_like_the_real_work()
 
-// Cancellation: FakeBackend.Call never looks at the token, so every call succeeds after a cancel.
-RaisePending();
-return Task.FromResult(result);
+// Cancellation: the overload of FakeBackend.Call without the token never looks at it, so every call succeeds after a cancel.
+return _backend.Call(_api, nameof(GetAsync), [gameId], () => OperationResult.Success(Compose(State.Game(gameId))));
 
 // Dispatcher: a shared rig with the instant dispatcher built in, and no way for a test to pass another.
 var context = new FeatureContext(services, dialogs, text, toasts, new ImmediateUiDispatcher());
@@ -289,10 +289,11 @@ var context = new FeatureContext(services, dialogs, text, toasts, new ImmediateU
 **Examples:**
 
 - `tests/Savepoint.App.Tests/Contract/ArtworkContractTests.cs`, `The_real_backend_tells_the_same_artwork_story_as_the_fake` and `The_story_plays_the_whole_artwork_life`: the comparison, and the proof that the story ran.
-- `tests/Savepoint.App.Tests/Fakes/FakeGamesApi.cs`, `CheckFormAsync`: the `GetCloudSavesAsync(CloudSaveQuery, CancellationToken)` overload honors the token the way the real Api does. The overload that takes a game id does not.
+- `tests/Savepoint.App.Tests/Fakes/FakeGamesApi.cs`, `CheckFormAsync` and `GetCloudSavesAsync(string, CancellationToken)`: both `GetCloudSavesAsync` overloads honor the token the way the real Api does.
+- `tests/Savepoint.App.Tests/Features/Common/FailOnUnansweredConfirmationAttribute.cs`: fails the test that built a `FakeDialogs` asked a question nobody answered.
 - `tests/Savepoint.App.Tests/Features/Games/StatusReadSchedulerTests.cs`, `The_tick_reaches_the_read_only_through_the_dispatcher`: holds the post until the test runs it.
 - `tests/Savepoint.App.Tests/Features/Activity/ActivityScreenViewTests.cs`, `StartAsync`: takes a `dispatcher` parameter, and the #246 test passes `new AvaloniaUiDispatcher()`.
-- `tests/Savepoint.App.Tests/Features/Common/ArtworkProviderTests.cs`, `ManualDispatcher`: holds ordinary posts and idle work until the test runs them.
+- `tests/Savepoint.App.Tests/Fakes/ManualDispatcher.cs`, `ManualDispatcher`: holds ordinary posts and idle work until the test runs them.
 
 ### Test a test tool only for its own logic
 
@@ -365,31 +366,18 @@ public async Task Every_dialogs_buttons_and_their_focus_rings_clear_its_edge(str
 **Examples:**
 
 - `tests/Savepoint.Core.Tests/Backend/RemovedWorld.cs`, `RemovedWorld.CreateAsync`: copies a once-per-run template through `BackendWorkspace.CopyOf`, and builds other shapes from scratch.
-- `tests/Savepoint.App.Tests/Features/EndToEnd/AppStateAuditTests.cs`, `Every_state_passes_the_naming_target_size_and_scaled_window_audits`: one window per state, sizes looped.
+- `tests/Savepoint.App.Tests/Features/EndToEnd/AppStateAuditTests.cs`, `Every_state_passes_the_naming_description_target_size_scaled_window_and_sideways_audits`: one window per state, sizes looped.
 - `tests/Savepoint.App.Tests/Features/EndToEnd/JobPillPlacementTests.cs`, `LargestFirst`: why a reused window is only shrunk.
 
 ## Known violations
 
 The audit found these. Do not copy them. Each entry must have an issue in the `Code Cleanup` milestone. When the code is fixed, close the issue and delete the entry.
 
-- **Make every case able to fail:**
-  - `PlaceholderTests.Test_project_runs`, `CoreBackendTests.Every_api_is_present`, and `SampleScenarioTests.Storage_matches_the_footer_and_settings` cannot fail.
-  - Render tests that only check a file: the `*RenderTests` classes under `tests/Savepoint.App.Tests/Features/` (Games, Editor, Help, History, Launch, Library, Settings, Shell), `FinalRenderTests`, `ArtworkRenderTests`, `StyleGalleryRenderTests`, `JobPillPlacementTests.The_job_pill_renders_over_the_page_and_at_the_end_of_its_scroll`, and the render cases in `ActivityScreenViewTests`.
-- **Assert what the player or caller sees:** `ShellViewModelTests.A_finished_optimization_updates_the_sizes`, `SettingsScreenViewModelTests.Choosing_the_theme_already_in_use_saves_nothing`, and the `EstimatesStoppedAtRunStart` flag that `FakeGamesApi` and `FakeSettingsApi` set for themselves.
-- **Make every theory row reach its assertion:**
-  - Template theories whose rows skip the assertion: in `ShippedTemplatesTests`, `Store_ids_and_folder_names_are_single_safe_names`, the four saves-folder theories, `Per_system_saves_use_only_the_three_system_names`, `Notes_use_plain_words`, and `A_template_that_starts_through_a_link_names_a_steam_game`. Also the five theories in `ModsFolderTemplateTests` and `GameTemplatesTests.Templates_name_the_saves_folder_with_a_path_token`.
-  - Large golden theories that a loop can replace: `DynamicColorToneGoldenTests`, `HctTests`, `TonalPaletteTests`, `ContrastTests`, and the per-role rows of `Md3PaletteGoldenTests`.
-- **Extend the test that already checks the behavior:** `GameTemplatesTests.Templates_name_the_saves_folder_with_a_path_token`, `GameTemplatesTests.Display_name_is_the_game_name_from_the_definition`, `ShippedTemplatesTests.Linux_and_macos_drafts_use_only_their_own_entry`, and `ReadmeTableTests`.
-- **Keep the fakes honest:**
-  - `FakeBackend.Call` ignores the cancellation token and raises events before the call returns.
-  - `IAppStatusApi` and the job and session events have no contract story.
-  - `FakeDialogs` accepts a confirmation that no test queued.
-  - Shared rigs with the instant dispatcher built in: `EditorRig`, `HistoryRig`, `SettingsRig`, the App tests' `LaunchRig`, `GamesViewHarness`, `LaunchViewHarness`, `ShellViewHarness`, and `ComposedApp`. `GamesRig` and `ShellRig` take a dispatcher but still give their toasts the instant one.
-  - `ManualDispatcher` is shared but lives in `ArtworkProviderTests.cs` instead of `Fakes/`.
+- **Make every case able to fail:** render checks that only check a file and still run in the gate: the render cases in `ActivityScreenViewTests`, `StyleGalleryRenderTests`, and the render calls in `GamesProfileSearchViewTests`, `HistorySearchViewTests`, `ShellGameSearchViewTests`, `PinnedFooterTests`, `HelpAccessTests`, and `RenderSettleTests`.
+- **Assert what the player or caller sees:** the `EstimatesStoppedAtRunStart` flag that `FakeGamesApi` and `FakeSettingsApi` set for themselves.
+- **Make every theory row reach its assertion:** large golden theories that a loop can replace: `DynamicColorToneGoldenTests`, `HctTests`, `TonalPaletteTests`, `ContrastTests`, and the per-role rows of `Md3PaletteGoldenTests`.
+- **Keep the fakes honest:** `ComposedApp` builds the app with the instant dispatcher and has no `dispatcher` parameter.
 - **Test a test tool only for its own logic:** `FakeCallLogTests`, and the fake tests that only check a fake stores or echoes its input.
-- **Keep each test cheap:**
-  - Worlds rebuilt per test: `ModsFreeUpSpaceTests.World.CreateAsync`, `LeftOutReadOnceTests.CacheAsync`, and `LegacyLocalDataTests.SeedHistoryAsync`.
-  - Windows opened per size: `DialogFooterClearanceTests.Every_dialogs_buttons_and_their_focus_rings_clear_its_edge` and the overlay methods of `JobPillPlacementTests`.
 
 ## Additional Resources
 
