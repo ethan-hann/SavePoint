@@ -22,6 +22,9 @@ internal sealed class ProgressLog : IProgress<FileProgress>
         }
     }
 
+    // Every name reported so far, oldest first. Which report carries a name depends on timing, so a test asserts the names as a whole.
+    public IReadOnlyList<string> AllNewPaths => [.. Reports.SelectMany(report => report.NewPaths ?? [])];
+
     // The newest report; the test fails by assertion when there is none.
     public FileProgress Last
     {
