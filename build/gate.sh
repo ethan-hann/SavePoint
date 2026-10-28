@@ -5,6 +5,7 @@
 #
 # The tests run as four processes at once: the Core tests, and the App tests in the lanes of build/app-test-lanes.txt (the UI tests of
 # one process share one UI thread, so they run one at a time). Their test methods must add up to the full listing's, so no test is dropped.
+# When less than 10 GB of memory is free (or SAVEPOINT_GATE_APP_LANES=1), the App tests run as one process instead, and the gate says so.
 #
 # SAVEPOINT_TEST_ARGS takes only a report (--report-*). Anything else, such as a filter or a retry of failed tests (the retry
 # extension is no longer part of the test projects), is refused unless --allow-narrowed-tests says it is on purpose, because a run
@@ -27,9 +28,64 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 # Keep the machine responsive: lower priority, and caps one gate cannot exceed (override per run).
 renice -n 10 $$ >/dev/null 2>&1 || true
 build_nodes="${SAVEPOINT_GATE_BUILD_NODES:-4}"
-test_threads="${SAVEPOINT_GATE_TEST_THREADS:-4}"
-# The App lanes are mostly UI tests that wait for one UI thread each, so two threads serve a lane. Core takes the full cap: at most 4 + 3 x 2 test threads.
+# Core is the longest process (git work that needs a thread each), so it gets a third of the machine's logical processors: 4 on a
+# small machine, up to 8 on a big one. SAVEPOINT_GATE_TEST_THREADS sets it by hand.
+logical_processors="$(nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 4)"
+default_threads=$(( logical_processors / 3 ))
+[ "$default_threads" -lt 4 ] && default_threads=4
+[ "$default_threads" -gt 8 ] && default_threads=8
+test_threads="${SAVEPOINT_GATE_TEST_THREADS:-$default_threads}"
+# The App lanes are mostly UI tests that wait for one UI thread each, so two threads serve a lane. At most core + 3 x 2 test threads.
 app_threads=$(( test_threads < 2 ? test_threads : 2 ))
+# One App process holds the UI tests and the rest, so it gets up to four.
+app_single_threads=$(( test_threads < 4 ? test_threads : 4 ))
+
+# Four test processes at once need about 10 GB free; below that the App tests run as one process, as before the lanes (the
+# 7 GB Linux VM ran out of memory with four). SAVEPOINT_GATE_APP_LANES=1 forces one process and 3 forces the lanes (any number
+# above 1 does); SAVEPOINT_GATE_AVAILABLE_MEMORY_MB replaces the reading of free memory.
+lanes_memory_mb=10240
+
+# Prints the memory, in MB, that programs can use without the machine swapping or killing something, or nothing when it is unknown.
+available_memory_mb() {
+  if [ -n "${SAVEPOINT_GATE_AVAILABLE_MEMORY_MB:-}" ]; then
+    printf '%s\n' "$SAVEPOINT_GATE_AVAILABLE_MEMORY_MB"
+  elif [ -r /proc/meminfo ]; then
+    awk '/^MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo
+  elif command -v vm_stat >/dev/null 2>&1; then
+    # macOS: free, inactive and speculative pages can be handed out again.
+    local page_size pages
+    page_size="$(vm_stat | sed -n 's/.*page size of \([0-9][0-9]*\) bytes.*/\1/p')"
+    pages="$(vm_stat | awk '/^Pages (free|inactive|speculative):/ { gsub(/\./, "", $NF); sum += $NF } END { print sum + 0 }')"
+    [ -n "$page_size" ] && printf '%s\n' $(( pages * page_size / 1048576 ))
+  fi
+}
+
+# Sets app_mode (lanes or one) and app_mode_reason, or refuses the run for a setting it does not know.
+choose_app_mode() {
+  local setting="${SAVEPOINT_GATE_APP_LANES:-}" memory
+  if [ -n "$setting" ]; then
+    case "$setting" in
+      1) app_mode=one; app_mode_reason="SAVEPOINT_GATE_APP_LANES=1" ;;
+      [2-9] | [1-9][0-9]*) app_mode=lanes; app_mode_reason="SAVEPOINT_GATE_APP_LANES=$setting" ;;
+      *)
+        echo "gate refused: SAVEPOINT_GATE_APP_LANES is '$setting'; use 1 for one App test process or 3 for the lanes." >&2
+        exit 1
+        ;;
+    esac
+    return
+  fi
+  memory="$(available_memory_mb)"
+  if [ -z "$memory" ]; then
+    app_mode=lanes
+    app_mode_reason="free memory could not be read"
+  elif [ "$memory" -lt "$lanes_memory_mb" ]; then
+    app_mode=one
+    app_mode_reason="${memory} MB free is below ${lanes_memory_mb} MB; SAVEPOINT_GATE_APP_LANES=3 runs the lanes anyway"
+  else
+    app_mode=lanes
+    app_mode_reason="${memory} MB free"
+  fi
+}
 
 # SAVEPOINT_TEST_ARGS is for a report (--report-*). Any other argument, a filter in whatever spelling, a response file (@file) or
 # an option that lets failures pass (a retry of failed tests among them), could make "gate passed" mean less than a full run, so
@@ -77,8 +133,21 @@ if [ -n "${SAVEPOINT_TEST_ARGS:-}" ]; then
   fi
 fi
 
+app_mode=lanes
+app_mode_reason=""
+choose_app_mode
+
 echo "==> build"
 dotnet build Savepoint.slnx -c Release -warnaserror "-m:${build_nodes}" -nodeReuse:false
+
+# The test processes make their temp files in a folder on the disk the gate runs on. Some systems (Ubuntu 26.04) mount /tmp as
+# RAM, and four processes at once filled it. It is made fresh and removed at the end, and only the test steps use it: a Unix socket
+# path is short, and the build's server pipes live under the temp folder too.
+gate_tmp="$PWD/artifacts/tmp"
+rm -rf "$gate_tmp"
+mkdir -p "$gate_tmp"
+trap 'rm -rf "$gate_tmp"' EXIT
+temp_env=(TMPDIR="$gate_tmp" TMP="$gate_tmp" TEMP="$gate_tmp")
 
 # Starts one test process in the background. Its output is kept and printed as one block when it ends, so the processes do not
 # interleave; the exit code is the process's own. Arguments after the thread count are its filter.
@@ -92,7 +161,7 @@ start_test_process() {
     started=$SECONDS
     # SAVEPOINT_TEST_ARGS is empty unless the caller sets it (a report); it goes to every process.
     # shellcheck disable=SC2086
-    dotnet test --project "$project" -c Release --no-build --max-threads "$threads" --report-xunit --report-xunit-filename "$name.xunit" --results-directory "$results_dir" "$@" ${SAVEPOINT_TEST_ARGS:-} >"$results_dir/$name.log" 2>&1
+    env "${temp_env[@]}" dotnet test --project "$project" -c Release --no-build --max-threads "$threads" --report-xunit --report-xunit-filename "$name.xunit" --results-directory "$results_dir" "$@" ${SAVEPOINT_TEST_ARGS:-} >"$results_dir/$name.log" 2>&1
     code=$?
     echo "==> test process '$name' ended with exit code $code after $((SECONDS - started)) s"
     cat "$results_dir/$name.log"
@@ -110,7 +179,7 @@ if [ -n "$narrowing" ]; then
   echo "==> test"
   # A filter of the caller's cannot be combined with the lanes' filters, so a narrowed run keeps the modules whole.
   # shellcheck disable=SC2086
-  dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 2 --max-threads "${test_threads}" --report-xunit --results-directory "$results_dir" ${SAVEPOINT_TEST_ARGS:-}
+  env "${temp_env[@]}" dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 2 --max-threads "${test_threads}" --report-xunit --results-directory "$results_dir" ${SAVEPOINT_TEST_ARGS:-}
 else
   app_project="tests/Savepoint.App.Tests"
   listing="$(dotnet test --project "$app_project" -c Release --no-build --list-tests 2>&1)" || {
@@ -140,17 +209,24 @@ else
     lane_namespaces+=("$namespace")
   done <build/app-test-lanes.txt
 
-  echo "==> test (Core, and ${app_test_count} App test methods in separate processes)"
-  start_test_process core tests/Savepoint.Core.Tests "$test_threads"
-  rest_filter=()
   app_reports=()
-  for i in "${!lane_names[@]}"; do
-    start_test_process "app-${lane_names[$i]}" "$app_project" "$app_threads" --filter-namespace "${lane_namespaces[$i]}"
-    rest_filter+=(--filter-not-namespace "${lane_namespaces[$i]}")
-    app_reports+=("$results_dir/app-${lane_names[$i]}.xunit")
-  done
-  start_test_process app-rest "$app_project" "$app_threads" ${rest_filter[@]+"${rest_filter[@]}"}
-  app_reports+=("$results_dir/app-rest.xunit")
+  if [ "$app_mode" = one ]; then
+    echo "==> test (Core, and ${app_test_count} App test methods): App tests in one process (${app_mode_reason})"
+    start_test_process core tests/Savepoint.Core.Tests "$test_threads"
+    start_test_process app "$app_project" "$app_single_threads"
+    app_reports+=("$results_dir/app.xunit")
+  else
+    echo "==> test (Core, and ${app_test_count} App test methods): App tests in lanes (${app_mode_reason})"
+    start_test_process core tests/Savepoint.Core.Tests "$test_threads"
+    rest_filter=()
+    for i in "${!lane_names[@]}"; do
+      start_test_process "app-${lane_names[$i]}" "$app_project" "$app_threads" --filter-namespace "${lane_namespaces[$i]}"
+      rest_filter+=(--filter-not-namespace "${lane_namespaces[$i]}")
+      app_reports+=("$results_dir/app-${lane_names[$i]}.xunit")
+    done
+    start_test_process app-rest "$app_project" "$app_threads" ${rest_filter[@]+"${rest_filter[@]}"}
+    app_reports+=("$results_dir/app-rest.xunit")
+  fi
 
   failed=""
   for i in "${!test_pids[@]}"; do

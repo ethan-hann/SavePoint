@@ -12,6 +12,12 @@ public sealed class GateSplitTests : IDisposable
         New-Item -ItemType Directory -Force -Path $calls | Out-Null
         Set-Content -LiteralPath (Join-Path $calls ([guid]::NewGuid().ToString('N') + '.txt')) -Value ($args -join ' ')
         if ($args[0] -ne 'test') { exit 0 }
+        # Where a test process would make its temp files, and whether that folder is there when it starts.
+        if ($args -notcontains '--list-tests') {
+            $tmp = Join-Path $PSScriptRoot 'tmpdirs'
+            New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+            Set-Content -LiteralPath (Join-Path $tmp ([guid]::NewGuid().ToString('N') + '.txt')) -Value "$env:TMPDIR|$(if ($env:TMPDIR) { Test-Path -LiteralPath $env:TMPDIR } else { $false })"
+        }
         if ($args -contains '--list-tests') {
             'Running tests from fake.dll'
             foreach ($method in 1..[int]$env:FAKE_LISTED) {
@@ -51,7 +57,8 @@ public sealed class GateSplitTests : IDisposable
 
     private string FakeFolder => Path.Combine(_root, "fake");
 
-    private sealed record Gate(int ExitCode, string Output, IReadOnlyList<string> Calls);
+    // TempFolders: the TMPDIR each test process saw when it started, and whether that folder existed then.
+    private sealed record Gate(int ExitCode, string Output, IReadOnlyList<string> Calls, IReadOnlyList<(string Path, bool Existed)> TempFolders);
 
     private sealed record TestProcess(string Name, IReadOnlyList<string> Arguments);
 
@@ -92,14 +99,24 @@ public sealed class GateSplitTests : IDisposable
     // Each lane's process reports _laneTests tests and the rest process _restTests, so the full listing holds that sum; listedMore makes the listing disagree.
     private static int ListedTests(int listedMore = 0) => (Lanes().Count * _laneTests) + _restTests + listedMore;
 
-    private async Task<Gate?> RunGateAsync(Script script, IEnumerable<string> gateArguments, int listedMore = 0, string? failing = null, string testArgs = "")
+    // The least available memory, in MB, at which the gate runs the App tests in lanes; the gate scripts hold the same number.
+    private const int _lanesMemoryMegabytes = 10240;
+
+    private static Dictionary<string, string> Memory(int megabytes) =>
+        new() { ["SAVEPOINT_GATE_AVAILABLE_MEMORY_MB"] = megabytes.ToString(CultureInfo.InvariantCulture) };
+
+    // A machine with room to spare, so a test that is not about memory runs the lanes whatever this machine has free.
+    private static Dictionary<string, string> RoomToSpare() => Memory(65536);
+
+    private async Task<Gate?> RunGateAsync(Script script, IEnumerable<string> gateArguments, int listedMore = 0, string? failing = null, string testArgs = "", IReadOnlyDictionary<string, string>? settings = null)
     {
         if (!await PrepareAsync())
         {
             return null;
         }
 
-        var totals = string.Join(',', Lanes().Select(lane => $"app-{lane.Name}={_laneTests}").Append($"app-rest={_restTests}").Append("core=50"));
+        // The whole App run as one process reports every test method it lists.
+        var totals = string.Join(',', Lanes().Select(lane => $"app-{lane.Name}={_laneTests}").Append($"app-rest={_restTests}").Append("core=50").Append($"app={ListedTests()}"));
         var environment = new Dictionary<string, string>
         {
             ["PATH"] = FakeFolder + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH"),
@@ -107,9 +124,21 @@ public sealed class GateSplitTests : IDisposable
             ["FAKE_TOTALS"] = totals,
             ["FAKE_FAILING"] = failing ?? string.Empty,
             ["SAVEPOINT_TEST_ARGS"] = testArgs,
+            ["SAVEPOINT_GATE_TEST_THREADS"] = string.Empty,
+            ["SAVEPOINT_GATE_APP_LANES"] = string.Empty,
             ["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1",
             ["GIT_CEILING_DIRECTORIES"] = Path.GetDirectoryName(_root)!,
         };
+        foreach (var (name, value) in settings ?? RoomToSpare())
+        {
+            environment[name] = value;
+        }
+
+        if (!environment.ContainsKey("SAVEPOINT_GATE_AVAILABLE_MEMORY_MB"))
+        {
+            environment["SAVEPOINT_GATE_AVAILABLE_MEMORY_MB"] = RoomToSpare()["SAVEPOINT_GATE_AVAILABLE_MEMORY_MB"];
+        }
+
         ScriptProcess.Result? run;
         if (script == Script.PowerShell)
         {
@@ -131,7 +160,11 @@ public sealed class GateSplitTests : IDisposable
         var calls = Directory.Exists(callsFolder)
             ? Directory.GetFiles(callsFolder).Select(file => File.ReadAllText(file).Trim()).ToList()
             : [];
-        return new Gate(run.ExitCode, run.Output, calls);
+        var tempFolders = Path.Combine(FakeFolder, "tmpdirs");
+        var temps = Directory.Exists(tempFolders)
+            ? Directory.GetFiles(tempFolders).Select(file => File.ReadAllText(file).Trim().Split('|')).Select(parts => (parts[0], string.Equals(parts[1], "True", StringComparison.OrdinalIgnoreCase))).ToList()
+            : [];
+        return new Gate(run.ExitCode, run.Output, calls, temps);
     }
 
     // The test processes of a run: every call that asked for an xunit report, by the name of its report.
@@ -193,6 +226,161 @@ public sealed class GateSplitTests : IDisposable
             Assert.DoesNotContain("--retry-failed-tests", process.Arguments);
         });
         Assert.Contains($"= {ListedTests()} test methods, as many as the full listing", gate.Output, StringComparison.Ordinal);
+    }
+
+    private static string[] LaneProcessNames() =>
+        [.. new[] { "core" }.Concat(Lanes().Select(lane => "app-" + lane.Name)).Append("app-rest").Order(StringComparer.Ordinal)];
+
+    // The App tests as one process: no namespace filter at all, and the count check reads that process's report alone.
+    private static void AssertAppRanAsOneProcess(Gate gate)
+    {
+        Assert.Equal(["app", "core"], TestProcesses(gate).Select(process => process.Name));
+        var app = TestProcesses(gate).Single(process => process.Name == "app");
+        Assert.Contains("tests/Savepoint.App.Tests", app.Arguments);
+        Assert.Empty(Values(app, "--filter-namespace"));
+        Assert.Empty(Values(app, "--filter-not-namespace"));
+        Assert.Contains($"test count check: {ListedTests()} = {ListedTests()} test methods, as many as the full listing", gate.Output, StringComparison.Ordinal);
+    }
+
+    private static void AssertAppRanInLanes(Gate gate)
+    {
+        Assert.Equal(LaneProcessNames(), TestProcesses(gate).Select(process => process.Name));
+        Assert.Contains($"= {ListedTests()} test methods, as many as the full listing", gate.Output, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(Script.PowerShell)]
+    [InlineData(Script.Bash)]
+    public async Task With_too_little_free_memory_the_gate_runs_the_app_tests_as_one_process_and_says_so(Script script)
+    {
+        var gate = await RunGateAsync(script, [], settings: Memory(_lanesMemoryMegabytes - 1));
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        AssertAppRanAsOneProcess(gate);
+        Assert.Contains("App tests in one process", gate.Output, StringComparison.Ordinal);
+        Assert.Contains($"{_lanesMemoryMegabytes - 1} MB", gate.Output, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(Script.PowerShell)]
+    [InlineData(Script.Bash)]
+    public async Task With_exactly_enough_free_memory_the_gate_runs_the_lanes_and_says_so(Script script)
+    {
+        var gate = await RunGateAsync(script, [], settings: Memory(_lanesMemoryMegabytes));
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        AssertAppRanInLanes(gate);
+        Assert.Contains("App tests in lanes", gate.Output, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(Script.PowerShell)]
+    [InlineData(Script.Bash)]
+    public async Task One_lane_override_runs_the_app_tests_as_one_process_however_much_memory_is_free(Script script)
+    {
+        var settings = RoomToSpare();
+        settings["SAVEPOINT_GATE_APP_LANES"] = "1";
+        var gate = await RunGateAsync(script, [], settings: settings);
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        AssertAppRanAsOneProcess(gate);
+        Assert.Contains("SAVEPOINT_GATE_APP_LANES", gate.Output, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(Script.PowerShell)]
+    [InlineData(Script.Bash)]
+    public async Task A_lanes_override_runs_the_lanes_however_little_memory_is_free(Script script)
+    {
+        var settings = Memory(1024);
+        settings["SAVEPOINT_GATE_APP_LANES"] = "3";
+        var gate = await RunGateAsync(script, [], settings: settings);
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        AssertAppRanInLanes(gate);
+        Assert.Contains("SAVEPOINT_GATE_APP_LANES", gate.Output, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(Script.PowerShell)]
+    [InlineData(Script.Bash)]
+    public async Task A_lanes_setting_the_gate_does_not_know_is_refused_before_anything_is_built(Script script)
+    {
+        var settings = RoomToSpare();
+        settings["SAVEPOINT_GATE_APP_LANES"] = "many";
+        var gate = await RunGateAsync(script, [], settings: settings);
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.NotEqual(0, gate!.ExitCode);
+        Assert.Contains("SAVEPOINT_GATE_APP_LANES", gate.Output, StringComparison.Ordinal);
+        Assert.Empty(gate.Calls);
+    }
+
+    [Theory]
+    [InlineData(Script.PowerShell)]
+    [InlineData(Script.Bash)]
+    public async Task The_count_check_still_fails_when_the_one_app_process_ran_fewer_tests_than_the_listing(Script script)
+    {
+        var gate = await RunGateAsync(script, [], listedMore: 1, settings: Memory(2048));
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.NotEqual(0, gate!.ExitCode);
+        Assert.Contains("test count check failed", gate.Output, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(Script.PowerShell)]
+    [InlineData(Script.Bash)]
+    public async Task An_explicit_thread_count_goes_to_core_and_the_lanes_get_at_most_two(Script script)
+    {
+        var settings = RoomToSpare();
+        settings["SAVEPOINT_GATE_TEST_THREADS"] = "8";
+        var gate = await RunGateAsync(script, [], settings: settings);
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        foreach (var process in TestProcesses(gate))
+        {
+            Assert.Equal([process.Name == "core" ? "8" : "2"], Values(process, "--max-threads"));
+        }
+    }
+
+    [Theory]
+    [InlineData(Script.PowerShell)]
+    [InlineData(Script.Bash)]
+    public async Task By_default_core_gets_at_least_four_threads_and_never_fewer_than_a_lane(Script script)
+    {
+        var gate = await RunGateAsync(script, []);
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        var processes = TestProcesses(gate);
+        var core = int.Parse(Values(processes.Single(process => process.Name == "core"), "--max-threads").Single(), CultureInfo.InvariantCulture);
+        Assert.InRange(core, 4, 8);
+        Assert.All(processes.Where(process => process.Name != "core"), process =>
+            Assert.Equal(["2"], Values(process, "--max-threads")));
+    }
+
+    [Fact]
+    public async Task The_linux_gate_runs_every_test_process_with_its_temp_folder_on_disk_inside_the_tree_and_removes_it_after()
+    {
+        var gate = await RunGateAsync(Script.Bash, []);
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        Assert.Equal(TestProcesses(gate).Count, gate.TempFolders.Count);
+        Assert.All(gate.TempFolders, folder =>
+        {
+            var path = folder.Path.Replace('\\', '/');
+            Assert.EndsWith("/artifacts/tmp", path, StringComparison.Ordinal);
+            Assert.Contains(Path.GetFileName(_root), path, StringComparison.Ordinal);
+            Assert.True(folder.Existed, $"{folder.Path} was not there when the test process started.");
+        });
+        Assert.False(Directory.Exists(Path.Combine(_root, "artifacts", "tmp")), "The gate left its temp folder behind.");
     }
 
     [Theory]

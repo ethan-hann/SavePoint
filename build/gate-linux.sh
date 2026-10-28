@@ -103,7 +103,7 @@ fi
 export PATH="$pwsh_root:$PATH"
 
 # Settings the driver passes on; unset ones keep gate.sh's defaults.
-for name in SAVEPOINT_TEST_ARGS SAVEPOINT_GATE_BUILD_NODES SAVEPOINT_GATE_TEST_THREADS; do
+for name in SAVEPOINT_TEST_ARGS SAVEPOINT_GATE_BUILD_NODES SAVEPOINT_GATE_TEST_THREADS SAVEPOINT_GATE_APP_LANES; do
   if [ -n "${!name:-}" ]; then export "$name"; else unset "$name"; fi
 done
 gate_args=()

@@ -30,9 +30,19 @@ $env:DOTNET_NOLOGO = '1'
 
 # Caps that keep one gate from saturating the machine; override per run when needed.
 $buildNodes = if ($env:SAVEPOINT_GATE_BUILD_NODES) { $env:SAVEPOINT_GATE_BUILD_NODES } else { '4' }
-$testThreads = if ($env:SAVEPOINT_GATE_TEST_THREADS) { $env:SAVEPOINT_GATE_TEST_THREADS } else { '4' }
-# The App lanes are mostly UI tests that wait for one UI thread each, so two threads serve a lane. Core takes the full cap: at most 4 + 3 x 2 test threads.
+# Core is the longest process (git work that needs a thread each), so it gets a third of the machine's logical processors: 4 on a
+# small machine, up to 8 on a big one. SAVEPOINT_GATE_TEST_THREADS sets it by hand.
+$defaultThreads = [Math]::Min(8, [Math]::Max(4, [int][Math]::Floor([Environment]::ProcessorCount / 3)))
+$testThreads = if ($env:SAVEPOINT_GATE_TEST_THREADS) { $env:SAVEPOINT_GATE_TEST_THREADS } else { "$defaultThreads" }
+# The App lanes are mostly UI tests that wait for one UI thread each, so two threads serve a lane. At most core + 3 x 2 test threads.
 $appThreads = [Math]::Min([int]$testThreads, 2)
+# One App process holds the UI tests and the rest, so it gets up to four.
+$appSingleThreads = [Math]::Min([int]$testThreads, 4)
+
+# Four test processes at once need about 10 GB free; below that the App tests run as one process, as before the lanes (the
+# 7 GB Linux VM ran out of memory with four). SAVEPOINT_GATE_APP_LANES=1 forces one process and 3 forces the lanes (any number
+# above 1 does); SAVEPOINT_GATE_AVAILABLE_MEMORY_MB replaces the reading of free memory.
+$lanesMemoryMb = 10240
 # Where the test step writes its xunit reports, which the skip check reads. The gate always asks for them, so SAVEPOINT_TEST_ARGS must not.
 $resultsDir = Join-Path (Get-Location) 'artifacts/test-results'
 # Extra test-platform arguments (a report), space-separated, as gate.sh takes them.
@@ -57,6 +67,44 @@ function Get-NarrowingArguments {
             $argument
         }
     }
+}
+
+# The memory, in MB, that programs can use without the machine swapping or killing something; $null when it cannot be read.
+function Get-AvailableMemoryMb {
+    if ($env:SAVEPOINT_GATE_AVAILABLE_MEMORY_MB) { return [long]$env:SAVEPOINT_GATE_AVAILABLE_MEMORY_MB }
+    try {
+        if ($IsWindows) {
+            # The performance counter counts the cache that is given back on demand; the OS's "free" figure does not.
+            $available = (Get-CimInstance -ClassName Win32_PerfFormattedData_PerfOS_Memory -ErrorAction Stop).AvailableMBytes
+            if ($available) { return [long]$available }
+            return [long]((Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop).FreePhysicalMemory / 1024)
+        }
+        if (Test-Path -LiteralPath '/proc/meminfo') {
+            $line = Get-Content -LiteralPath '/proc/meminfo' | Where-Object { $_ -match '^MemAvailable:' } | Select-Object -First 1
+            if ($line -match '(\d+)') { return [long]([long]$Matches[1] / 1024) }
+        }
+    }
+    catch {
+        return $null
+    }
+    return $null
+}
+
+# Says how the App tests run: 'lanes' or 'one', and why. A setting it does not know refuses the run.
+function Get-AppMode {
+    $setting = $env:SAVEPOINT_GATE_APP_LANES
+    if ($setting) {
+        if ($setting -eq '1') { return [pscustomobject]@{ Mode = 'one'; Reason = 'SAVEPOINT_GATE_APP_LANES=1' } }
+        if ($setting -match '^[1-9][0-9]*$') { return [pscustomobject]@{ Mode = 'lanes'; Reason = "SAVEPOINT_GATE_APP_LANES=$setting" } }
+        Write-Host "gate refused: SAVEPOINT_GATE_APP_LANES is '$setting'; use 1 for one App test process or 3 for the lanes." -ForegroundColor Red
+        exit 1
+    }
+    $memory = Get-AvailableMemoryMb
+    if ($null -eq $memory) { return [pscustomobject]@{ Mode = 'lanes'; Reason = 'free memory could not be read' } }
+    if ($memory -lt $lanesMemoryMb) {
+        return [pscustomobject]@{ Mode = 'one'; Reason = "$memory MB free is below $lanesMemoryMb MB; SAVEPOINT_GATE_APP_LANES=3 runs the lanes anyway" }
+    }
+    return [pscustomobject]@{ Mode = 'lanes'; Reason = "$memory MB free" }
 }
 
 # Said first, so a leftover value in the shell is seen before anything runs.
@@ -92,6 +140,9 @@ while ($null -eq $lock) {
         Start-Sleep -Seconds 5
     }
 }
+
+# Read once the lock is held: while this gate waited, the gate ahead of it was using the memory.
+$appMode = Get-AppMode
 
 function Invoke-Step {
     param([string]$Name, [scriptblock]$Command)
@@ -159,12 +210,19 @@ try {
         if ($listExitCode -ne 0 -or $appTestCount -eq 0) {
             throw "listing the App tests failed (exit code $listExitCode):`n$listing"
         }
-        Write-Host "==> test (Core, and $appTestCount App test methods in separate processes)"
-        $lanes = @(Get-AppTestLanes)
         $runs = @([pscustomobject]@{ Name = 'core'; Project = 'tests/Savepoint.Core.Tests'; Filter = @(); Threads = $testThreads })
-        $runs += $lanes | ForEach-Object { [pscustomobject]@{ Name = "app-$($_.Name)"; Project = $appProject; Filter = $_.Filter; Threads = $appThreads } }
+        if ($appMode.Mode -eq 'one') {
+            Write-Host "==> test (Core, and $appTestCount App test methods): App tests in one process ($($appMode.Reason))"
+            $runs += [pscustomobject]@{ Name = 'app'; Project = $appProject; Filter = @(); Threads = $appSingleThreads }
+            $appReports = @(Join-Path $resultsDir 'app.xunit')
+        }
+        else {
+            Write-Host "==> test (Core, and $appTestCount App test methods): App tests in lanes ($($appMode.Reason))"
+            $lanes = @(Get-AppTestLanes)
+            $runs += $lanes | ForEach-Object { [pscustomobject]@{ Name = "app-$($_.Name)"; Project = $appProject; Filter = $_.Filter; Threads = $appThreads } }
+            $appReports = @($lanes | ForEach-Object { Join-Path $resultsDir "app-$($_.Name).xunit" })
+        }
         Invoke-TestProcesses $runs
-        $appReports = @($lanes | ForEach-Object { Join-Path $resultsDir "app-$($_.Name).xunit" })
         Invoke-Step 'test count' { & ./build/check-test-counts.ps1 -Expected $appTestCount @appReports }
     }
     # A skip probe that breaks turns real tests into skips and the run still passes; this fails on any skip the list does not name.
