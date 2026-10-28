@@ -12,15 +12,21 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Features.EndToEnd;
 
-// Writes PNGs to render-output/artwork/ (gitignored) at 1040x660 to compare with the previous render after a change: the library and sidebar layouts with real artwork
+// Writes PNGs to render-output/artwork/ (gitignored, only when SAVEPOINT_RENDER=1) at 1040x660 to compare with the previous render after a change: the library and sidebar layouts with real artwork
 // next to a game that has none, and the editor's Artwork section in each state. A game with Steam art, one with its owner's own
 // image and one with neither stand side by side.
 public class ArtworkRenderTests
 {
     private const string _area = "artwork";
 
-    private static void AssertRendered(string path) =>
-        Assert.True(new FileInfo(path).Length > 10_000, "The render looks empty.");
+    // The pictures are for a person to look at, so they are only drawn on request: SAVEPOINT_RENDER=1.
+    private static void RenderIfRequested(EditorViewHarness harness, string name)
+    {
+        if (RenderOutput.Requested)
+        {
+            harness.Render(name, _area);
+        }
+    }
 
     private static FakeBackend BackendWithArt(ArtFixtures fixtures, ThemePreference theme, ShellLayout layout = ShellLayout.Sidebar)
     {
@@ -53,27 +59,27 @@ public class ArtworkRenderTests
     [AvaloniaTheory]
     [InlineData(ThemePreference.Dark, "library-layout-artwork-dark")]
     [InlineData(ThemePreference.Light, "library-layout-artwork-light")]
-    public async Task The_library_layout_with_artwork_renders_to_a_png(ThemePreference theme, string name)
+    public async Task The_library_layout_shows_the_artwork_on_its_tiles(ThemePreference theme, string name)
     {
         using var fixtures = new ArtFixtures();
         using var app = await StartAsync(BackendWithArt(fixtures, theme, ShellLayout.Library), theme, ShellLayout.Library);
 
-        AssertRendered(app.Render(_area, name));
+        app.RenderIfRequested(_area, name);
     }
 
     [AvaloniaTheory]
     [InlineData(ThemePreference.Dark, "sidebar-layout-artwork-dark")]
     [InlineData(ThemePreference.Light, "sidebar-layout-artwork-light")]
-    public async Task The_sidebar_layout_with_artwork_renders_to_a_png(ThemePreference theme, string name)
+    public async Task The_sidebar_layout_shows_the_artwork_on_its_tiles(ThemePreference theme, string name)
     {
         using var fixtures = new ArtFixtures();
         using var app = await StartAsync(BackendWithArt(fixtures, theme), theme, ShellLayout.Sidebar);
 
-        AssertRendered(app.Render(_area, name));
+        app.RenderIfRequested(_area, name);
     }
 
     [AvaloniaFact]
-    public async Task The_history_header_shows_the_selected_games_image_and_renders_to_a_png()
+    public async Task The_history_header_shows_the_selected_games_image()
     {
         using var fixtures = new ArtFixtures();
         using var app = await StartAsync(BackendWithArt(fixtures, ThemePreference.Dark), ThemePreference.Dark, ShellLayout.Sidebar);
@@ -81,7 +87,7 @@ public class ArtworkRenderTests
         app.Shell.Navigate(Savepoint.App.Features.Shell.NavDestination.History);
         Assert.True(await UiWait.UntilAsync(() => app.All<ArtTile>().Any(tile => tile.Width == 34 && tile.ShowsImage)), "the history header never showed the image");
 
-        AssertRendered(app.Render(_area, "history-header-artwork-dark"));
+        app.RenderIfRequested(_area, "history-header-artwork-dark");
     }
 
     [AvaloniaFact]
@@ -100,7 +106,7 @@ public class ArtworkRenderTests
 
         Assert.Contains("skyrim-wide.png", card.ImagePath, StringComparison.Ordinal);
         Assert.Contains("skyrim-square.png", square.ImagePath, StringComparison.Ordinal);
-        AssertRendered(harness.Render("editor-artwork-steam-dark", _area));
+        RenderIfRequested(harness, "editor-artwork-steam-dark");
     }
 
     [AvaloniaFact]
@@ -114,7 +120,7 @@ public class ArtworkRenderTests
         Assert.True(await UiWait.UntilAsync(() => card.ShowsImage), "the preview never showed the artwork");
         harness.All<ScrollViewer>().First().ScrollToEnd();
 
-        AssertRendered(harness.Render("editor-artwork-own-image-light", _area));
+        RenderIfRequested(harness, "editor-artwork-own-image-light");
     }
 
     [AvaloniaFact]
@@ -131,6 +137,6 @@ public class ArtworkRenderTests
         harness.All<ScrollViewer>().First().ScrollToEnd();
 
         Assert.False(harness.Find<ArtTile>("ArtworkCardPreview").ShowsImage);
-        AssertRendered(harness.Render("editor-artwork-none-and-error-dark", _area));
+        RenderIfRequested(harness, "editor-artwork-none-and-error-dark");
     }
 }

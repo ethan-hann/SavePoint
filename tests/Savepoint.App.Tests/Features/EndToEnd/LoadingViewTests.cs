@@ -18,6 +18,6 @@ public class LoadingViewTests
         Assert.False(app.Find<Border>("Table").IsEffectivelyVisible);
         Assert.False(app.Find<Border>("EmptyState").IsEffectivelyVisible);
         Assert.Contains(app.All<ProgressBar>(), bar => bar.IsEffectivelyVisible && bar.IsIndeterminate && AutomationAudit.NameOf(bar) == "Loading your profiles…");
-        app.Render("games", "loading-profiles");
+        app.RenderIfRequested("games", "loading-profiles");
     }
 }

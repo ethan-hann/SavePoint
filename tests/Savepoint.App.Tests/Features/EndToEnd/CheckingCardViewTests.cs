@@ -49,6 +49,6 @@ public class CheckingCardViewTests
         var texts = app.All<TextBlock>().Where(block => block.IsEffectivelyVisible).Select(block => block.Text).ToList();
         Assert.Contains("410 of 1,000 files", texts);
         Assert.DoesNotContain(app.All<Button>(), button => button.IsEffectivelyVisible && button.Content as string is "Take a snapshot first" or "Discard them");
-        app.Render("launch", "launch-dialog-saving-first");
+        app.RenderIfRequested("launch", "launch-dialog-saving-first");
     }
 }

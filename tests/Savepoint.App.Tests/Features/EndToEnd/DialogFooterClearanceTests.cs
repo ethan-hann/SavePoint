@@ -16,7 +16,7 @@ namespace Savepoint.App.Tests.Features.EndToEnd;
 
 // A dialog's buttons sit clear of its edge, with their focus ring included, however full the dialog is and however small the window is.
 // The ring is drawn outside the button, so a button that is the right distance from the edge can still have its ring on the edge or
-// cut off by the viewer that scrolls the dialog. Renders go to render-output/dialog-footers/.
+// cut off by the viewer that scrolls the dialog. Renders go to render-output/dialog-footers/ when SAVEPOINT_RENDER=1.
 public class DialogFooterClearanceTests
 {
     // The air the design leaves between a dialog's edge and what a person sees of a control, its ring included.
@@ -36,31 +36,79 @@ public class DialogFooterClearanceTests
         "launch-checks",
     ];
 
-    public static TheoryData<string, string, double, double> Cases()
+    private static readonly (string Name, double Width, double Height) _standard = ("standard", 1040, 660);
+
+    // Narrower than the scaled work areas but taller than they are, so a window cannot reach it by shrinking from them.
+    private static readonly (string Name, double Width, double Height) _small = ("small", 800, 560);
+
+    public static TheoryData<string> States() =>
+        [.. AppStates.Dialogs.Select(row => row.Data).Concat(["launch-progress", "launch-dialog-saving"]).Concat(_extraStates)];
+
+    public static TheoryData<string> ExtraStates() => [.. _extraStates];
+
+    // The sizes fall in width and in height one after the other except at the last, where the height rises again. A reused window is only
+    // ever shrunk, so the first three share one window and the last gets a fresh one.
+    [AvaloniaTheory]
+    [MemberData(nameof(States))]
+    public async Task Every_dialogs_buttons_and_their_focus_rings_clear_its_edge(string state)
     {
-        var data = new TheoryData<string, string, double, double>();
-        var sizes = new List<(string Name, double Width, double Height)> { ("standard", 1040, 660), ("small", 800, 560) };
-        sizes.AddRange(LayoutAudit.ScaledScreens);
-        foreach (var state in AppStates.Dialogs.Select(row => row.Data).Concat(["launch-progress", "launch-dialog-saving"]).Concat(_extraStates))
+        var problems = new List<string>();
+
+        using (var app = await OpenAsync(state))
         {
-            foreach (var (name, width, height) in sizes)
+            foreach (var (name, width, height) in new[] { _standard }.Concat(LayoutAudit.ScaledScreens.OrderByDescending(size => size.Width)))
             {
-                data.Add(state, name, width, height);
+                Resize(app, width, height);
+                if (name == _standard.Name)
+                {
+                    problems.AddRange(RingProblems(app, state, "dark", width, height));
+                    Resize(app, width, height);
+                }
+
+                problems.AddRange(FooterProblems(app, state, name, width, height));
             }
         }
 
-        return data;
+        using (var app = await OpenAsync(state))
+        {
+            Resize(app, _small.Width, _small.Height);
+            problems.AddRange(RingProblems(app, state, "dark", _small.Width, _small.Height));
+            Resize(app, _small.Width, _small.Height);
+            problems.AddRange(FooterProblems(app, state, _small.Name, _small.Width, _small.Height));
+        }
+
+        Assert.True(problems.Count == 0, $"{state}:{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
     }
 
+    // The ring is drawn outside the button, so any ancestor that clips to its own bounds cuts it off at the button's edge while every
+    // geometric measure still looks right. This looks at the pixels: with each button focused by keyboard, the ring's color has to be
+    // on screen just outside the middle of each of its four sides, over the whole dialog at the standard and the small window. The dark
+    // theme is covered with the sizes above; the dialogs this test names are seen in the light theme too.
     [AvaloniaTheory]
-    [MemberData(nameof(Cases))]
-    public async Task Every_dialogs_buttons_and_their_focus_rings_clear_its_edge(string state, string size, double width, double height)
+    [MemberData(nameof(ExtraStates))]
+    public async Task Every_dialogs_focused_button_draws_its_whole_focus_ring_in_the_light_theme(string state)
     {
-        using var app = await OpenAsync(state);
+        using var app = await OpenAsync(state, ThemePreference.Light);
+        var problems = new List<string>();
+        foreach (var (_, width, height) in new[] { _standard, _small })
+        {
+            Resize(app, width, height);
+            problems.AddRange(RingProblems(app, state, "light", width, height));
+        }
+
+        Assert.True(problems.Count == 0, $"{state} (light):{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
+    }
+
+    private static void Resize(ComposedApp app, double width, double height)
+    {
+        app.Find<ScrollViewer>("DialogScroll").ScrollToHome();
         app.Window.Width = width;
         app.Window.Height = height;
         app.Settle();
+    }
 
+    private static List<string> FooterProblems(ComposedApp app, string state, string size, double width, double height)
+    {
         var chrome = app.Find<Border>("Chrome");
         var scroll = app.Find<ScrollViewer>("DialogScroll");
         if (scroll.Extent.Height > scroll.Viewport.Height + 1)
@@ -108,7 +156,7 @@ public class DialogFooterClearanceTests
 
                 if (gap < _airAroundRing - 0.5)
                 {
-                    problems.Add($"{Label(button)} ring is {gap:0.#}px from the dialog's {name} edge, needs {_airAroundRing}px");
+                    problems.Add($"{state} at {size} ({width}x{height}): {Label(button)} ring is {gap:0.#}px from the dialog's {name} edge, needs {_airAroundRing}px");
                 }
             }
 
@@ -122,92 +170,65 @@ public class DialogFooterClearanceTests
             {
                 if (gap < _ringSlack - 0.5)
                 {
-                    problems.Add($"{Label(button)} ring has {gap:0.#}px inside the scrolling viewer's {name} edge, needs {_ringSlack}px");
+                    problems.Add($"{state} at {size} ({width}x{height}): {Label(button)} ring has {gap:0.#}px inside the scrolling viewer's {name} edge, needs {_ringSlack}px");
                 }
             }
         }
 
-        if (state is "wizard-saving-long-names" && size is "standard" or "small")
+        if (RenderOutput.Requested && state is "wizard-saving-long-names" && size is "standard" or "small")
         {
             app.Render("dialog-footers", $"{state}-{size}");
         }
 
-        Assert.True(problems.Count == 0, $"{state} at {size} ({width}x{height}): {string.Join("; ", problems)}");
+        return problems;
     }
 
-    public static TheoryData<string, string> RingCases()
+    private static List<string> RingProblems(ComposedApp app, string state, string mode, double width, double height)
     {
-        var data = new TheoryData<string, string>();
-        foreach (var state in AppStates.Dialogs.Select(row => row.Data).Concat(["launch-progress", "launch-dialog-saving"]).Concat(_extraStates))
-        {
-            data.Add(state, "dark");
-            if (_extraStates.Contains(state))
-            {
-                data.Add(state, "light");
-            }
-        }
-
-        return data;
-    }
-
-    // The ring is drawn outside the button, so any ancestor that clips to its own bounds cuts it off at the button's edge while every
-    // geometric measure still looks right. This looks at the pixels: with each button focused by keyboard, the ring's color has to be
-    // on screen just outside the middle of each of its four sides, over the whole dialog at the standard and the small window.
-    [AvaloniaTheory]
-    [MemberData(nameof(RingCases))]
-    public async Task Every_dialogs_focused_button_draws_its_whole_focus_ring(string state, string mode)
-    {
-        using var app = await OpenAsync(state, mode == "light" ? ThemePreference.Light : ThemePreference.Dark);
         var problems = new List<string>();
-        foreach (var (width, height) in new[] { (1040d, 660d), (800d, 560d) })
+        var chrome = app.Find<Border>("Chrome");
+        var scroll = app.Find<ScrollViewer>("DialogScroll");
+        var viewport = LayoutAudit.BoundsIn(app.Window, scroll);
+        var buttons = chrome.GetVisualDescendants().OfType<Button>()
+            .Where(button => button.GetType() == typeof(Button) && button.IsEffectivelyVisible && button.IsEffectivelyEnabled && button.Name?.StartsWith("PART_", StringComparison.Ordinal) != true)
+            .Where(button => !button.GetVisualAncestors().OfType<ScrollViewer>().Any(scroller => scroller.Name != "DialogScroll"))
+            .Where(button => viewport.Contains(LayoutAudit.BoundsIn(app.Window, button)))
+            .ToList();
+        Assert.True(app.Window.TryFindResource("Md3PrimaryBrush", app.Window.ActualThemeVariant, out var found));
+        var ringColor = ((SolidColorBrush)found!).Color;
+
+        foreach (var button in buttons)
         {
-            app.Window.Width = width;
-            app.Window.Height = height;
+            button.Focus(NavigationMethod.Tab);
             app.Settle();
-            var chrome = app.Find<Border>("Chrome");
-            var scroll = app.Find<ScrollViewer>("DialogScroll");
-            var viewport = LayoutAudit.BoundsIn(app.Window, scroll);
-            var buttons = chrome.GetVisualDescendants().OfType<Button>()
-                .Where(button => button.GetType() == typeof(Button) && button.IsEffectivelyVisible && button.IsEffectivelyEnabled && button.Name?.StartsWith("PART_", StringComparison.Ordinal) != true)
-                .Where(button => !button.GetVisualAncestors().OfType<ScrollViewer>().Any(scroller => scroller.Name != "DialogScroll"))
-                .Where(button => viewport.Contains(LayoutAudit.BoundsIn(app.Window, button)))
-                .ToList();
-            Assert.True(app.Window.TryFindResource("Md3PrimaryBrush", app.Window.ActualThemeVariant, out var found));
-            var ringColor = ((SolidColorBrush)found!).Color;
-
-            foreach (var button in buttons)
+            var bounds = LayoutAudit.BoundsIn(app.Window, button);
+            var reach = RingReach(button);
+            using var frame = app.Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
+            var middle = (int)Math.Round(bounds.Center.X);
+            var centre = (int)Math.Round(bounds.Center.Y);
+            var spots = new (string Side, int X, int Y)[]
             {
-                button.Focus(NavigationMethod.Tab);
-                app.Settle();
-                var bounds = LayoutAudit.BoundsIn(app.Window, button);
-                var reach = RingReach(button);
-                using var frame = app.Window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame was rendered.");
-                var middle = (int)Math.Round(bounds.Center.X);
-                var centre = (int)Math.Round(bounds.Center.Y);
-                var spots = new (string Side, int X, int Y)[]
+                ("bottom", middle, (int)Math.Round(bounds.Bottom + reach - 1)),
+                ("top", middle, (int)Math.Round(bounds.Top - reach)),
+                ("left", (int)Math.Round(bounds.Left - reach), centre),
+                ("right", (int)Math.Round(bounds.Right + reach - 1), centre),
+            };
+            foreach (var (side, x, y) in spots)
+            {
+                var pixel = ThemeTestSupport.PixelAt(frame, x, y);
+                if (Math.Abs(pixel.R - ringColor.R) + Math.Abs(pixel.G - ringColor.G) + Math.Abs(pixel.B - ringColor.B) > 60)
                 {
-                    ("bottom", middle, (int)Math.Round(bounds.Bottom + reach - 1)),
-                    ("top", middle, (int)Math.Round(bounds.Top - reach)),
-                    ("left", (int)Math.Round(bounds.Left - reach), centre),
-                    ("right", (int)Math.Round(bounds.Right + reach - 1), centre),
-                };
-                foreach (var (side, x, y) in spots)
-                {
-                    var pixel = ThemeTestSupport.PixelAt(frame, x, y);
-                    if (Math.Abs(pixel.R - ringColor.R) + Math.Abs(pixel.G - ringColor.G) + Math.Abs(pixel.B - ringColor.B) > 60)
-                    {
-                        problems.Add($"{Label(button)} at {width}x{height}: ring missing on the {side} ({pixel} at {x},{y}, ring {ringColor})");
-                    }
+                    problems.Add($"{state} ({mode}) at {width}x{height}: {Label(button)} ring missing on the {side} ({pixel} at {x},{y}, ring {ringColor})");
                 }
+            }
 
-                if (button.Name is "StopSaveButton" or "CancelButton" && width == 1040)
-                {
-                    ThemeTestSupport.SaveFrame(frame, Path.Combine(ThemeTestSupport.RepoRoot(), "render-output", "dialog-footers", $"ring-{state}-{mode}-{button.Name}.png"));
-                }
+            if (RenderOutput.Requested && button.Name is "StopSaveButton" or "CancelButton" && width == 1040)
+            {
+                ThemeTestSupport.SaveFrame(frame, Path.Combine(ThemeTestSupport.RepoRoot(), "render-output", "dialog-footers", $"ring-{state}-{mode}-{button.Name}.png"));
             }
         }
 
-        Assert.True(problems.Count == 0, $"{state} ({mode}): {string.Join("; ", problems)}");
+        return problems;
     }
 
     // How far the button's own focus ring reaches past it, read from its template so a restyled ring is measured, not assumed.

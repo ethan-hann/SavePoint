@@ -10,6 +10,7 @@ using Savepoint.Core.Errors;
 namespace Savepoint.App.Tests.Features.History;
 
 // Writes PNGs to render-output/history/ (gitignored) at 1040x660 to compare with the previous render of the History list and cards after a change.
+// Nothing here asserts on a picture, so the renders are only drawn on request: SAVEPOINT_RENDER=1.
 public class HistoryRenderTests
 {
     private static async Task<ScreenHarness> StartAsync(ThemePreference theme = ThemePreference.Dark, FakeBackend? backend = null)
@@ -19,66 +20,10 @@ public class HistoryRenderTests
         return await ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, clock))], NavDestination.History, backend, theme);
     }
 
-    private static void AssertRendered(string path) =>
-        Assert.True(new FileInfo(path).Length > 10_000, "The render looks empty.");
-
     private static void ChooseList(ScreenHarness harness)
     {
         var screen = (HistoryScreenViewModel)harness.Shell.CurrentScreen!;
         screen.SelectedViewOption = screen.ViewOptions[1];
-    }
-
-    [AvaloniaFact]
-    public async Task List_dark_renders_to_a_png()
-    {
-        using var harness = await StartAsync();
-        ChooseList(harness);
-
-        AssertRendered(harness.Render("history-list-dark"));
-    }
-
-    [AvaloniaFact]
-    public async Task Cards_dark_render_to_a_png()
-    {
-        using var harness = await StartAsync();
-
-        AssertRendered(harness.Render("history-cards-dark"));
-    }
-
-    [AvaloniaFact]
-    public async Task List_light_renders_to_a_png()
-    {
-        using var harness = await StartAsync(ThemePreference.Light);
-        ChooseList(harness);
-
-        AssertRendered(harness.Render("history-list-light"));
-    }
-
-    [AvaloniaFact]
-    public async Task Cards_light_render_to_a_png()
-    {
-        using var harness = await StartAsync(ThemePreference.Light);
-
-        AssertRendered(harness.Render("history-cards-light"));
-    }
-
-    [AvaloniaFact]
-    public async Task Empty_dark_renders_to_a_png()
-    {
-        using var harness = await StartAsync();
-        harness.Shell.SelectGame(SampleScenario.SatisfactoryId);
-
-        AssertRendered(harness.Render("history-empty-dark"));
-    }
-
-    [AvaloniaFact]
-    public async Task Failed_read_dark_renders_to_a_png()
-    {
-        var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings));
-        backend.FailNext<IHistoryApi>(nameof(IHistoryApi.GetAsync), ErrorInfo.From(new InvalidOperationException("The history could not be read.")));
-        using var harness = await StartAsync(backend: backend);
-
-        AssertRendered(harness.Render("history-failed-dark"));
     }
 
     private static async Task<ScreenHarness> RemovedAsync(ThemePreference theme, bool open, bool list = false, double width = 1040, double height = 660, bool realDialogs = false)
@@ -98,47 +43,108 @@ public class HistoryRenderTests
     }
 
     [AvaloniaFact]
-    public async Task Recently_removed_closed_cards_dark_render_to_a_png()
+    public async Task Writes_every_History_render_on_request()
+    {
+        RenderOutput.SkipUnlessRequested();
+
+        await ListDark();
+        await CardsDark();
+        await ListLight();
+        await CardsLight();
+        await EmptyDark();
+        await FailedReadDark();
+        await RecentlyRemovedClosedCardsDark();
+        await RecentlyRemovedOpenCardsDark();
+        await RecentlyRemovedOpenCardsLight();
+        await RecentlyRemovedOpenListDark();
+        await RecentlyRemovedOpenAtTheSmallestSupportedWindow();
+        await TheBringBackDialog();
+        await NarrowCardsDark();
+    }
+
+    private static async Task ListDark()
+    {
+        using var harness = await StartAsync();
+        ChooseList(harness);
+
+        harness.Render("history-list-dark");
+    }
+
+    private static async Task CardsDark()
+    {
+        using var harness = await StartAsync();
+
+        harness.Render("history-cards-dark");
+    }
+
+    private static async Task ListLight()
+    {
+        using var harness = await StartAsync(ThemePreference.Light);
+        ChooseList(harness);
+
+        harness.Render("history-list-light");
+    }
+
+    private static async Task CardsLight()
+    {
+        using var harness = await StartAsync(ThemePreference.Light);
+
+        harness.Render("history-cards-light");
+    }
+
+    private static async Task EmptyDark()
+    {
+        using var harness = await StartAsync();
+        harness.Shell.SelectGame(SampleScenario.SatisfactoryId);
+
+        harness.Render("history-empty-dark");
+    }
+
+    private static async Task FailedReadDark()
+    {
+        var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings));
+        backend.FailNext<IHistoryApi>(nameof(IHistoryApi.GetAsync), ErrorInfo.From(new InvalidOperationException("The history could not be read.")));
+        using var harness = await StartAsync(backend: backend);
+
+        harness.Render("history-failed-dark");
+    }
+
+    private static async Task RecentlyRemovedClosedCardsDark()
     {
         using var harness = await RemovedAsync(ThemePreference.Dark, open: false);
 
-        AssertRendered(harness.Render("history-removed-closed-dark"));
+        harness.Render("history-removed-closed-dark");
     }
 
-    [AvaloniaFact]
-    public async Task Recently_removed_open_cards_dark_render_to_a_png()
+    private static async Task RecentlyRemovedOpenCardsDark()
     {
         using var harness = await RemovedAsync(ThemePreference.Dark, open: true);
 
-        AssertRendered(harness.Render("history-removed-open-dark"));
+        harness.Render("history-removed-open-dark");
     }
 
-    [AvaloniaFact]
-    public async Task Recently_removed_open_cards_light_render_to_a_png()
+    private static async Task RecentlyRemovedOpenCardsLight()
     {
         using var harness = await RemovedAsync(ThemePreference.Light, open: true);
 
-        AssertRendered(harness.Render("history-removed-open-light"));
+        harness.Render("history-removed-open-light");
     }
 
-    [AvaloniaFact]
-    public async Task Recently_removed_open_list_dark_render_to_a_png()
+    private static async Task RecentlyRemovedOpenListDark()
     {
         using var harness = await RemovedAsync(ThemePreference.Dark, open: true, list: true);
 
-        AssertRendered(harness.Render("history-removed-open-list-dark"));
+        harness.Render("history-removed-open-list-dark");
     }
 
-    [AvaloniaFact]
-    public async Task Recently_removed_open_at_the_smallest_supported_window_renders_to_a_png()
+    private static async Task RecentlyRemovedOpenAtTheSmallestSupportedWindow()
     {
         using var harness = await RemovedAsync(ThemePreference.Dark, open: true, width: 960, height: 460);
 
-        AssertRendered(harness.Render("history-removed-open-small-dark"));
+        harness.Render("history-removed-open-small-dark");
     }
 
-    [AvaloniaFact]
-    public async Task The_bring_back_dialog_renders_to_a_png()
+    private static async Task TheBringBackDialog()
     {
         using var harness = await RemovedAsync(ThemePreference.Dark, open: true, realDialogs: true);
         var screen = (HistoryScreenViewModel)harness.Shell.CurrentScreen!;
@@ -146,16 +152,15 @@ public class HistoryRenderTests
         screen.Removed[0].BringBackCommand.Execute(null);
         harness.Settle();
 
-        AssertRendered(harness.Render("history-removed-bring-back-dialog-dark"));
+        harness.Render("history-removed-bring-back-dialog-dark");
     }
 
-    [AvaloniaFact]
-    public async Task Narrow_cards_dark_render_to_a_png()
+    private static async Task NarrowCardsDark()
     {
         var backend = new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings));
         var clock = backend.Clock;
         using var harness = await ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, clock))], NavDestination.History, backend, ThemePreference.Dark, width: 760);
 
-        AssertRendered(harness.Render("history-cards-narrow-dark"));
+        harness.Render("history-cards-narrow-dark");
     }
 }

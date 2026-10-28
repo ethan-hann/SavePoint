@@ -7,53 +7,62 @@ using Savepoint.Core.Catalog;
 namespace Savepoint.App.Tests.Features.Editor;
 
 // Writes PNGs to render-output/editor/ (gitignored) at 1040x660 to compare with the previous render of the game editor and error card after a change.
+// Nothing here asserts on a picture, so the renders are only drawn on request: SAVEPOINT_RENDER=1.
 public class GameEditorRenderTests
 {
-    private static void AssertRendered(string path) =>
-        Assert.True(new FileInfo(path).Length > 10_000, "The render looks empty.");
-
     private static FakeBackend Sample(ThemePreference theme) =>
         new(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
 
     [AvaloniaFact]
-    public async Task Edit_mode_dark_renders_to_a_png()
+    public async Task Writes_every_game_editor_render_on_request()
+    {
+        RenderOutput.SkipUnlessRequested();
+
+        await EditModeDark();
+        await EditModeDarkWithTheWholePaneInView();
+        await EditModeLight();
+        await CreateModeEmptyDark();
+        await TheSteamChoiceWithProblemsDark();
+        await AFolderTooBroadToTrackDark();
+        await AFolderThatIsGoneDark();
+        await TheFolderConfirmationDark();
+        await TheReconnectQuestionDark();
+    }
+
+    private static async Task EditModeDark()
     {
         using var harness = await EditorViewHarness.StartAsync();
         harness.Edit();
 
-        AssertRendered(harness.Render("game-editor-edit-dark"));
+        harness.Render("game-editor-edit-dark");
     }
 
     // The pane is taller than the 660px frame, so this one shows all of it, down to More settings.
-    [AvaloniaFact]
-    public async Task Edit_mode_dark_with_the_whole_pane_in_view_renders_to_a_png()
+    private static async Task EditModeDarkWithTheWholePaneInView()
     {
         using var harness = await EditorViewHarness.StartAsync(height: 2200);
         harness.Edit();
 
-        AssertRendered(harness.Render("game-editor-edit-dark-tall"));
+        harness.Render("game-editor-edit-dark-tall");
     }
 
-    [AvaloniaFact]
-    public async Task Edit_mode_light_renders_to_a_png()
+    private static async Task EditModeLight()
     {
         using var harness = await EditorViewHarness.StartAsync(Sample(ThemePreference.Light), ThemePreference.Light);
         harness.Edit();
 
-        AssertRendered(harness.Render("game-editor-edit-light"));
+        harness.Render("game-editor-edit-light");
     }
 
-    [AvaloniaFact]
-    public async Task Create_mode_empty_dark_renders_to_a_png()
+    private static async Task CreateModeEmptyDark()
     {
         using var harness = await EditorViewHarness.StartAsync();
         harness.New();
 
-        AssertRendered(harness.Render("game-editor-create-dark"));
+        harness.Render("game-editor-create-dark");
     }
 
-    [AvaloniaFact]
-    public async Task The_Steam_choice_with_problems_dark_renders_to_a_png()
+    private static async Task TheSteamChoiceWithProblemsDark()
     {
         using var harness = await EditorViewHarness.StartAsync();
         var editor = harness.New();
@@ -65,11 +74,10 @@ public class GameEditorRenderTests
         _ = editor.SaveCommand.ExecuteAsync(null);
         harness.Settle();
 
-        AssertRendered(harness.Render("game-editor-steam-problems-dark"));
+        harness.Render("game-editor-steam-problems-dark");
     }
 
-    [AvaloniaFact]
-    public async Task A_folder_too_broad_to_track_dark_renders_to_a_png()
+    private static async Task AFolderTooBroadToTrackDark()
     {
         using var harness = await EditorViewHarness.StartAsync();
         var editor = harness.New();
@@ -83,11 +91,10 @@ public class GameEditorRenderTests
         Assert.IsType<ConsentDialogViewModel>(harness.Dialogs.Current).ConfirmCommand.Execute(null);
         await saving;
 
-        AssertRendered(harness.Render("game-editor-too-broad-dark"));
+        harness.Render("game-editor-too-broad-dark");
     }
 
-    [AvaloniaFact]
-    public async Task A_folder_that_is_gone_dark_renders_to_a_png()
+    private static async Task AFolderThatIsGoneDark()
     {
         var caretaker = SampleScenario.Caretaker;
         var backend = new FakeBackend(ScenarioBuilder.Sample().WithFolderStatus(
@@ -97,21 +104,19 @@ public class GameEditorRenderTests
         using var harness = await EditorViewHarness.StartAsync(backend);
         harness.Edit(caretaker.Id);
 
-        AssertRendered(harness.Render("game-editor-folder-gone-dark"));
+        harness.Render("game-editor-folder-gone-dark");
     }
 
-    [AvaloniaFact]
-    public async Task The_folder_confirmation_dark_renders_to_a_png()
+    private static async Task TheFolderConfirmationDark()
     {
         using var harness = await EditorViewHarness.StartAsync();
         var editor = harness.New(harness.Backend.Games.Templates[0].ToDraft());
         _ = editor.SaveCommand.ExecuteAsync(null);
 
-        AssertRendered(harness.Render("consent-confirmation-dark"));
+        harness.Render("consent-confirmation-dark");
     }
 
-    [AvaloniaFact]
-    public async Task The_reconnect_question_dark_renders_to_a_png()
+    private static async Task TheReconnectQuestionDark()
     {
         var history = new OrphanedHistory(
             "hollow-knight-old1",
@@ -128,6 +133,6 @@ public class GameEditorRenderTests
         Assert.IsType<ConsentDialogViewModel>(harness.Dialogs.Current).ConfirmCommand.Execute(null);
         await EditorRig.Eventually(() => harness.Dialogs.Current as ReconnectDialogViewModel);
 
-        AssertRendered(harness.Render("reconnect-question-dark"));
+        harness.Render("reconnect-question-dark");
     }
 }

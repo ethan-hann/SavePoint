@@ -175,6 +175,15 @@ internal sealed class ComposedApp : IDisposable
 
     public string Render(string area, string name) => RenderTo(Path.Combine(RenderFolder(area), name + ".png"));
 
+    // For a picture no test reads: it is only drawn when a person asks for the renders (SAVEPOINT_RENDER=1), so a gate run does not wait on it.
+    public void RenderIfRequested(string area, string name)
+    {
+        if (RenderOutput.Requested)
+        {
+            Render(area, name);
+        }
+    }
+
     public string RenderTo(string path)
     {
         Settle();
