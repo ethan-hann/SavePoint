@@ -151,13 +151,37 @@ internal sealed class LaunchRig : IDisposable
         SteamWaitOptions? steamWait = null,
         bool steamLibrary = false)
     {
-        var slot = await TwoProfileTemplates.RentAsync();
+        var rig = await FromWorldAsync(TwoProfileTemplates.TwoProfilesKey, built => built.BuildTwoProfilesAsync(), configure, gameArguments, followProcessName, steam, steamWait, steamLibrary);
+        try
+        {
+            return (rig, await rig.ProfileNamedAsync("Vanilla"), await rig.ProfileNamedAsync("Modded"));
+        }
+        catch
+        {
+            rig.Dispose();
+            throw;
+        }
+    }
+
+    // A rig over its own copy of a world that was built once for the whole run by build (a fresh rig, with the default game, that the
+    // delegate fills with profiles). Worlds are told apart by name; the delegate of the first caller builds it. The game's arguments and
+    // process name are then set for this test, and the profiles are found by ProfileNamedAsync.
+    public static async Task<LaunchRig> FromWorldAsync(
+        string world,
+        Func<LaunchRig, Task> build,
+        Func<BackendOptions, BackendOptions>? configure = null,
+        IReadOnlyList<string>? gameArguments = null,
+        bool followProcessName = false,
+        ISteamClient? steam = null,
+        SteamWaitOptions? steamWait = null,
+        bool steamLibrary = false)
+    {
+        var slot = await TwoProfileTemplates.RentAsync(world, build);
         BackendWorkspace? workspace = null;
         try
         {
             workspace = BackendWorkspace.CopyOf(slot.Workspace, WithOrchestrator(configure, null, null, steam, steamWait), steamLibrary);
             var game = Assert.Single((await workspace.Games.ListAsync(workspace.Token)).Value!);
-            var profiles = (await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!;
             var rig = new LaunchRig(workspace, game, slot.ExeName, slot);
             if (gameArguments is not null || followProcessName)
             {
@@ -172,7 +196,7 @@ internal sealed class LaunchRig : IDisposable
                 });
             }
 
-            return (rig, profiles.Single(profile => profile.Name == "Vanilla"), profiles.Single(profile => profile.Name == "Modded"));
+            return rig;
         }
         catch
         {
@@ -181,6 +205,10 @@ internal sealed class LaunchRig : IDisposable
             throw;
         }
     }
+
+    // The profile of the game with that name, as the catalog holds it now.
+    public async Task<Profile> ProfileNamedAsync(string name) =>
+        (await Profiles.ListAsync(Game.Id, Token)).Value!.Single(profile => profile.Name == name);
 
     public async Task<(Profile Vanilla, Profile Modded)> BuildTwoProfilesAsync()
     {

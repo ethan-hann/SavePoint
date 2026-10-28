@@ -15,8 +15,8 @@ public class LegacyLocalDataTests
     [Fact]
     public async Task Saved_history_in_the_old_default_folder_moves_to_the_new_default_and_the_settings_follow()
     {
-        using var world = new World();
-        var game = await world.SeedHistoryAsync();
+        using var world = await World.SeededAsync();
+        var game = world.Game;
         var before = await world.PointCountAsync(game);
 
         world.Upgrade();
@@ -37,8 +37,8 @@ public class LegacyLocalDataTests
     [Fact]
     public async Task Settings_naming_a_missing_old_folder_follow_history_that_already_sits_in_the_new_default()
     {
-        using var world = new World();
-        var game = await world.SeedHistoryAsync();
+        using var world = await World.SeededAsync();
+        var game = world.Game;
         var before = await world.PointCountAsync(game);
         Directory.CreateDirectory(Path.GetDirectoryName(world.NewStorage)!);
         BackendWorkspace.MoveFolder(world.OldStorage, world.NewStorage);
@@ -57,8 +57,8 @@ public class LegacyLocalDataTests
     public async Task A_settings_write_that_fails_after_the_move_puts_the_storage_back()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "Only Windows refuses to replace a file another program holds open.");
-        using var world = new World();
-        var game = await world.SeedHistoryAsync();
+        using var world = await World.SeededAsync();
+        var game = world.Game;
         var before = await world.PointCountAsync(game);
         world.Upgrade();
 
@@ -79,8 +79,8 @@ public class LegacyLocalDataTests
     [Fact]
     public async Task With_no_saved_folder_an_empty_new_default_does_not_hide_the_old_history()
     {
-        using var world = new World();
-        var game = await world.SeedHistoryAsync();
+        using var world = await World.SeededAsync();
+        var game = world.Game;
         var before = await world.PointCountAsync(game);
         world.DeleteSettings();
         Directory.CreateDirectory(world.NewStorage);
@@ -102,7 +102,7 @@ public class LegacyLocalDataTests
         var armed = false;
         string? settingsFile = null;
         World? self = null;
-        using var world = new World(root =>
+        using var world = await World.SeededAsync(root =>
         {
             if (!armed)
             {
@@ -115,7 +115,7 @@ public class LegacyLocalDataTests
             throw new IOException("the settings file is held right after the write");
         });
         self = world;
-        var game = await world.SeedHistoryAsync();
+        var game = world.Game;
         var before = await world.PointCountAsync(game);
         settingsFile = Path.Combine(world.Workspace.CatalogDirectory, CatalogStore.SettingsFileName);
         world.Upgrade();
@@ -140,7 +140,7 @@ public class LegacyLocalDataTests
     {
         var armed = false;
         World? self = null;
-        using var world = new World(_ =>
+        using var world = await World.SeededAsync(_ =>
         {
             if (!armed)
             {
@@ -154,7 +154,7 @@ public class LegacyLocalDataTests
             throw new InvalidOperationException("an unexpected failure");
         });
         self = world;
-        var game = await world.SeedHistoryAsync();
+        var game = world.Game;
         world.Upgrade();
         armed = true;
 
@@ -171,8 +171,8 @@ public class LegacyLocalDataTests
     [InlineData(true)]
     public async Task Settings_naming_a_new_default_that_holds_nothing_finish_the_move_from_the_old_folder(bool emptyFolderThere)
     {
-        using var world = new World();
-        var game = await world.SeedHistoryAsync();
+        using var world = await World.SeededAsync();
+        var game = world.Game;
         var before = await world.PointCountAsync(game);
         await world.SaveRootAsync(world.NewStorage);
         if (emptyFolderThere)
@@ -197,7 +197,7 @@ public class LegacyLocalDataTests
     {
         var armed = false;
         World? self = null;
-        using var world = new World(root =>
+        using var world = await World.SeededAsync(root =>
         {
             if (!armed)
             {
@@ -210,7 +210,7 @@ public class LegacyLocalDataTests
             throw new IOException("the write failed");
         });
         self = world;
-        var game = await world.SeedHistoryAsync();
+        var game = world.Game;
         var before = await world.PointCountAsync(game);
         world.DeleteSettings();
         BackendWorkspace.WriteFile(Path.Combine(world.NewStorage, "unrelated", "note.txt"), "not history");
@@ -235,7 +235,7 @@ public class LegacyLocalDataTests
     {
         var armed = false;
         World? self = null;
-        using var world = new World(root =>
+        using var world = await World.SeededAsync(root =>
         {
             if (!armed)
             {
@@ -247,7 +247,7 @@ public class LegacyLocalDataTests
             throw new IOException("the write failed");
         });
         self = world;
-        var game = await world.SeedHistoryAsync();
+        var game = world.Game;
         var before = await world.PointCountAsync(game);
         Directory.CreateDirectory(Path.GetDirectoryName(world.NewStorage)!);
         BackendWorkspace.MoveFolder(world.OldStorage, world.NewStorage);
@@ -267,8 +267,8 @@ public class LegacyLocalDataTests
     [Fact]
     public async Task A_new_default_holding_only_the_empty_start_marker_is_moved_onto()
     {
-        using var world = new World();
-        var game = await world.SeedHistoryAsync();
+        using var world = await World.SeededAsync();
+        var game = world.Game;
         world.DeleteSettings();
         BackendWorkspace.WriteFile(Path.Combine(world.NewStorage, StorageContent.EmptyStartMarkerFileName), "empty start");
 
@@ -302,7 +302,7 @@ public class LegacyLocalDataTests
         var armed = false;
         World? self = null;
         using var cancel = new CancellationTokenSource();
-        using var world = new World(root =>
+        using var world = await World.SeededAsync(root =>
         {
             if (!armed)
             {
@@ -315,7 +315,7 @@ public class LegacyLocalDataTests
             throw new InvalidOperationException("the original failure");
         });
         self = world;
-        var game = await world.SeedHistoryAsync();
+        var game = world.Game;
         world.Upgrade();
         armed = true;
 
@@ -334,7 +334,7 @@ public class LegacyLocalDataTests
         var armed = false;
         World? self = null;
         using var cancel = new CancellationTokenSource();
-        using var world = new World(root =>
+        using var world = await World.SeededAsync(root =>
         {
             if (!armed)
             {
@@ -347,7 +347,7 @@ public class LegacyLocalDataTests
             throw new IOException("the write failed");
         });
         self = world;
-        var game = await world.SeedHistoryAsync();
+        var game = world.Game;
         var before = await world.PointCountAsync(game);
         world.Upgrade();
         armed = true;
@@ -368,7 +368,7 @@ public class LegacyLocalDataTests
     {
         var armed = false;
         World? self = null;
-        using var world = new World(root =>
+        using var world = await World.SeededAsync(root =>
         {
             if (!armed)
             {
@@ -383,7 +383,7 @@ public class LegacyLocalDataTests
             throw new IOException("the write failed");
         });
         self = world;
-        var game = await world.SeedHistoryAsync();
+        var game = world.Game;
         var before = await world.PointCountAsync(game);
         world.Upgrade();
         armed = true;
@@ -406,8 +406,8 @@ public class LegacyLocalDataTests
     [Fact]
     public async Task With_no_saved_folder_history_in_both_folders_keeps_the_old_one_in_use_and_flagged_and_says_so()
     {
-        using var world = new World();
-        var game = await world.SeedHistoryAsync();
+        using var world = await World.SeededAsync();
+        var game = world.Game;
         world.DeleteSettings();
         CopyTree(world.OldStorage, world.NewStorage);
 
@@ -424,8 +424,8 @@ public class LegacyLocalDataTests
     [Fact]
     public async Task With_no_saved_folder_a_new_default_that_cannot_take_the_move_leaves_the_history_in_use_and_flagged()
     {
-        using var world = new World();
-        var game = await world.SeedHistoryAsync();
+        using var world = await World.SeededAsync();
+        var game = world.Game;
         world.DeleteSettings();
         BackendWorkspace.WriteFile(Path.Combine(world.NewStorage, "unrelated", "note.txt"), "not history");
 
@@ -442,8 +442,8 @@ public class LegacyLocalDataTests
     [Fact]
     public async Task With_no_saved_folder_the_old_default_is_still_moved_so_a_first_run_does_not_hide_it()
     {
-        using var world = new World();
-        var game = await world.SeedHistoryAsync();
+        using var world = await World.SeededAsync();
+        var game = world.Game;
         world.DeleteSettings();
 
         world.Upgrade();
@@ -596,15 +596,83 @@ public class LegacyLocalDataTests
     {
         private bool _upgraded;
 
+        private static readonly Lock _templateGate = new();
+        private static Task<BackendWorkspace>? _template;
+
         // afterSettings runs inside every settings write the startup check makes for a storage root.
         public World(Action<string>? afterSettings = null)
         {
-            Workspace = new BackendWorkspace(options => options with { Platform = PlatformFor(options), Log = Log, AfterRelocationSettings = afterSettings });
+            Workspace = new BackendWorkspace(options => Configure(options, afterSettings));
+        }
+
+        private World(BackendWorkspace template, Action<string>? afterSettings)
+        {
+            Workspace = BackendWorkspace.CopyOf(template, options => Configure(options, afterSettings));
         }
 
         public RecordingDiagnosticLog Log { get; } = new();
 
         public BackendWorkspace Workspace { get; }
+
+        // The game SeededAsync found in the copy; the seeding itself ran once for the whole run.
+        public GameDefinition Game { get; private set; } = null!;
+
+        // A world over its own copy of the seeded folders, started the way the seeding left it: the startup check has run once.
+        public static async Task<World> SeededAsync(Action<string>? afterSettings = null)
+        {
+            BackendWorkspace template;
+            try
+            {
+                template = await TemplateAsync();
+            }
+            catch (OperationCanceledException) when (!TestContext.Current.CancellationToken.IsCancellationRequested)
+            {
+                // The test that started the shared build was cancelled; this one is not, so it builds the template again.
+                template = await TemplateAsync();
+            }
+
+            var world = new World(template, afterSettings);
+            try
+            {
+                var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+                Assert.True(status.Ok, status.Error?.Detail);
+                world.Game = Assert.Single((await world.Workspace.Games.ListAsync(world.Workspace.Token)).Value!);
+                Assert.True(StorageContent.HoldsHistory(Path.Combine(world.OldStorage, world.Game.Id)));
+                return world;
+            }
+            catch
+            {
+                world.Dispose();
+                throw;
+            }
+        }
+
+        // A build that failed (or was canceled with the test that started it) is not kept, so the next test builds it again.
+        private static Task<BackendWorkspace> TemplateAsync()
+        {
+            lock (_templateGate)
+            {
+                if (_template is null or { IsFaulted: true } or { IsCanceled: true })
+                {
+                    _template = BuildTemplateAsync();
+                }
+
+                return _template;
+            }
+        }
+
+        private static async Task<BackendWorkspace> BuildTemplateAsync()
+        {
+            var seeded = new World();
+            await seeded.SeedHistoryAsync();
+            await seeded.Workspace.WaitForIdleAsync();
+            var folder = seeded.Workspace.Root;
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(folder);
+            return seeded.Workspace;
+        }
+
+        private BackendOptions Configure(BackendOptions options, Action<string>? afterSettings) =>
+            options with { Platform = PlatformFor(options), Log = Log, AfterRelocationSettings = afterSettings };
 
         public string Legacy => Path.Combine(Workspace.Root, "legacy");
 

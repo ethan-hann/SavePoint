@@ -1,4 +1,5 @@
 using Savepoint.Core.Api;
+using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Git;
 using Savepoint.Core.Tests.Git.Engine;
@@ -11,6 +12,57 @@ public class LaunchUpdateExistingTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private static LaunchTarget Tip(Profile profile) => new LaunchTarget.ProfileTip(profile.Id);
+
+    // The worlds below are built once per run and each test gets a copy of one (see LaunchRig.FromWorldAsync).
+    private static async Task<(LaunchRig Rig, Profile First, Profile? Second)> WorldAsync(string world, Func<LaunchRig, Task> build, string first, string? second = null, Func<BackendOptions, BackendOptions>? configure = null)
+    {
+        var rig = await LaunchRig.FromWorldAsync("update-existing-" + world, build, configure);
+        try
+        {
+            return (rig, await rig.ProfileNamedAsync(first), second is null ? null : await rig.ProfileNamedAsync(second));
+        }
+        catch
+        {
+            rig.Dispose();
+            throw;
+        }
+    }
+
+    // Vanilla alone, as the game was installed.
+    private static async Task<(LaunchRig Rig, Profile Vanilla)> VanillaWorldAsync(Func<BackendOptions, BackendOptions>? configure = null)
+    {
+        var (rig, vanilla, _) = await WorldAsync("vanilla", built => built.ProfileAsync("Vanilla"), "Vanilla", configure: configure);
+        return (rig, vanilla);
+    }
+
+    private static async Task<(LaunchRig Rig, Profile Vanilla, Profile Heavy)> VanillaAndHeavyWorldAsync()
+    {
+        var (rig, vanilla, heavy) = await WorldAsync("vanilla-and-heavy", built => VanillaAndHeavyAsync(built), "Vanilla", "Heavy mods");
+        return (rig, vanilla, heavy!);
+    }
+
+    private static async Task<(LaunchRig Rig, Profile Vanilla, Profile Heavy)> HeavyWithItsOwnSnapshotWorldAsync()
+    {
+        var (rig, vanilla, heavy) = await WorldAsync("heavy-with-its-own-snapshot", built => HeavyWithItsOwnSnapshotAsync(built), "Vanilla", "Heavy mods");
+        return (rig, vanilla, heavy!);
+    }
+
+    // Original and a duplicate of it, Copy, with nothing of its own yet.
+    private static async Task<(LaunchRig Rig, Profile Original, Profile Copy)> OriginalAndCopyWorldAsync(Func<BackendOptions, BackendOptions>? configure = null)
+    {
+        var (rig, original, copy) = await WorldAsync(
+            "original-and-copy",
+            async built =>
+            {
+                var made = await built.ProfileAsync("Original");
+                var copied = await built.Profiles.DuplicateAsync(built.Game.Id, made.Id, "Copy");
+                Assert.True(copied.Ok, copied.Error?.Detail);
+            },
+            "Original",
+            "Copy",
+            configure);
+        return (rig, original, copy!);
+    }
 
     // Heavy mods is made while Vanilla is loaded, with a mod file added first; the saves did not change, so its saves history is Vanilla's.
     private static async Task<(Profile Vanilla, Profile Heavy)> VanillaAndHeavyAsync(LaunchRig rig)
@@ -33,8 +85,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task A_profile_whose_saves_are_another_profile_s_is_not_offered_the_other_profile_s_snapshot_to_replace()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var (vanilla, heavy) = await VanillaAndHeavyAsync(rig);
+        var (rig, vanilla, heavy) = await VanillaAndHeavyWorldAsync();
+        using var _ = rig;
         var vanillaSave = (await rig.CommitsAsync(RepoRole.External, vanilla))[0];
         Assert.Equal(vanillaSave.Id, (await rig.CommitsAsync(RepoRole.External, heavy))[0].Id);
 
@@ -63,8 +115,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task Replacing_the_played_profile_s_own_newest_snapshot_leaves_the_profile_it_was_made_from_as_it_was_and_ends_without_a_warning()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var (vanilla, heavy) = await HeavyWithItsOwnSnapshotAsync(rig);
+        var (rig, vanilla, heavy) = await HeavyWithItsOwnSnapshotWorldAsync();
+        using var _ = rig;
         var vanillaSaves = (await rig.CommitsAsync(RepoRole.External, vanilla)).Select(commit => commit.Id).ToList();
         var vanillaInstall = (await rig.CommitsAsync(RepoRole.Install, vanilla)).Select(commit => commit.Id).ToList();
         var exited = await PlayAsync(rig, heavy);
@@ -86,8 +138,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task The_profile_another_was_made_from_is_not_offered_a_replace_of_a_snapshot_the_other_profile_still_holds()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var (vanilla, _) = await VanillaAndHeavyAsync(rig);
+        var (rig, vanilla, _) = await VanillaAndHeavyWorldAsync();
+        using var _ = rig;
 
         var exited = await PlayAsync(rig, vanilla);
 
@@ -98,10 +150,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task A_replace_is_not_offered_after_a_duplicate_holds_the_snapshot_and_the_duplicate_is_never_offered_the_original_s()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var original = await rig.ProfileAsync("Original");
-        var copied = await rig.Profiles.DuplicateAsync(rig.Game.Id, original.Id, "Copy");
-        Assert.True(copied.Ok, copied.Error?.Detail);
+        var (rig, original, copied) = await OriginalAndCopyWorldAsync();
+        using var _ = rig;
 
         // The game also writes to its own folder, so the replacement would rewrite the install point the copy continues from.
         await rig.StartAsync(Tip(original));
@@ -114,7 +164,7 @@ public class LaunchUpdateExistingTests
         Assert.True((await rig.Launch.CompleteSessionAsync(rig.Game.Id, new SessionCompletion.CaptureNew("Original session"))).Ok);
         await rig.WaitForAsync<SessionState.Completed>();
 
-        var second = await PlayAsync(rig, copied.Value);
+        var second = await PlayAsync(rig, copied);
 
         Assert.Null(second.Options.UpdateTarget);
     }
@@ -122,8 +172,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task In_a_chain_of_profiles_made_from_one_another_no_profile_is_offered_a_snapshot_another_one_holds()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var (_, b) = await HeavyWithItsOwnSnapshotAsync(rig);
+        var (rig, _, b) = await HeavyWithItsOwnSnapshotWorldAsync();
+        using var _ = rig;
         rig.WriteInstall("mods/c.bin", "c");
         var c = await rig.ProfileAsync("C");
 
@@ -139,8 +189,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task The_snapshot_offered_is_the_newest_the_profile_owns_in_either_folder_and_only_when_every_folder_written_ends_on_it()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var vanilla = await rig.ProfileAsync("Vanilla");
+        var (rig, vanilla) = await VanillaWorldAsync();
+        using var _ = rig;
         await GitClock.NextSecondAsync(Ct);
         rig.WriteSave("slot2.sav", "second save");
         await rig.CaptureAsync(vanilla, "Second save", RepoRole.External);
@@ -158,8 +208,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task The_newest_snapshot_is_offered_when_the_only_folder_written_ends_on_it()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var vanilla = await rig.ProfileAsync("Vanilla");
+        var (rig, vanilla) = await VanillaWorldAsync();
+        using var _ = rig;
         await GitClock.NextSecondAsync(Ct);
         rig.WriteSave("slot2.sav", "second save");
         await rig.CaptureAsync(vanilla, "Second save", RepoRole.External);
@@ -172,8 +222,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task A_duplicate_with_no_point_of_its_own_offers_no_replace()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var vanilla = await rig.ProfileAsync("Vanilla");
+        var (rig, vanilla) = await VanillaWorldAsync();
+        using var _ = rig;
         var copied = await rig.Profiles.DuplicateAsync(rig.Game.Id, vanilla.Id, "Copy");
         Assert.True(copied.Ok, copied.Error?.Detail);
 
@@ -187,8 +237,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task A_profile_made_from_another_offers_the_saves_it_started_with()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var (vanilla, heavy) = await VanillaAndHeavyAsync(rig);
+        var (rig, vanilla, heavy) = await VanillaAndHeavyWorldAsync();
+        using var _ = rig;
         var vanillaSave = (await rig.CommitsAsync(RepoRole.External, vanilla))[0];
 
         var preview = await rig.PreviewAsync(Tip(heavy));
@@ -199,8 +249,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task An_update_leaves_an_install_only_point_alone_when_the_install_changed_during_play()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var vanilla = await rig.ProfileAsync("Vanilla");
+        var (rig, vanilla) = await VanillaWorldAsync();
+        using var _ = rig;
 
         // The install's newest point (a mod update) belongs to another capture than the saves' newest point.
         await GitClock.NextSecondAsync(Ct);
@@ -260,8 +310,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task Nothing_unsaved_at_exit_offers_no_replace()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var vanilla = await rig.ProfileAsync("Vanilla");
+        var (rig, vanilla) = await VanillaWorldAsync();
+        using var _ = rig;
 
         var exited = await PlayWithoutChangesAsync(rig, vanilla);
 
@@ -288,8 +338,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task A_saves_folder_that_is_gone_at_exit_offers_no_replace()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var vanilla = await rig.ProfileAsync("Vanilla");
+        var (rig, vanilla) = await VanillaWorldAsync();
+        using var _ = rig;
 
         File.Delete(rig.ReadyFile);
         await rig.StartAsync(Tip(vanilla));
@@ -304,10 +354,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 200_000)]
     public async Task A_folder_that_changes_after_exit_and_whose_snapshot_another_profile_holds_is_saved_as_a_new_snapshot_and_says_so()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var original = await rig.ProfileAsync("Original");
-        var copied = await rig.Profiles.DuplicateAsync(rig.Game.Id, original.Id, "Copy");
-        Assert.True(copied.Ok, copied.Error?.Detail);
+        var (rig, original, copied) = await OriginalAndCopyWorldAsync();
+        using var _ = rig;
         var installBefore = (await rig.CommitsAsync(RepoRole.Install, original)).Select(commit => commit.Id).ToList();
         var exited = await PlayAsync(rig, original);
 
@@ -321,17 +369,15 @@ public class LaunchUpdateExistingTests
         Assert.All(result.Folders, folder => Assert.True(folder.Ok && folder.KeptAsNew, folder.Error?.Detail));
         var install = await rig.CommitsAsync(RepoRole.Install, original);
         Assert.Equal(installBefore, install.Skip(1).Select(commit => commit.Id));
-        Assert.Equal(installBefore, (await rig.CommitsAsync(RepoRole.Install, copied.Value)).Select(commit => commit.Id));
+        Assert.Equal(installBefore, (await rig.CommitsAsync(RepoRole.Install, copied)).Select(commit => commit.Id));
         Assert.Equal(2, (await rig.CommitsAsync(RepoRole.External, original)).Count);
     }
 
     [Fact(Timeout = 200_000)]
     public async Task A_duplicate_s_original_replaces_its_own_snapshot_once_it_has_one_the_duplicate_does_not_hold()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var original = await rig.ProfileAsync("Original");
-        var copied = await rig.Profiles.DuplicateAsync(rig.Game.Id, original.Id, "Copy");
-        Assert.True(copied.Ok, copied.Error?.Detail);
+        var (rig, original, _) = await OriginalAndCopyWorldAsync();
+        using var _ = rig;
         await PlayAsync(rig, original);
         rig.WriteInstall("mods/own.bin", "own");
         await CompleteAsync(rig, new SessionCompletion.CaptureNew("Original session"));
@@ -355,10 +401,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 250_000)]
     public async Task A_retry_of_a_replacement_that_was_saved_as_new_stays_new_and_does_not_rewrite_the_folder_that_failed()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var original = await rig.ProfileAsync("Original");
-        var copied = await rig.Profiles.DuplicateAsync(rig.Game.Id, original.Id, "Copy");
-        Assert.True(copied.Ok, copied.Error?.Detail);
+        var (rig, original, _) = await OriginalAndCopyWorldAsync();
+        using var _ = rig;
         var exited = await PlayAsync(rig, original);
         Assert.Contains(CompletionChoice.UpdateExisting, exited.Options.Choices);
         var savesBefore = (await rig.CommitsAsync(RepoRole.External, original)).Select(commit => commit.Id).ToList();
@@ -389,8 +433,8 @@ public class LaunchUpdateExistingTests
     [Fact(Timeout = 250_000)]
     public async Task A_retry_of_the_folder_that_only_joins_a_replacement_is_not_reported_as_kept_as_new()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var vanilla = await rig.ProfileAsync("Vanilla");
+        var (rig, vanilla) = await VanillaWorldAsync();
+        using var _ = rig;
         await PlayAsync(rig, vanilla);
         Assert.Null((await CompleteAsync(rig, new SessionCompletion.UpdateExisting("Vanilla"))).Error);
 
@@ -427,7 +471,7 @@ public class LaunchUpdateExistingTests
     {
         var armed = 0;
         var reads = 0;
-        using var rig = await LaunchRig.CreateAsync(
+        var (rig, original, copied) = await OriginalAndCopyWorldAsync(
             options => options with
             {
                 Engine = new GitEngineOptions
@@ -443,9 +487,7 @@ public class LaunchUpdateExistingTests
                     },
                 },
             });
-        var original = await rig.ProfileAsync("Original");
-        var copied = await rig.Profiles.DuplicateAsync(rig.Game.Id, original.Id, "Copy");
-        Assert.True(copied.Ok, copied.Error?.Detail);
+        using var _ = rig;
         var installBefore = (await rig.CommitsAsync(RepoRole.Install, original)).Select(commit => commit.Id).ToList();
         var exited = await PlayAsync(rig, original);
         Assert.Contains(CompletionChoice.UpdateExisting, exited.Options.Choices);
@@ -455,15 +497,15 @@ public class LaunchUpdateExistingTests
 
         Assert.Null(done.Error);
         Assert.Equal(2, reads);
-        Assert.Equal(installBefore, (await rig.CommitsAsync(RepoRole.Install, copied.Value)).Select(commit => commit.Id));
+        Assert.Equal(installBefore, (await rig.CommitsAsync(RepoRole.Install, copied)).Select(commit => commit.Id));
         Assert.Equal(installBefore, (await rig.CommitsAsync(RepoRole.Install, original)).Skip(1).Select(commit => commit.Id));
     }
 
     [Fact(Timeout = 200_000)]
     public async Task A_single_profile_can_replace_a_saves_only_snapshot_and_then_one_that_also_wrote_the_install()
     {
-        using var rig = await LaunchRig.CreateAsync();
-        var vanilla = await rig.ProfileAsync("Vanilla");
+        var (rig, vanilla) = await VanillaWorldAsync();
+        using var _ = rig;
 
         await PlayAsync(rig, vanilla);
         var first = await CompleteAsync(rig, new SessionCompletion.UpdateExisting("Vanilla"));
