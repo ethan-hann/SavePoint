@@ -29,7 +29,7 @@ public sealed class FakeProfilesApi : IProfilesApi
             await gate(cancellationToken);
         }
 
-        return await _backend.Call(_api, nameof(ListAsync), [gameId], () =>
+        return await _backend.Call(_api, nameof(ListAsync), [gameId], cancellationToken, () =>
             OperationResult.Success<IReadOnlyList<Profile>>([.. State.Profiles.Where(p => gameId is null || p.GameId == gameId)]));
     }
 
@@ -41,7 +41,7 @@ public sealed class FakeProfilesApi : IProfilesApi
             await gate(cancellationToken);
         }
 
-        return await _backend.Call(_api, nameof(GetRowStatsAsync), [gameId], () =>
+        return await _backend.Call(_api, nameof(GetRowStatsAsync), [gameId], cancellationToken, () =>
         {
             State.Game(gameId);
             var running = State.IsOpen(gameId) ? State.Sessions[gameId].ProfileId : null;
@@ -76,6 +76,7 @@ public sealed class FakeProfilesApi : IProfilesApi
                 throw new ValidationException([new ValidationIssue("startEmpty", ValidationMessageIds.ProfileStartEmptyUnsaved)]);
             }
 
+            var shared = folders.Where(role => State.FolderHeld(gameId, role)).ToList();
             var profile = CatalogIds.NewProfile(gameId, name, State.Random) with { Notes = notes };
             State.Profiles.Add(profile);
             Load(profile);
@@ -84,7 +85,7 @@ public sealed class FakeProfilesApi : IProfilesApi
                 State.RowStats[profile.Id] = State.StatsFor(profile) with { ModFileCount = 0 };
             }
 
-            return OperationResult.Success(StartCapture(game, profile, pointName, folders));
+            return OperationResult.Success(StartCapture(game, profile, pointName, folders, shared));
         });
 
     public Task<OperationResult<Profile>> UpdateAsync(string gameId, string profileId, ProfileChanges changes) =>
@@ -137,7 +138,7 @@ public sealed class FakeProfilesApi : IProfilesApi
 
     // Unless scripted, the points lost are the ones this profile captured, counted per folder they touched (D17).
     public Task<OperationResult<ProfileDeletePreview>> GetDeletePreviewAsync(string gameId, string profileId, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetDeletePreviewAsync), [gameId, profileId], () =>
+        _backend.Call(_api, nameof(GetDeletePreviewAsync), [gameId, profileId], cancellationToken, () =>
         {
             var game = State.Game(gameId);
             var profile = State.Profile(gameId, profileId);
@@ -208,14 +209,75 @@ public sealed class FakeProfilesApi : IProfilesApi
         State.RowStats[profile.Id] = State.StatsFor(profile) with { SnapshotNow = SnapshotNowAvailability.Available };
     }
 
-    private JobStarted StartCapture(GameDefinition game, Profile profile, string pointName, IEnumerable<RepoRole> folders)
+    // A folder some profile's snapshot already holds is not recorded again by the snapshot a new profile takes of the same files.
+    private JobStarted StartCapture(GameDefinition game, Profile profile, string pointName, IEnumerable<RepoRole> folders, IReadOnlyCollection<RepoRole>? sharedWithEarlierSnapshots = null)
     {
         var saved = new CaptureResult(profile.Id, State.NewPointId(), [.. folders.Select(r => new FolderOutcome(r))]);
         // Named after its profile means the profile's first snapshot, which the real work words without repeating the name.
         var opening = pointName == profile.Name
             ? JobLine.ForStep(JobSteps.CaptureStartFirst, ("profile", profile.Name))
             : JobLine.ForStep(JobSteps.CaptureStart, ("profile", profile.Name), ("snapshot", pointName));
-        return new JobStarted(_backend.Jobs.Start(JobKind.Capture, game.Id, saved, opening: [opening], profile: new JobProfile(profile.Id, profile.Name)));
+        return new JobStarted(_backend.Jobs.Start(
+            JobKind.Capture,
+            game.Id,
+            saved,
+            job => RecordCapture(game.Id, profile, pointName, sharedWithEarlierSnapshots ?? [], job),
+            [opening],
+            new JobProfile(profile.Id, profile.Name)));
+    }
+
+    // A finished capture adds its point to the profile's history and leaves that profile as the one the folders hold, as the real work does.
+    internal void RecordCapture(string gameId, Profile profile, string pointName, IReadOnlyCollection<RepoRole> sharedWithEarlierSnapshots, JobSnapshot job)
+    {
+        if (job.Status is not (JobStatus.Succeeded or JobStatus.Partial)
+            || job.Result is not CaptureResult { PointId: { } pointId } result
+            || State.PointsOf(gameId).Any(point => point.Id == pointId))
+        {
+            return;
+        }
+
+        var recorded = result.Folders.Where(folder => folder.Ok && !sharedWithEarlierSnapshots.Contains(folder.Role)).Select(folder => folder.Role).ToList();
+        var recordsSaves = recorded.Contains(RepoRole.External);
+        var recordsInstall = recorded.Any(role => role != RepoRole.External);
+        if (!recordsSaves && !recordsInstall)
+        {
+            return;
+        }
+
+        var kind = recordsSaves ? (recordsInstall ? HistoryPointKind.VersionModsAndSave : HistoryPointKind.SaveOnly) : HistoryPointKind.VersionAndMods;
+        var install = State.PointsOf(gameId).LastOrDefault(point => point.ProfileId == profile.Id)?.Install ?? new InstallState(null, null);
+
+        // The fake cannot measure a folder, so a point that recorded the install files says they came to a megabyte.
+        var point = new HistoryPoint(pointId, kind, pointName, job.FinishedAt ?? _backend.Clock.Now, profile.Id, profile.Name, install, null, recordsInstall ? 1 << 20 : null, false, recordsSaves);
+        State.History.Add((gameId, point));
+        RefreshAfterCapture(gameId, profile);
+    }
+
+    // The saves folder holds the newest point that recorded saves; going back to a profile's newest install point changes nothing only while that profile is the loaded one.
+    private void RefreshAfterCapture(string gameId, Profile loaded)
+    {
+        var points = State.History.Where(entry => entry.GameId == gameId).Select(entry => entry.Point).ToList();
+        var newestWithSaves = points.LastOrDefault(point => point.Kind != HistoryPointKind.VersionAndMods);
+        var newestInstallOfLoaded = points.LastOrDefault(point => point.ProfileId == loaded.Id && point.Kind != HistoryPointKind.SaveOnly);
+        for (var i = 0; i < State.History.Count; i++)
+        {
+            if (State.History[i].GameId == gameId)
+            {
+                var point = State.History[i].Point;
+                State.History[i] = (gameId, point with { LoadedNow = point == newestWithSaves, InUse = point == newestInstallOfLoaded });
+            }
+        }
+
+        foreach (var profile in State.Profiles.Where(candidate => candidate.GameId == gameId))
+        {
+            State.RowStats[profile.Id] = State.StatsFor(profile) with
+            {
+                IsActive = profile.Id == loaded.Id,
+                SnapshotCount = points.Count(point => point.ProfileId == profile.Id),
+                UnsavedChanges = profile.Id == loaded.Id ? [] : State.StatsFor(profile).UnsavedChanges,
+                SnapshotNow = profile.Id == loaded.Id ? SnapshotNowAvailability.Available : SnapshotNowAvailability.NotLoaded,
+            };
+        }
     }
 
     // A running game blocks every destructive step (D13.5); the active profile cannot go either.

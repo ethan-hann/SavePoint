@@ -3,11 +3,28 @@ using Savepoint.Core.Errors;
 
 namespace Savepoint.App.Tests.Fakes;
 
-// Nothing runs on its own: a test scripts every job and session step, and events fire on the thread that made the change.
+// How the fake's JobChanged and SessionChanged events reach a subscriber. The real backend raises them from its own threads after the
+// call that caused them has returned, so a screen is only shown to cope with that under Queued or Background.
+public enum EventDelivery
+{
+    // On the thread that made the change, before the call returns.
+    Inline,
+
+    // Held back until the test calls DeliverQueuedEvents, then raised on the thread that calls it.
+    Queued,
+
+    // Raised in order by a pool thread after the call has returned; WhenEventsDeliveredAsync waits for the last one.
+    Background,
+}
+
+// Nothing runs on its own: a test scripts every job and session step, and events fire on the thread that made the change (see EventDelivery).
 public sealed class FakeBackend
 {
     private readonly object _gate = new();
     private readonly List<Action> _pending = [];
+    private readonly List<Action> _queued = [];
+    private readonly List<Exception> _deliveryFailures = [];
+    private Task? _drain;
     private readonly Dictionary<string, Queue<ErrorInfo>> _failures = [];
 
     public FakeBackend(ScenarioBuilder scenario)
@@ -26,6 +43,68 @@ public sealed class FakeBackend
     }
 
     public FixedTimeProvider Clock { get; }
+
+    // Set before the first call; changing it while events wait delivers them under the new mode.
+    public EventDelivery Delivery { get; set; }
+
+    // The storage folder the settings name cannot be reached any more, as after an unplugged drive: the startup check says so, and
+    // only then do the two startup choices for a lost folder apply.
+    public FakeBackend WithStorageGone()
+    {
+        Script(() =>
+        {
+            var root = State.Settings.StorageRoot;
+            State.Startup = State.Startup with { Storage = new StorageStatus(false, root, ErrorInfo.From(new StorageUnreachableException(root, null))) };
+        });
+        return this;
+    }
+
+    public FakeBackend WithDelivery(EventDelivery delivery)
+    {
+        Delivery = delivery;
+        return this;
+    }
+
+    // Raises every event Queued delivery is holding, in order, on the calling thread.
+    public void DeliverQueuedEvents()
+    {
+        foreach (var raise in TakeQueued())
+        {
+            raise();
+        }
+    }
+
+    // Returns once every event raised so far has reached its subscribers; rethrows what a subscriber threw on the delivery thread.
+    public async Task WhenEventsDeliveredAsync()
+    {
+        while (true)
+        {
+            Task? drain;
+            lock (_gate)
+            {
+                drain = _drain;
+            }
+
+            if (drain is null)
+            {
+                break;
+            }
+
+            await drain.ConfigureAwait(false);
+        }
+
+        List<Exception> thrown;
+        lock (_gate)
+        {
+            thrown = [.. _deliveryFailures];
+            _deliveryFailures.Clear();
+        }
+
+        if (thrown.Count > 0)
+        {
+            throw new AggregateException(thrown);
+        }
+    }
 
     public FakeCallLog Calls { get; } = new();
 
@@ -68,13 +147,22 @@ public sealed class FakeBackend
         }
     }
 
-    // Records the call, applies a queued failure, otherwise runs the body; a thrown exception maps like the facade's.
-    internal Task<OperationResult<T>> Call<T>(string api, string member, object?[] args, Func<OperationResult<T>> body)
+    internal Task<OperationResult<T>> Call<T>(string api, string member, object?[] args, Func<OperationResult<T>> body) =>
+        Call(api, member, args, CancellationToken.None, body);
+
+    // Records the call, answers a token that is already cancelled with the cancelled error before anything runs (D23), applies a queued
+    // failure, otherwise runs the body. Whatever the body throws becomes the error of its result, as the real facade's guard does.
+    internal Task<OperationResult<T>> Call<T>(string api, string member, object?[] args, CancellationToken cancellationToken, Func<OperationResult<T>> body)
     {
         Calls.Record(api, member, args);
         OperationResult<T> result;
         lock (_gate)
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return Task.FromResult(OperationResult.Failure<T>(new RequestCancelledException()));
+            }
+
             if (TakeFailure(api, member) is { } failure)
             {
                 return Task.FromResult(OperationResult.Failure<T>(failure));
@@ -84,7 +172,7 @@ public sealed class FakeBackend
             {
                 result = body();
             }
-            catch (Exception ex) when (ex is KeyNotFoundException or InvalidOperationException or SavepointException)
+            catch (Exception ex)
             {
                 result = OperationResult.Failure<T>(ex);
             }
@@ -139,11 +227,75 @@ public sealed class FakeBackend
         {
             pending = [.. _pending];
             _pending.Clear();
+            if (Delivery != EventDelivery.Inline)
+            {
+                _queued.AddRange(pending);
+                pending = [];
+                if (Delivery == EventDelivery.Background && _drain is null)
+                {
+                    // A thread of its own, so the events never run on the pool thread a test's await may resume on.
+                    _drain = Task.Factory.StartNew(Drain, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+                }
+            }
         }
 
         foreach (var raise in pending)
         {
             raise();
+        }
+    }
+
+    private List<Action> TakeQueued()
+    {
+        lock (_gate)
+        {
+            var queued = _queued.ToList();
+            _queued.Clear();
+            return queued;
+        }
+    }
+
+    // One delivery thread at a time, so subscribers see the events in the order they were raised.
+    private void Drain()
+    {
+        while (true)
+        {
+            var batch = TakeQueuedOrFinish();
+            if (batch is null)
+            {
+                return;
+            }
+
+            foreach (var raise in batch)
+            {
+                try
+                {
+                    raise();
+                }
+                catch (Exception ex)
+                {
+                    lock (_gate)
+                    {
+                        _deliveryFailures.Add(ex);
+                    }
+                }
+            }
+        }
+    }
+
+    private List<Action>? TakeQueuedOrFinish()
+    {
+        lock (_gate)
+        {
+            if (_queued.Count == 0)
+            {
+                _drain = null;
+                return null;
+            }
+
+            var queued = _queued.ToList();
+            _queued.Clear();
+            return queued;
         }
     }
 }

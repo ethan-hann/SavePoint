@@ -268,7 +268,7 @@ public class StartupViewModelTests
         Assert.Equal([file.Path, CatalogRecovery.RestoreBackup], recover.Args);
         Assert.Equal(StartupPhase.Ready, startup.Phase);
         Assert.Equal(1, ready);
-        Assert.Equal([$"The unreadable file was moved to {file.Path}.corrupt."], startup.RecoveryNotes);
+        Assert.Equal([$"The unreadable file was moved to {file.Path}.corrupt-20260708T170000000Z."], startup.RecoveryNotes);
     }
 
     [Fact]

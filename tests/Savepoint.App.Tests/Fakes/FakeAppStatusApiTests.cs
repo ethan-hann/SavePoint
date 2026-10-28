@@ -9,8 +9,12 @@ public class FakeAppStatusApiTests
     private const string _history = @"G:\SavePoint";
     private const string _defaultRoot = @"C:\Users\you\AppData\Local\SavePoint\Storage";
 
-    private static FakeBackend Backend(params string[] foldersWithHistory) =>
-        new(ScenarioBuilder.Sample().WithDefaultStorageRoot(_defaultRoot).WithStorageHistoryIn(foldersWithHistory));
+    // Both choices are for a folder that is gone, so the saved storage folder cannot be reached.
+    private static FakeBackend Backend(params string[] foldersWithHistory)
+    {
+        var scenario = ScenarioBuilder.Sample().WithDefaultStorageRoot(_defaultRoot).WithStorageHistoryIn(foldersWithHistory);
+        return new FakeBackend(scenario).WithStorageGone();
+    }
 
     [Fact]
     public async Task A_folder_that_holds_no_history_of_the_games_is_refused_and_nothing_changes()

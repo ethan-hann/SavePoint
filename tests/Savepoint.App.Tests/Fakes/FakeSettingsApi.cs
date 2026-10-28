@@ -17,7 +17,7 @@ public sealed class FakeSettingsApi : ISettingsApi
     private FakeState State => _backend.State;
 
     public Task<OperationResult<AppSettings>> GetAsync(CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetAsync), [], () => OperationResult.Success(State.Settings));
+        _backend.Call(_api, nameof(GetAsync), [], cancellationToken, () => OperationResult.Success(State.Settings));
 
     // A test sets this to hold the next save, as a slow disk would.
     public Func<Task>? SaveGate { get; set; }
@@ -38,7 +38,7 @@ public sealed class FakeSettingsApi : ISettingsApi
     }
 
     public Task<OperationResult<StorageSummary>> GetStorageSummaryAsync(CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetStorageSummaryAsync), [], () => OperationResult.Success(new StorageSummary(
+        _backend.Call(_api, nameof(GetStorageSummaryAsync), [], cancellationToken, () => OperationResult.Success(new StorageSummary(
             State.Settings.StorageRoot,
             State.TotalBytes,
             GamesBytes(),
@@ -72,7 +72,7 @@ public sealed class FakeSettingsApi : ISettingsApi
         });
 
     public Task<OperationResult<FreeUpSpacePreview>> GetFreeUpSpacePreviewAsync(CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetFreeUpSpacePreviewAsync), [], () => OperationResult.Success(State.FreeUpPreview(null)));
+        _backend.Call(_api, nameof(GetFreeUpSpacePreviewAsync), [], cancellationToken, () => OperationResult.Success(State.FreeUpPreview(null)));
 
     // A test sets this to keep every estimate waiting until it completes it, as a big store would; a cancelled wait fails as cancelled.
     public TaskCompletionSource? EstimateHold { get; set; }
@@ -97,11 +97,11 @@ public sealed class FakeSettingsApi : ISettingsApi
             return OperationResult.Failure<long>(cancelled);
         }
 
-        return await _backend.Call(_api, nameof(EstimateFreeUpSpaceAsync), [token], () => OperationResult.Success(State.FreeUpEstimate));
+        return await _backend.Call(_api, nameof(EstimateFreeUpSpaceAsync), [token], cancellationToken, () => OperationResult.Success(State.FreeUpEstimate));
     }
 
     public Task<OperationResult<StorageRelocationPreview>> GetRelocationPreviewAsync(string newRoot, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetRelocationPreviewAsync), [newRoot], () => OperationResult.Success(State.RelocationPreview ?? new StorageRelocationPreview(
+        _backend.Call(_api, nameof(GetRelocationPreviewAsync), [newRoot], cancellationToken, () => OperationResult.Success(State.RelocationPreview ?? new StorageRelocationPreview(
             State.Settings.StorageRoot,
             newRoot,
             GamesBytes(),
@@ -142,7 +142,7 @@ public sealed class FakeSettingsApi : ISettingsApi
         });
 
     public Task<OperationResult<ClearAllDataPreview>> GetClearAllDataPreviewAsync(CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetClearAllDataPreviewAsync), [], () => OperationResult.Success(State.ClearAllDataPreview ?? new ClearAllDataPreview(
+        _backend.Call(_api, nameof(GetClearAllDataPreviewAsync), [], cancellationToken, () => OperationResult.Success(State.ClearAllDataPreview ?? new ClearAllDataPreview(
             State.Settings.StorageRoot,
             State.TotalBytes,
             State.Games.Count,

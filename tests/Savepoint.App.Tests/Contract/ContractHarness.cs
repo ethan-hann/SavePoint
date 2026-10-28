@@ -3,6 +3,7 @@ using Savepoint.Core.Api;
 using Savepoint.Core.Artwork;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 using Savepoint.Core.Launch.Orchestration;
 using Savepoint.Core.Platform;
@@ -38,6 +39,19 @@ internal abstract class ContractHarness : IAsyncDisposable
     public abstract ILaunchApi Launch { get; }
 
     public abstract IArtworkApi Artwork { get; }
+
+    public abstract IAppStatusApi AppStatus { get; }
+
+    // The folder the storage lives in until settings name another, and the folder the catalog files live in.
+    public abstract string DefaultStorageRoot { get; }
+
+    public abstract string CatalogDirectory { get; }
+
+    // Makes one catalog file unreadable, with a good last copy beside it or without one; returns the file's path.
+    public abstract string MakeCatalogFileCorrupt(string fileName, bool withBackup);
+
+    // Moves the storage folder, history and all, to <paramref name="movedTo"/>, as an unplugged drive or a renamed folder would leave the app.
+    public abstract Task LoseStorageAsync(string movedTo, CancellationToken cancellationToken);
 
     // Puts Steam's artwork for an app where the lookup finds it: a file in the fake Steam folder for the real backend, and a scripted
     // find for the fake. Nothing reads it until look again.
@@ -113,6 +127,28 @@ internal abstract class ContractHarness : IAsyncDisposable
         return game with { Mods = new ModsLocation(mods) };
     }
 
+    // A game folder holding the given program files, each of the given size, and nothing else; the game itself is not added to the library.
+    public GameDefinition NewGameWithPrograms(string name, string folderName, params (string Path, int Bytes)[] programs)
+    {
+        var id = name.ToLowerInvariant() + "-1";
+        var install = Path.Combine(Root, "games", id, folderName);
+        Directory.CreateDirectory(install);
+        foreach (var (path, bytes) in programs)
+        {
+            var full = Path.Combine(install, path);
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            File.WriteAllBytes(full, new byte[bytes]);
+        }
+
+        ProgramsAre(install, [.. programs.Select(program => program.Path)]);
+        return new GameDefinition(Id: id, Name: name, Install: new InstallLocation(install), Launch: new LaunchConfig(LaunchMethod.Exe, programs.Length > 0 ? programs[0].Path : "game.exe"));
+    }
+
+    // Tells the backend which programs an install folder holds, so a fake can be scripted with what the real one finds by scanning the disk.
+    public virtual void ProgramsAre(string installPath, IReadOnlyList<string> programs)
+    {
+    }
+
     // Tells the backend a folder is not there yet, so a fake can be scripted with what the real one finds by looking at the disk.
     public virtual void FolderIsMissing(string path)
     {
@@ -138,7 +174,40 @@ internal abstract class ContractHarness : IAsyncDisposable
 
 internal sealed class FakeContractHarness : ContractHarness
 {
-    private readonly FakeBackend _backend = FakeBackend.Empty();
+    private readonly FakeBackend _backend;
+
+    public FakeContractHarness()
+    {
+        // Events arrive after the call has returned and off the calling thread, as the real backend sends them.
+        _backend = new FakeBackend(ScenarioBuilder.Empty()
+            .WithDefaultStorageRoot(Path.Combine(Root, "home", "storage"))
+            .WithCatalogDirectory(Path.Combine(Root, "home", "catalog")))
+            .WithDelivery(EventDelivery.Background);
+    }
+
+    public override string DefaultStorageRoot => Path.Combine(Root, "home", "storage");
+
+    public override string CatalogDirectory => Path.Combine(Root, "home", "catalog");
+
+    public override IAppStatusApi AppStatus => _backend.AppStatus;
+
+    // The fake has no disk to corrupt, so the startup answer is scripted to name the file the way the real check does.
+    public override string MakeCatalogFileCorrupt(string fileName, bool withBackup)
+    {
+        var path = Path.Combine(CatalogDirectory, fileName);
+        _backend.State.Startup = _backend.State.Startup with
+        {
+            Catalog = new CatalogStatus(CatalogDirectory, [new CorruptCatalogFile(path, withBackup ? path + ".bak" : null, ErrorInfo.From(new CatalogCorruptException(path, null)))]),
+        };
+        return path;
+    }
+
+    public override Task LoseStorageAsync(string movedTo, CancellationToken cancellationToken)
+    {
+        _backend.State.StorageFoldersWithHistory.Add(movedTo);
+        _backend.WithStorageGone();
+        return Task.CompletedTask;
+    }
 
     public override IGamesApi Games => _backend.Games;
 
@@ -163,6 +232,8 @@ internal sealed class FakeContractHarness : ContractHarness
     }
 
     public override void FolderIsMissing(string path) => _backend.State.MissingFolders.Add(path);
+
+    public override void ProgramsAre(string installPath, IReadOnlyList<string> programs) => _backend.State.Executables[installPath] = programs;
 
     public override void ExpectLaunch(GameDefinition game, string profileId)
     {
@@ -272,6 +343,40 @@ internal sealed class RealContractHarness : ContractHarness
     public override ILaunchApi Launch => _backend.Launch;
 
     public override IArtworkApi Artwork => _backend.Artwork;
+
+    public override IAppStatusApi AppStatus => _backend.AppStatus;
+
+    public override string DefaultStorageRoot => _backend.Services.Platform.Directories.DefaultStorageRoot;
+
+    public override string CatalogDirectory => _backend.Services.Catalog.DirectoryPath;
+
+    public override string MakeCatalogFileCorrupt(string fileName, bool withBackup)
+    {
+        var path = Path.Combine(CatalogDirectory, fileName);
+        Directory.CreateDirectory(CatalogDirectory);
+        File.WriteAllText(path, "{ this is not a catalog");
+        if (withBackup)
+        {
+            File.WriteAllText(path + ".bak", fileName == CatalogStore.SettingsFileName ? "{}" : "[]");
+        }
+
+        return path;
+    }
+
+    // Work queued behind a call, such as the compaction after a save, would still be reading the folder, so it ends first.
+    public override async Task LoseStorageAsync(string movedTo, CancellationToken cancellationToken)
+    {
+        var until = DateTime.UtcNow + _limit;
+        while (_backend.Jobs.List().Any(job => job.Status == JobStatus.Running) && DateTime.UtcNow < until)
+        {
+            await Task.Delay(25, cancellationToken).ConfigureAwait(false);
+        }
+
+        var settings = await _backend.Settings.GetAsync(cancellationToken).ConfigureAwait(false);
+        var root = settings.Ok ? settings.Value.StorageRoot : throw new InvalidOperationException("The settings could not be read: " + settings.Error.MessageId);
+        Directory.CreateDirectory(Path.GetDirectoryName(movedTo)!);
+        Directory.Move(root, movedTo);
+    }
 
     public override void SteamHasArt(GameDefinition game, int appId)
     {
