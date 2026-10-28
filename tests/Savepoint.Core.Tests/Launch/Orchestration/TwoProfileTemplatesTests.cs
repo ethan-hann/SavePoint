@@ -66,6 +66,24 @@ public class TwoProfileTemplatesTests
     }
 
     [Fact(Timeout = 150_000)]
+    public async Task A_copy_does_not_start_with_the_ready_file_of_the_game_that_built_its_world()
+    {
+        using var rig = await LaunchRig.FromWorldAsync("built-by-playing", async built =>
+        {
+            var profile = await built.ProfileAsync("Played");
+            await built.StartAsync(new LaunchTarget.ProfileTip(profile.Id));
+            await built.WaitForGameAsync();
+            built.WriteSave("slot1.sav", "a session");
+            built.KillGame();
+            await built.WaitForAsync<SessionState.Exited>();
+            Assert.True((await built.Launch.CompleteSessionAsync(built.Game.Id, new SessionCompletion.CaptureNew("Session"))).Ok);
+            await built.WaitForAsync<SessionState.Completed>();
+        });
+
+        Assert.False(File.Exists(rig.ReadyFile), "A test that waits for the game would take the file left by the build for a game that is running.");
+    }
+
+    [Fact(Timeout = 150_000)]
     public async Task A_copy_takes_the_game_arguments_and_the_process_name_the_test_asks_for()
     {
         var (rig, _, _) = await LaunchRig.WithTwoProfilesAsync(gameArguments: ["--exit-after", "800"], followProcessName: true);

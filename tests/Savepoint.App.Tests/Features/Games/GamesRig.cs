@@ -30,11 +30,11 @@ internal sealed class GamesRig
         Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         Dialogs = new FakeDialogs();
         UiDialogs = dialogs?.Invoke(Text) ?? Dialogs;
-        Toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
+        var ui = dispatcher ?? new ImmediateUiDispatcher();
+        Toasts = new ToastHostViewModel(new ManualTimeProvider(), ui);
         LaunchFlow = new ConfigurableLaunchFlow();
         Editor = new RecordingEditorFactory();
         Revealer = new RecordingFileRevealer();
-        var ui = dispatcher ?? new ImmediateUiDispatcher();
         var factory = new CapturingScreenFactory(new GamesScreenFactory(new GamesDependencies(
             backend.Games,
             profiles ?? backend.Profiles,

@@ -21,7 +21,7 @@ internal sealed class ShellRig
         Backend = backend;
         Text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         Dialogs = new FakeDialogs();
-        Toasts = new ToastHostViewModel(new ManualTimeProvider(), new ImmediateUiDispatcher());
+        Toasts = new ToastHostViewModel(new ManualTimeProvider(), dispatcher);
         Theme = new RecordingThemeApplier();
         Screens = screens;
         Shell = new ShellViewModel(new ShellDependencies(

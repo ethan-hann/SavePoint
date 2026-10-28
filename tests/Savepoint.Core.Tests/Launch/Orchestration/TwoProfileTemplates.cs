@@ -37,6 +37,9 @@ internal static class TwoProfileTemplates
             // A world built by playing leaves no program running, so no file of the template is held when it is copied.
             rig.KillGame();
             SpinWait.SpinUntil(() => rig.GameProcessIds().Count == 0, TimeSpan.FromSeconds(10));
+
+            // The file says the game it was written for is running, and every copy would carry it.
+            File.Delete(rig.ReadyFile);
             await rig.Workspace.WaitForIdleAsync();
         }
         catch

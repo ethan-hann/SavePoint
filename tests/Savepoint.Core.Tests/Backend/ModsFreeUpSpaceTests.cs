@@ -200,9 +200,18 @@ public class ModsFreeUpSpaceTests
         private static async Task<World> BuildTemplateAsync()
         {
             var world = await BuildAsync();
-            await world.Workspace.WaitForIdleAsync();
             var folder = world.Workspace.Root;
             AppDomain.CurrentDomain.ProcessExit += (_, _) => Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(folder);
+            try
+            {
+                await world.Workspace.WaitForIdleAsync();
+            }
+            catch
+            {
+                world.Dispose();
+                throw;
+            }
+
             return world;
         }
 

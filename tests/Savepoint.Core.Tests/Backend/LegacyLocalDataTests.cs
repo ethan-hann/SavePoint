@@ -664,10 +664,19 @@ public class LegacyLocalDataTests
         private static async Task<BackendWorkspace> BuildTemplateAsync()
         {
             var seeded = new World();
-            await seeded.SeedHistoryAsync();
-            await seeded.Workspace.WaitForIdleAsync();
             var folder = seeded.Workspace.Root;
             AppDomain.CurrentDomain.ProcessExit += (_, _) => Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(folder);
+            try
+            {
+                await seeded.SeedHistoryAsync();
+                await seeded.Workspace.WaitForIdleAsync();
+            }
+            catch
+            {
+                seeded.Dispose();
+                throw;
+            }
+
             return seeded.Workspace;
         }
 

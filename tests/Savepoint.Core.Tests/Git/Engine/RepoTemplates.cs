@@ -18,7 +18,19 @@ internal static class RepoTemplates
 
     public static async Task<(RepoRef Repo, T Data)> CopyAsync<T>(string name, EngineWorkspace into, Func<EngineWorkspace, Task<(RepoRef Repo, T Data)>> build)
     {
-        var template = await _built.GetOrAdd(name, _ => new Lazy<Task<Template>>(() => BuildAsync(build))).Value;
+        var entry = _built.GetOrAdd(name, _ => new Lazy<Task<Template>>(() => BuildAsync(build)));
+        Template template;
+        try
+        {
+            template = await entry.Value;
+        }
+        catch
+        {
+            // A build that failed or was cancelled with its test is built again by the next test, not rethrown to every test after it.
+            _built.TryRemove(new KeyValuePair<string, Lazy<Task<Template>>>(name, entry));
+            throw;
+        }
+
         var copy = into.NewRepo();
         CopyFolder(template.Repo.GitDir, copy.GitDir);
         CopyFolder(template.Repo.WorkTree, copy.WorkTree);
@@ -33,8 +45,21 @@ internal static class RepoTemplates
             _workspaces.Add(workspace);
         }
 
-        var (repo, data) = await build(workspace);
-        return new Template(repo, data);
+        try
+        {
+            var (repo, data) = await build(workspace);
+            return new Template(repo, data);
+        }
+        catch
+        {
+            lock (_gate)
+            {
+                _workspaces.Remove(workspace);
+            }
+
+            workspace.Dispose();
+            throw;
+        }
     }
 
     private static void CopyFolder(string from, string to)
