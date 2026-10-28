@@ -71,6 +71,19 @@ public class LaunchActionLogTests
     }
 
     [Fact(Timeout = 120_000)]
+    public async Task A_session_that_ends_after_the_started_program_exited_logs_the_programs_exit_code()
+    {
+        using var rig = await RigAsync(gameArguments: ["--exit-after", "300", "--exit-code", "3"]);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+
+        await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+        await rig.WaitForAsync<SessionState.Exited>();
+
+        var line = Assert.Single(_log.Containing("Launch session for", rig.Game.Id, "ended"));
+        Assert.Contains("the program exited with code 3", line.Message, StringComparison.Ordinal);
+    }
+
+    [Fact(Timeout = 120_000)]
     public async Task A_session_whose_game_cannot_be_followed_logs_that_it_ended_that_way_with_the_error_and_the_started_pid()
     {
         var starter = new GameStarter(new BrokenLauncher(), new ScriptedInspector(), PlatformFactory.CurrentOs, new GameSessionOptions(), TimeProvider.System);

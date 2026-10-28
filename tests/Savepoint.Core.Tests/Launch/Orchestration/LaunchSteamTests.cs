@@ -320,6 +320,34 @@ public class LaunchSteamTests
     }
 
     [Fact(Timeout = 240_000)]
+    public async Task A_Steam_game_started_after_Start_Steam_and_quit_a_few_seconds_in_offers_the_after_play_choices_without_Im_done()
+    {
+        // The real grace is two minutes; a game that waited it out would still be Running when the wait for the end gives up.
+        var session = new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(100), Grace = TimeSpan.FromMinutes(5) };
+        var steam = new FakeSteamClient { ReadyAfterLooks = 2 };
+        var (rig, vanilla, _) = await LaunchRig.WithTwoProfilesAsync(
+            configure: options => options with
+            {
+                Launch = LaunchOrchestrator.Factory(new LaunchOrchestratorOptions { Session = session, Steam = steam, SteamWait = new SteamWaitOptions { Timeout = TimeSpan.FromSeconds(5), PollInterval = TimeSpan.FromMilliseconds(20) } }),
+            },
+            gameArguments: ["--exit-after", "1500"],
+            followProcessName: true,
+            steam: steam,
+            steamLibrary: true);
+        using var _ = rig;
+
+        var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(vanilla), startSteam: true);
+        Assert.True(started.Ok, started.Error?.Detail);
+        await rig.WaitForJobAsync(started.Value!.JobId);
+
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        Assert.Equal(1, steam.Starts);
+        Assert.Equal(SessionEndKind.ChildExited, exited.EndKind);
+        Assert.Empty(rig.GameProcessIds());
+    }
+
+    [Fact(Timeout = 240_000)]
     public async Task Start_Steam_with_the_client_already_up_starts_nothing()
     {
         var steam = new FakeSteamClient(ready: true);
