@@ -34,7 +34,7 @@ mkdir -p "$root/logs" "$root/incoming"
 # The lock is taken before the tree is touched, so a refused run changes nothing. Its holder is written beside it because opening
 # the lock file for writing would erase it.
 exec 9>>"$root/gate.lock"
-if ! flock -n 9; then
+if ! flock -n 9 && ! { vm_free_stale_lock "$root/gate.lock" "$root/gate.holder" && flock -w 10 9; }; then
   echo "gate-linux: another gate is running on this VM; this run is refused and changed nothing." >&2
   [ -f "$root/gate.holder" ] && sed 's/^/gate-linux:   /' "$root/gate.holder" >&2
   exit 75

@@ -149,8 +149,9 @@ mkdir -p "$gate_tmp"
 trap 'rm -rf "$gate_tmp"' EXIT
 temp_env=(TMPDIR="$gate_tmp" TMP="$gate_tmp" TEMP="$gate_tmp")
 
-# Starts one test process in the background. Its output is kept and printed as one block when it ends, so the processes do not
-# interleave; the exit code is the process's own. Arguments after the thread count are its filter.
+# Starts one test process in the background. Each line it prints appears at once with its name in front (and is kept in
+# <results>/<name>.log), so a process that hangs shows where it stopped; the exit code is the process's own. Arguments after the
+# thread count are its filter.
 test_pids=()
 test_names=()
 start_test_process() {
@@ -161,14 +162,33 @@ start_test_process() {
     started=$SECONDS
     # SAVEPOINT_TEST_ARGS is empty unless the caller sets it (a report); it goes to every process.
     # shellcheck disable=SC2086
-    env "${temp_env[@]}" dotnet test --project "$project" -c Release --no-build --max-threads "$threads" --report-xunit --report-xunit-filename "$name.xunit" --results-directory "$results_dir" "$@" ${SAVEPOINT_TEST_ARGS:-} >"$results_dir/$name.log" 2>&1
-    code=$?
+    env "${temp_env[@]}" dotnet test --project "$project" -c Release --no-build --max-threads "$threads" --report-xunit --report-xunit-filename "$name.xunit" --results-directory "$results_dir" "$@" ${SAVEPOINT_TEST_ARGS:-} 2>&1 \
+      | tee "$results_dir/$name.log" \
+      | while IFS= read -r line || [ -n "$line" ]; do printf '[%s] %s\n' "$name" "$line"; done
+    code=${PIPESTATUS[0]}
     echo "==> test process '$name' ended with exit code $code after $((SECONDS - started)) s"
-    cat "$results_dir/$name.log"
     exit "$code"
   ) &
   test_pids+=($!)
   test_names+=("$name")
+}
+
+# Returns when every test process has ended, saying every SAVEPOINT_GATE_HEARTBEAT_SECONDS (300) which are still going.
+wait_for_test_processes() {
+  local interval="${SAVEPOINT_GATE_HEARTBEAT_SECONDS:-300}" started=$SECONDS next running i
+  next=$interval
+  while true; do
+    running=""
+    for i in "${!test_pids[@]}"; do
+      if kill -0 "${test_pids[$i]}" 2>/dev/null; then running="${running:+$running, }${test_names[$i]}"; fi
+    done
+    [ -z "$running" ] && break
+    if [ $((SECONDS - started)) -ge "$next" ]; then
+      echo "==> still running after $((SECONDS - started)) s: $running"
+      next=$((next + interval))
+    fi
+    sleep 1
+  done
 }
 
 # The gate always asks for the xunit report itself (the skip check reads it), so SAVEPOINT_TEST_ARGS must not.
@@ -189,7 +209,8 @@ else
   }
   # A listed test is "  <class>.<method>(<data>)". A theory whose data cannot be listed shows once in the listing and once per row in a
   # report, so the check counts methods, not cases.
-  app_test_count="$({ printf '%s\n' "$listing" | grep -E '^  [A-Za-z_][A-Za-z0-9_.+]*\.[A-Za-z_][A-Za-z0-9_]*(\(|$)' || true; } | cut -d'(' -f1 | sort -u | wc -l | tr -d ' ')"
+  # LC_ALL=C: names that differ only in case are different methods, as they are in the Windows gate.
+  app_test_count="$({ printf '%s\n' "$listing" | grep -E '^  [A-Za-z_][A-Za-z0-9_.+]*\.[A-Za-z_][A-Za-z0-9_]*(\(|$)' || true; } | cut -d'(' -f1 | LC_ALL=C sort -u | wc -l | tr -d ' ')"
   if [ "$app_test_count" -eq 0 ]; then
     echo "listing the App tests failed: no tests in:" >&2
     echo "$listing" >&2
@@ -228,6 +249,7 @@ else
     app_reports+=("$results_dir/app-rest.xunit")
   fi
 
+  wait_for_test_processes
   failed=""
   for i in "${!test_pids[@]}"; do
     if ! wait "${test_pids[$i]}"; then

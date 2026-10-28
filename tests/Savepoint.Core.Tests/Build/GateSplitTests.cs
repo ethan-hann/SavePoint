@@ -24,12 +24,17 @@ public sealed class GateSplitTests : IDisposable
                 # The first method is a theory: three lines in a report, one in a listing.
                 "  Fake.Tests.Method$method" + $(if ($method -eq 1) { '(row: 0)' } else { '' })
             }
+            # A method whose name differs from another's only in case is a different method.
+            if ($env:FAKE_CASE_VARIANT) { '  Fake.Tests.METHOD2' }
             'Discovered many tests.'
             exit 0
         }
         $name = $args[[array]::IndexOf($args, '--report-xunit-filename') + 1]
         $directory = $args[[array]::IndexOf($args, '--results-directory') + 1]
         $process = [IO.Path]::GetFileNameWithoutExtension($name)
+        "output of $process, first line"
+        if ($env:FAKE_SLOW -eq $process) { Start-Sleep -Seconds 4 }
+        "output of $process, last line"
         $total = 0
         foreach ($pair in $env:FAKE_TOTALS -split ',') {
             $key, $value = $pair -split '='
@@ -363,6 +368,45 @@ public sealed class GateSplitTests : IDisposable
         Assert.InRange(core, 4, 8);
         Assert.All(processes.Where(process => process.Name != "core"), process =>
             Assert.Equal(["2"], Values(process, "--max-threads")));
+    }
+
+    [Theory]
+    [InlineData(Script.PowerShell)]
+    [InlineData(Script.Bash)]
+    public async Task Each_test_process_prints_its_output_under_its_own_name_and_a_slow_one_is_reported_while_it_runs(Script script)
+    {
+        var settings = RoomToSpare();
+        settings["FAKE_SLOW"] = "core";
+        settings["SAVEPOINT_GATE_HEARTBEAT_SECONDS"] = "1";
+        var gate = await RunGateAsync(script, [], settings: settings);
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        foreach (var name in LaneProcessNames())
+        {
+            Assert.Contains($"[{name}] output of {name}, first line", gate.Output, StringComparison.Ordinal);
+            Assert.Contains($"[{name}] output of {name}, last line", gate.Output, StringComparison.Ordinal);
+        }
+
+        // Core sleeps for four seconds before its last line, so a report that it is still running comes before that line.
+        var heartbeat = gate.Output.IndexOf("still running", StringComparison.Ordinal);
+        Assert.True(heartbeat >= 0, "No report of a process still running:" + Environment.NewLine + gate.Output);
+        Assert.Contains("core", gate.Output.Substring(heartbeat, Math.Min(120, gate.Output.Length - heartbeat)), StringComparison.Ordinal);
+        Assert.True(heartbeat < gate.Output.IndexOf("[core] output of core, last line", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(Script.PowerShell)]
+    [InlineData(Script.Bash)]
+    public async Task The_listing_counts_two_methods_whose_names_differ_only_in_case_as_two(Script script)
+    {
+        var settings = RoomToSpare();
+        settings["FAKE_CASE_VARIANT"] = "1";
+        var gate = await RunGateAsync(script, [], listedMore: -1, settings: settings);
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        Assert.Contains($"= {ListedTests()} test methods, as many as the full listing", gate.Output, StringComparison.Ordinal);
     }
 
     [Fact]

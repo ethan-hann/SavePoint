@@ -169,23 +169,43 @@ function Get-AppTestLanes {
     return $lanes
 }
 
-# Starts every run at once and waits for all of them. Each run's output is kept and printed as one block when it ends, so the
-# processes do not interleave; a failure names the process. A run is { Name; Project; Filter; Threads }.
+# Starts every run at once and waits for all of them. Each line a run prints appears at once with the run's name in front, so a
+# process that hangs shows where it stopped, and a report of the runs still going comes every SAVEPOINT_GATE_HEARTBEAT_SECONDS
+# (300). A failure names the process. A run is { Name; Project; Filter; Threads }.
 function Invoke-TestProcesses {
     param([object[]]$Runs)
     $repoRoot = (Get-Location).Path
-    $outcomes = $Runs | ForEach-Object -ThrottleLimit $Runs.Count -Parallel {
+    $interval = if ($env:SAVEPOINT_GATE_HEARTBEAT_SECONDS) { [double]$env:SAVEPOINT_GATE_HEARTBEAT_SECONDS } else { 300.0 }
+    $running = [System.Collections.Concurrent.ConcurrentDictionary[string, bool]]::new()
+    foreach ($run in $Runs) { $null = $running.TryAdd($run.Name, $true) }
+    $items = @($Runs) + [pscustomobject]@{ Name = '__heartbeat' }
+    $outcomes = $items | ForEach-Object -ThrottleLimit $items.Count -Parallel {
         $run = $_
+        $running = $using:running
+        if ($run.Name -eq '__heartbeat') {
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            $next = $using:interval
+            while ($running.Count -gt 0) {
+                Start-Sleep -Milliseconds 250
+                if ($watch.Elapsed.TotalSeconds -ge $next) {
+                    Write-Host ("==> still running after {0:m\:ss}: {1}" -f $watch.Elapsed, (($running.Keys | Sort-Object) -join ', '))
+                    $next += $using:interval
+                }
+            }
+            return
+        }
+
         Set-Location $using:repoRoot
         $filter = @($run.Filter)
         $extra = @($using:testArgs)
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
-        $output = & dotnet test --project $run.Project -c Release --no-build --max-threads $run.Threads --report-xunit --report-xunit-filename "$($run.Name).xunit" --results-directory $using:resultsDir @filter @extra 2>&1 | Out-String
+        & dotnet test --project $run.Project -c Release --no-build --max-threads $run.Threads --report-xunit --report-xunit-filename "$($run.Name).xunit" --results-directory $using:resultsDir @filter @extra 2>&1 | ForEach-Object { Write-Host "[$($run.Name)] $_" }
         $code = $LASTEXITCODE
-        Write-Host ("==> test process '{0}' ended with exit code {1} after {2:m\:ss}`n{3}" -f $run.Name, $code, $watch.Elapsed, $output.TrimEnd())
+        $null = $running.TryRemove($run.Name, [ref]$null)
+        Write-Host ("==> test process '{0}' ended with exit code {1} after {2:m\:ss}" -f $run.Name, $code, $watch.Elapsed)
         [pscustomobject]@{ Name = $run.Name; ExitCode = $code }
     }
-    $failed = @($outcomes | Where-Object { $_.ExitCode -ne 0 })
+    $failed = @($outcomes | Where-Object { $_ -and $_.ExitCode -ne 0 })
     if ($failed.Count -gt 0) {
         throw "test failed in: $(($failed | ForEach-Object { "$($_.Name) (exit code $($_.ExitCode))" }) -join ', ')"
     }
@@ -206,7 +226,7 @@ try {
         $listExitCode = $LASTEXITCODE
         # A listed test is "  <class>.<method>(<data>)". A theory whose data cannot be listed shows once in the listing and once per
         # row in a report, so the check counts methods, not cases.
-        $appTestCount = @($listing -split '\r?\n' | Where-Object { $_ -match '^  [A-Za-z_][A-Za-z0-9_.+]*\.[A-Za-z_][A-Za-z0-9_]*(\(|$)' } | ForEach-Object { ($_ -replace '\(.*$', '').Trim() } | Sort-Object -Unique).Count
+        $appTestCount = @($listing -split '\r?\n' | Where-Object { $_ -match '^  [A-Za-z_][A-Za-z0-9_.+]*\.[A-Za-z_][A-Za-z0-9_]*(\(|$)' } | ForEach-Object { ($_ -replace '\(.*$', '').Trim() } | Sort-Object -Unique -CaseSensitive).Count
         if ($listExitCode -ne 0 -or $appTestCount -eq 0) {
             throw "listing the App tests failed (exit code $listExitCode):`n$listing"
         }
