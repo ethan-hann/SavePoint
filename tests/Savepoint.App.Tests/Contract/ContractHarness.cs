@@ -235,27 +235,10 @@ internal sealed class FakeContractHarness : ContractHarness
 
     public override void ProgramsAre(string installPath, IReadOnlyList<string> programs) => _backend.State.Executables[installPath] = programs;
 
-    public override void ExpectLaunch(GameDefinition game, string profileId)
-    {
-        var target = new LaunchTarget.ProfileTip(profileId);
-        var state = new InstallState(null, null);
-        var save = new SaveEntry(new HistoryPointId("point-1"), "Fresh install", DateTimeOffset.UnixEpoch, IsMostRecent: true);
-        _backend.State.LaunchPreviews[(game.Id, target)] = new LaunchPreview(
-            game.Id,
-            profileId,
-            target,
-            [
-                new FolderLaunchState(RepoRole.Install, game.Install.Path, true, false, 0, null, null),
-                new FolderLaunchState(RepoRole.External, game.External!.Path, true, false, 0, null, null),
-            ],
-            state,
-            state,
-            [save],
-            save.Id,
-            ShowBanner: true,
-            OnlySaveDiffers: false,
-            TargetIsOlderPoint: false);
-    }
+    // The preview the real backend gave for a profile whose folders hold it (Fakes/Previews/profile-tip-clean.json).
+    public override void ExpectLaunch(GameDefinition game, string profileId) =>
+        _backend.State.LaunchPreviews[(game.Id, new LaunchTarget.ProfileTip(profileId))] =
+            LaunchPreviewFixtures.Load("profile-tip-clean", new PreviewNames(game.Id, profileId, game.Install.Path, game.External?.Path));
 
     public override Task GameRunningAsync(string gameId, CancellationToken cancellationToken)
     {
@@ -282,20 +265,19 @@ internal sealed class FakeContractHarness : ContractHarness
         return started.Ok ? started.Value.JobId : throw new InvalidOperationException("The switch to hold did not start: " + started.Error.MessageId);
     }
 
-    // Scripts what the real backend works out for a folder a stopped switch left half done: dirty, unfinished, and the target that finishes it.
+    // Plays what the real backend gave for a folder a stopped switch left half done: dirty, unfinished, and the target that finishes it
+    // (Fakes/Previews/stopped-switch.json). The switch is stopped the way the real one is, by asking the job to cancel and then ending it.
     public override async Task InterruptSwitchAsync(GameDefinition game, string currentProfileId, string toProfileId, CancellationToken cancellationToken)
     {
         var started = await _backend.Launch.StartAsync(game.Id, new LaunchTarget.ProfileTip(toProfileId));
         _backend.Jobs.CompleteCancelled(started.Value!.JobId);
-        var key = (game.Id, (LaunchTarget)new LaunchTarget.ProfileTip(currentProfileId));
-        var preview = _backend.State.LaunchPreviews[key];
-        _backend.State.LaunchPreviews[key] = preview with
-        {
-            Folders = [.. preview.Folders.Select(folder => folder.Role != RepoRole.Install ? folder : folder with { Dirty = true, DirtyOwnerProfileId = null, UnfinishedSwitch = true, UnfinishedSwitchTarget = new LaunchTarget.ProfileTip(toProfileId) })],
-        };
+        _backend.State.LaunchPreviews[(game.Id, new LaunchTarget.ProfileTip(currentProfileId))] =
+            LaunchPreviewFixtures.Load("stopped-switch", new PreviewNames(game.Id, currentProfileId, game.Install.Path, game.External?.Path, toProfileId));
     }
 
-    public override void SwitchFinished(GameDefinition game, string profileId) => ExpectLaunch(game, profileId);
+    public override void SwitchFinished(GameDefinition game, string profileId) =>
+        _backend.State.LaunchPreviews[(game.Id, new LaunchTarget.ProfileTip(profileId))] =
+            LaunchPreviewFixtures.Load("finished-switch", new PreviewNames(game.Id, profileId, game.Install.Path, game.External?.Path));
 }
 
 internal sealed class RealContractHarness : ContractHarness

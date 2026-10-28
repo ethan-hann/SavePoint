@@ -1,3 +1,5 @@
+using Savepoint.App.Tests.Fakes;
+
 namespace Savepoint.App.Tests.Contract;
 
 // The fake backend is what every screen test is written against, so it has to say what the real one says.
@@ -47,6 +49,27 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
             var cancelled = story.Where(line => line.Contains("with a cancelled token: ", StringComparison.Ordinal)).ToList();
             Assert.Equal(24, cancelled.Count);
             Assert.All(cancelled, line => Assert.EndsWith(": error error.operation.cancelled", line, StringComparison.Ordinal));
+        }
+    }
+
+    // Tests that need a launch preview take one the real backend gave instead of building it by hand, so the files in Fakes/Previews have
+    // to be what the real backend still says. Run once with SAVEPOINT_CAPTURE_PREVIEWS=1 to write them again after a change on purpose.
+    [Fact]
+    public void The_launch_previews_the_fake_plays_back_are_the_ones_the_real_backend_gave()
+    {
+        Assert.Equal(["finished-switch", "profile-tip-clean", "stopped-switch"], runs.Real.Previews.Keys.Order(StringComparer.Ordinal));
+        foreach (var (name, real) in runs.Real.Previews)
+        {
+            var path = Path.Combine(LaunchPreviewFixtures.Folder, name + ".json");
+            if (Environment.GetEnvironmentVariable(LaunchPreviewFixtures.CaptureVariable) == "1")
+            {
+                Directory.CreateDirectory(LaunchPreviewFixtures.Folder);
+                File.WriteAllText(path, real);
+            }
+
+            Assert.True(File.Exists(path), $"The preview '{name}' has no file. Run once with {LaunchPreviewFixtures.CaptureVariable}=1 to write it.");
+            Assert.Equal(File.ReadAllText(path).ReplaceLineEndings("\n"), real.ReplaceLineEndings("\n"));
+            Assert.Equal(real, runs.Fake.Previews[name]);
         }
     }
 

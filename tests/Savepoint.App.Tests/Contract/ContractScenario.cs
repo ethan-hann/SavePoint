@@ -1,3 +1,4 @@
+using Savepoint.App.Tests.Fakes;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 
@@ -10,6 +11,9 @@ namespace Savepoint.App.Tests.Contract;
 internal sealed record ScenarioTranscript(IReadOnlyList<string> Shared, IReadOnlyList<string> Gaps)
 {
     public IReadOnlyList<string> Events { get; init; } = [];
+
+    // The launch previews the story took, as fixture text by name (see LaunchPreviewFixtures).
+    public IReadOnlyDictionary<string, string> Previews { get; init; } = new Dictionary<string, string>();
 }
 
 internal static class ContractScenario
@@ -29,7 +33,7 @@ internal static class ContractScenario
         var gaps = new Story();
         await RunGapsAsync(backend, gaps, shared, cancellationToken);
         await events.SettledAsync(cancellationToken);
-        return new ScenarioTranscript([.. shared.Lines], [.. gaps.Lines, .. events.OnlyTheBackendDoesOnItsOwn()]) { Events = events.Describe() };
+        return new ScenarioTranscript([.. shared.Lines], [.. gaps.Lines, .. events.OnlyTheBackendDoesOnItsOwn()]) { Events = events.Describe(), Previews = shared.Previews };
     }
 
     private static async Task RunSharedAsync(ContractHarness backend, Story story, CancellationToken cancellationToken)
@@ -114,8 +118,13 @@ internal static class ContractScenario
     {
         backend.ExpectLaunch(game, profileId);
         var tip = new LaunchTarget.ProfileTip(profileId);
-        story.Add("launch preview", Show(await backend.Launch.GetPreviewAsync(game.Id, tip, cancellationToken), preview =>
+        var previewed = await backend.Launch.GetPreviewAsync(game.Id, tip, cancellationToken);
+        story.Add("launch preview", Show(previewed, preview =>
             $"banner={preview.ShowBanner} older={preview.TargetIsOlderPoint} install matches={preview.Install.MatchesTarget} dirty={preview.Install.Dirty} saves matches={preview.Folder(RepoRole.External)?.MatchesTarget} saves={preview.AvailableSaves.Count}"));
+        if (previewed.Ok)
+        {
+            story.Keep("profile-tip-clean", previewed.Value, new PreviewNames(game.Id, profileId, game.Install.Path, game.External?.Path));
+        }
 
         var started = await backend.Launch.StartAsync(game.Id, tip);
         story.Add("start launch", Show(started, _ => "job started"));
@@ -162,6 +171,10 @@ internal static class ContractScenario
         var stopped = await backend.Launch.GetPreviewAsync(game.Id, moddedTip, cancellationToken);
         story.Add("session after the switch was stopped", Describe(backend.Launch.GetSession(game.Id), story));
         story.Add("preview after the switch was stopped", Show(stopped, preview => DescribeFolders(preview, story)));
+        if (stopped.Ok)
+        {
+            story.Keep("stopped-switch", stopped.Value, new PreviewNames(game.Id, modded, game.Install.Path, game.External?.Path, vanilla));
+        }
 
         var recorded = stopped.Ok ? stopped.Value.Install.UnfinishedSwitchTarget : null;
         if (recorded is null)
@@ -174,7 +187,12 @@ internal static class ContractScenario
         story.Add("start the recorded target", Show(finishing, _ => "job started"));
         await backend.GameRunningAsync(game.Id, cancellationToken);
         backend.SwitchFinished(game, vanilla);
-        story.Add("preview after the switch was finished", Show(await backend.Launch.GetPreviewAsync(game.Id, new LaunchTarget.ProfileTip(vanilla), cancellationToken), preview => DescribeFolders(preview, story)));
+        var finishedPreview = await backend.Launch.GetPreviewAsync(game.Id, new LaunchTarget.ProfileTip(vanilla), cancellationToken);
+        story.Add("preview after the switch was finished", Show(finishedPreview, preview => DescribeFolders(preview, story)));
+        if (finishedPreview.Ok)
+        {
+            story.Keep("finished-switch", finishedPreview.Value, new PreviewNames(game.Id, vanilla, game.Install.Path, game.External?.Path, modded));
+        }
 
         ContractHarness.PlayerSaves(game);
         await backend.GameExitedAsync(game.Id, cancellationToken);
@@ -409,7 +427,12 @@ internal static class ContractScenario
 
         public IReadOnlyList<string> Lines => _lines;
 
+        // Previews as the fixtures hold them, by name.
+        public Dictionary<string, string> Previews { get; } = [];
+
         public void Add(string step, string seen) => _lines.Add($"{step}: {seen}");
+
+        public void Keep(string name, LaunchPreview preview, PreviewNames names) => Previews[name] = LaunchPreviewFixtures.Dump(preview, names);
 
         public string Name(string id, string kind)
         {
