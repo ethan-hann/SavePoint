@@ -381,6 +381,8 @@ internal static class ContractScenario
         story.Add("move preview with a cancelled token", Show(await backend.Settings.GetRelocationPreviewAsync(Path.Combine(backend.Root, "elsewhere"), token), _ => "success"));
         story.Add("clear all data preview with a cancelled token", Show(await backend.Settings.GetClearAllDataPreviewAsync(token), _ => "success"));
         story.Add("launch preview with a cancelled token", Show(await backend.Launch.GetPreviewAsync(game.Id, tip, token), _ => "success"));
+        story.Add("artwork with a cancelled token", Show(await backend.Artwork.GetAsync(game.Id, token), _ => "success"));
+        story.Add("definition imported with a cancelled token", Show(await backend.Games.ImportDefinitionAsync(Path.Combine(backend.Root, "definition.json"), token), _ => "success"));
     }
 
     // A snapshot copies what the folders hold, which is the profile made last, so one asked for on the profile made before it is refused before a job starts.

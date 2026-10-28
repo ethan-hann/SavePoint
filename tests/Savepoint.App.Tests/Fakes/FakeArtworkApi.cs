@@ -29,7 +29,7 @@ public sealed class FakeArtworkApi : IArtworkApi
     private FakeState State => _backend.State;
 
     public Task<OperationResult<GameArtwork>> GetAsync(string gameId, CancellationToken cancellationToken = default) =>
-        _backend.Call(_api, nameof(GetAsync), [gameId], () => OperationResult.Success(Compose(State.Game(gameId))));
+        _backend.Call(_api, nameof(GetAsync), [gameId], cancellationToken, () => OperationResult.Success(Compose(State.Game(gameId))));
 
     public Task<OperationResult<GameArtwork>> SetCustomImageAsync(string gameId, string imagePath) =>
         _backend.Call(_api, nameof(SetCustomImageAsync), [gameId, imagePath], () =>

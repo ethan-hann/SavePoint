@@ -360,7 +360,9 @@ public class LibraryPickerDialogViewModelTests
     {
         var (picker, backend) = await LoadedAsync(LibraryTestData.Scan(LibraryTestData.Game("A")));
 
-        // The game is offered, none is selected, and the library still has no game: looking changed nothing.
+        // The game is offered, none is selected, and the library still has no game: looking changed nothing. The scan is the only
+        // thing asked of the games Api, and only once: the call count is what "one read" promises.
+        Assert.Equal<string>([nameof(IGamesApi.ScanLibrariesAsync)], backend.Calls.All.Where(call => call.Api == nameof(IGamesApi)).Select(call => call.Member));
         Assert.Equal(["A"], picker.VisibleRows.Select(row => row.Name));
         Assert.Equal(0, picker.SelectedCount);
         Assert.Empty(backend.State.Games);
