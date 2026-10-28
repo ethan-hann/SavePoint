@@ -179,12 +179,25 @@ public class JobPillPlacementTests
         var problems = new List<string>();
         if (screen != _noJobFreeScreen)
         {
-            problems.AddRange(await SweepAsync(layoutName, screen, withJob: false, ToastsAlone));
+            problems.AddRange(await CollectingAsync("toasts alone", () => SweepAsync(layoutName, screen, withJob: false, ToastsAlone)));
         }
 
-        problems.AddRange(await SweepAsync(layoutName, screen, withJob: true, WithTheJob));
+        problems.AddRange(await CollectingAsync("with the job", () => SweepAsync(layoutName, screen, withJob: true, WithTheJob)));
 
         Assert.True(problems.Count == 0, $"{screen}, {layoutName} layout:{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
+    }
+
+    // A sweep that cannot finish, such as a pill that never came up, is a problem like any other, so the problems the sweep before it found are still reported.
+    private static async Task<List<string>> CollectingAsync(string sweep, Func<Task<List<string>>> run)
+    {
+        try
+        {
+            return await run();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return [$"[{sweep}] the sweep stopped: {exception.GetType().Name}: {exception.Message}"];
+        }
     }
 
     // The pill over the page and at the end of its scroll, in render-output/job-pill/, to look at by eye.

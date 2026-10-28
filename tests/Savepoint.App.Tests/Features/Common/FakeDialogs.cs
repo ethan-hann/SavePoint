@@ -13,7 +13,16 @@ public sealed class FakeDialogs : IDialogs
     private readonly Queue<string[]> _foldersAnswers = [];
     private readonly Queue<string[]> _filesAnswers = [];
 
+    public FakeDialogs()
+    {
+        FailOnUnansweredConfirmationAttribute.Track(this);
+    }
+
     public List<ConfirmRequest> Confirmations { get; } = [];
+
+    // The confirmations that had no answer, so the test fails when it ends even if the screen's command task, which carries the failure,
+    // was never awaited. A test that provokes one on purpose clears the list.
+    public List<ConfirmRequest> Unanswered { get; } = [];
 
     public List<FolderPickRequest> FolderPicks { get; } = [];
 
@@ -99,6 +108,11 @@ public sealed class FakeDialogs : IDialogs
         if (_confirmAnswers.TryDequeue(out var answer))
         {
             return answer;
+        }
+
+        if (DefaultConfirmAnswer is null)
+        {
+            Unanswered.Add(request);
         }
 
         return DefaultConfirmAnswer ?? throw new Xunit.Sdk.XunitException($"The screen asked \"{request.Title}\" and the test queued no answer. Say yes or no with AnswerConfirm, or set DefaultConfirmAnswer.");

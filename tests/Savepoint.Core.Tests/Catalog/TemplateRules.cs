@@ -84,9 +84,25 @@ internal static partial class TemplateRules
         }
     }
 
-    // Runs a rule over templates and returns "id: problem" for every problem, so one failure lists them all.
-    public static List<string> ProblemsIn(IEnumerable<GameTemplate> templates, Func<GameTemplate, IEnumerable<string>> rule) =>
-        [.. templates.SelectMany(template => rule(template).Select(problem => $"{template.Id}: {problem}"))];
+    // Runs a rule over templates and returns "id: problem" for every problem, so one failure lists them all. A rule that throws on one
+    // template is a problem of that template, and the templates after it are still checked.
+    public static List<string> ProblemsIn(IEnumerable<GameTemplate> templates, Func<GameTemplate, IEnumerable<string>> rule)
+    {
+        var problems = new List<string>();
+        foreach (var template in templates)
+        {
+            try
+            {
+                problems.AddRange(rule(template).Select(problem => $"{template.Id}: {problem}"));
+            }
+            catch (Exception exception)
+            {
+                problems.Add($"{template.Id}: the rule threw {exception.GetType().Name}: {exception.Message}");
+            }
+        }
+
+        return problems;
+    }
 
     public static void AssertShippedTemplatesKeep(Func<GameTemplate, IEnumerable<string>> rule)
     {

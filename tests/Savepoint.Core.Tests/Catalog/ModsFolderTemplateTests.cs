@@ -107,7 +107,8 @@ public class ModsFolderTemplateTests
         }
     }
 
-    // Only one template names a mods folder today, so the rules below see its three paths. Its facts above pin that it has them.
+    // Only one template names a mods folder today, so the rules below see its three paths. The shipped-data count in ShippedTemplatesTests
+    // fails when any of the three systems has none, so these loops cannot pass over nothing.
     [Fact]
     public void Mods_folders_resolve_on_the_system_they_are_written_for() =>
         AssertShippedTemplatesKeep(template => ResolveProblems(ModsPaths(template), "mods.path"));

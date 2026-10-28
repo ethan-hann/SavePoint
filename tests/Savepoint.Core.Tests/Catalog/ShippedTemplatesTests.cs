@@ -102,10 +102,38 @@ public class ShippedTemplatesTests
     public void Store_ids_and_folder_names_are_single_safe_names() => AssertShippedTemplatesKeep(StoreNameProblems);
 
     [Fact]
-    public void Enough_templates_name_a_saves_folder_for_the_saves_rules_to_mean_something()
+    public void The_data_each_rule_loops_over_is_there_in_every_part_the_rules_check()
     {
-        // The saves rules below loop over these paths, so an enumeration that came back empty would let them all pass.
-        Assert.True(GameTemplates.All.SelectMany(SavesPaths).Count() >= 100);
+        // The rules loop over parts of the data that only some templates carry, and a loop over nothing passes. Each part is counted on
+        // its own, because the Windows saves folders alone are enough to satisfy a count of all of them.
+        var saves = GameTemplates.All.SelectMany(SavesPaths).ToList();
+        var mods = GameTemplates.All.SelectMany(ModsPaths).ToList();
+        var thin = new List<string>();
+        void AtLeast(string what, int actual, int least)
+        {
+            if (actual < least)
+            {
+                thin.Add($"{what}: {actual}, expected at least {least}");
+            }
+        }
+
+        AtLeast("templates", GameTemplates.All.Count, 300);
+        AtLeast("Windows saves folders", saves.Count(path => path.Os == "windows"), 100);
+        AtLeast("Linux saves folders", saves.Count(path => path.Os == "linux"), 40);
+        AtLeast("macOS saves folders", saves.Count(path => path.Os == "macos"), 60);
+        AtLeast("Windows mods folders", mods.Count(path => path.Os == "windows"), 1);
+        AtLeast("Linux mods folders", mods.Count(path => path.Os == "linux"), 1);
+        AtLeast("macOS mods folders", mods.Count(path => path.Os == "macos"), 1);
+        AtLeast("per-system saves entries", GameTemplates.All.Sum(template => template.Hints.SavesByOs.Count), 100);
+        AtLeast("per-system mods entries", GameTemplates.All.Sum(template => template.Hints.ModsByOs.Count), 2);
+        AtLeast("Steam ids", GameTemplates.All.Count(template => template.Definition.SteamAppId is not null), 300);
+        AtLeast("GOG ids", GameTemplates.All.Sum(template => template.Hints.GogIds.Count), 50);
+        AtLeast("Steam install folder names", GameTemplates.All.Sum(template => template.Hints.SteamInstallDirs.Count), 100);
+        AtLeast("GOG folder names", GameTemplates.All.Sum(template => template.Hints.GogFolders.Count), 1);
+        AtLeast("templates with notes", GameTemplates.All.Count(template => template.Definition.Notes is not null), 100);
+        AtLeast("templates that start through a link", GameTemplates.All.Count(template => template.Definition.Launch.Method == LaunchMethod.Uri), 100);
+
+        Assert.True(thin.Count == 0, string.Join(Environment.NewLine, thin));
     }
 
     [Fact]

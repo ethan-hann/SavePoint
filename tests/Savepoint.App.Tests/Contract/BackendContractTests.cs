@@ -47,7 +47,9 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
         foreach (var story in new[] { runs.Fake.Shared, runs.Real.Shared })
         {
             var cancelled = story.Where(line => line.Contains("with a cancelled token: ", StringComparison.Ordinal)).ToList();
-            Assert.Equal(24, cancelled.Count);
+            Assert.Equal(26, cancelled.Count);
+            Assert.Contains(cancelled, line => line.StartsWith("artwork with a cancelled token", StringComparison.Ordinal));
+            Assert.Contains(cancelled, line => line.StartsWith("definition imported with a cancelled token", StringComparison.Ordinal));
             Assert.All(cancelled, line => Assert.EndsWith(": error error.operation.cancelled", line, StringComparison.Ordinal));
         }
     }

@@ -55,6 +55,7 @@ internal static class AppStates
         "history-filtered-empty",
         "history-empty",
         "history-help-open",
+        "history-bring-back",
         "settings-help-open",
         "launch-dialog-help-open",
         "post-play-replace-help-open",
@@ -105,6 +106,7 @@ internal static class AppStates
         "launch-post-play",
         "launch-post-play-older-point",
         "post-play-from-older-snapshot-again",
+        "history-bring-back",
         "settings-clear-all",
         "first-run-templates",
         "editor-consent",
@@ -161,6 +163,7 @@ internal static class AppStates
             "history-filtered-empty" => await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Sample()
                 .WithSettings(SampleScenario.Settings)
                 .WithProfile(new Profile("profile-empty", _skyrim, "Fresh profile", "profile/profile-empty")))),
+            "history-bring-back" => await ComposedApp.StartWithViewAsync(new FakeBackend(RemovedSnapshotSamples.Scenario().WithSettings(SampleScenario.Settings))),
             "activity-jobs" or "activity-failed" => await ComposedApp.StartWithViewAsync(await BackendWithJobsAsync()),
             // The tour starts by itself for a player who has not seen it; the steps are reached with its own Next button.
             "tour-step-1" or "tour-step-2" or "tour-step-3" or "tour-step-4" => await ComposedApp.StartWithViewAsync(UnseenTour(ShellLayout.Sidebar)),
@@ -296,6 +299,12 @@ internal static class AppStates
             case "history-empty":
                 app.Shell.SelectGame(SampleScenario.SatisfactoryId);
                 app.Show<HistoryScreenViewModel>(NavDestination.History);
+                break;
+            case "history-bring-back":
+                var removed = app.Show<HistoryScreenViewModel>(NavDestination.History);
+                removed.IsRemovedOpen = true;
+                app.Settle();
+                removed.Removed[0].BringBackCommand.Execute(null);
                 break;
             case "activity-jobs":
                 app.Show<ActivityScreenViewModel>(NavDestination.Activity);

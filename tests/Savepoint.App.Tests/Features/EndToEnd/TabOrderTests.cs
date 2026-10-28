@@ -49,7 +49,7 @@ public class TabOrderTests
             stops.Add(StopName(now));
         }
 
-        throw new InvalidOperationException($"Tab never came back round: {string.Join(" > ", stops)}");
+        throw new InvalidOperationException($"Tab did not come back round to the first stop within {limit} presses. Either focus escapes the screen's tab order, or the screen now has more stops than the limit the test allows. Visited: {string.Join(" > ", stops)}");
     }
 
     private static string[] ProfileRows(string name, string play = "Play") => [$"Row: {name}", $"{play} {name}", $"More actions for {name}"];
@@ -245,7 +245,7 @@ public class TabOrderTests
         app.Games.EditGameCommand.Execute(null);
         app.Settle();
 
-        var stops = TabStops(app, limit: 100);
+        var stops = TabStops(app);
 
         var back = stops.IndexOf("Back");
         Assert.True(back >= 0, "The back arrow is a tab stop.");
