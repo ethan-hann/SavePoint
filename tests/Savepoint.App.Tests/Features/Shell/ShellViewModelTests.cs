@@ -380,6 +380,9 @@ public class ShellViewModelTests
         await rig.Shell.SetLayoutAsync(ShellLayout.Sidebar);
 
         Assert.Empty(rig.Backend.Calls.To<ISettingsApi>(nameof(ISettingsApi.SaveAsync)));
+        Assert.Equal(ShellLayout.Sidebar, rig.Shell.Layout);
+        Assert.Equal(ShellLayout.Sidebar, rig.Shell.LayoutToggle.Selected?.Layout);
+        Assert.Equal(ShellLayout.Sidebar, rig.Backend.State.Settings.Layout);
     }
 
     [Fact]
@@ -707,35 +710,44 @@ public class ShellViewModelTests
     public async Task A_finished_optimization_updates_the_sizes()
     {
         var rig = await ShellRig.StartAsync();
+        var skyrim = rig.Shell.Games.Single(game => game.Id == SampleScenario.SkyrimId);
+        Assert.EndsWith("41.2 GB", skyrim.LibrarySubtitle, StringComparison.Ordinal);
         var job = FakeAssert.Ok(await rig.Backend.Games.OptimizeStorageAsync(SampleScenario.SkyrimId));
+        rig.Backend.State.GameBytes[SampleScenario.SkyrimId] = 12_300_000_000;
 
         rig.Backend.Jobs.Complete(job.JobId);
 
-        Assert.Single(rig.Backend.Calls.To<ISettingsApi>(nameof(ISettingsApi.GetStorageSummaryAsync)).Skip(1));
+        Assert.EndsWith("12.3 GB", skyrim.LibrarySubtitle, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task A_launch_job_finishing_does_not_reload_the_library()
     {
         var rig = await ShellRig.StartAsync();
-        var before = rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.ListAsync)).Count;
         FakeAssert.Ok(await rig.Backend.Launch.StartAsync(SampleScenario.SkyrimId, new LaunchTarget.ProfileTip(SampleScenario.ModdedId)));
+        rig.Backend.State.GameBytes[SampleScenario.SkyrimId] = 1_000_000_000;
 
         rig.Backend.Launch.ReportRunning(SampleScenario.SkyrimId);
 
-        Assert.Equal(before, rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.ListAsync)).Count);
+        // A reload would have read the new size onto the card.
+        Assert.EndsWith("41.2 GB", rig.Shell.Games.Single(game => game.Id == SampleScenario.SkyrimId).LibrarySubtitle, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task A_running_job_does_not_reload_the_library_until_it_finishes()
     {
         var rig = await ShellRig.StartAsync();
-        var before = rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.ListAsync)).Count;
-
+        var skyrim = rig.Shell.Games.Single(game => game.Id == SampleScenario.SkyrimId);
         var job = FakeAssert.Ok(await rig.Backend.Profiles.CaptureAsync(SampleScenario.SkyrimId, SampleScenario.ModdedId, "p"));
+        rig.Backend.State.GameBytes[SampleScenario.SkyrimId] = 1_000_000_000;
+
         rig.Backend.Jobs.ReportProgress(job.JobId, new JobProgress(FilesDone: 1));
 
-        Assert.Equal(before, rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.ListAsync)).Count);
+        Assert.EndsWith("41.2 GB", skyrim.LibrarySubtitle, StringComparison.Ordinal);
+
+        rig.Backend.Jobs.Complete(job.JobId);
+
+        Assert.EndsWith("1 GB", skyrim.LibrarySubtitle, StringComparison.Ordinal);
     }
 
     [Fact]

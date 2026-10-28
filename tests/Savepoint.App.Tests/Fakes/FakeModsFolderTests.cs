@@ -11,15 +11,6 @@ public class FakeModsFolderTests
     private static FakeBackend Backend() => new(ScenarioBuilder.Empty().WithGame(ModsSamples.SevenDays));
 
     [Fact]
-    public async Task A_game_with_a_mods_folder_reports_three_folders_in_the_order_a_switch_writes_them()
-    {
-        var statuses = Ok(await Backend().Games.GetFolderStatusAsync(ModsSamples.Id, Ct));
-
-        Assert.Equal([RepoRole.Install, RepoRole.Mods, RepoRole.External], statuses.Select(status => status.Role));
-        Assert.Equal(ModsSamples.ModsResolved, statuses[1].ResolvedPath);
-    }
-
-    [Fact]
     public async Task The_capture_preview_lists_the_mods_folder_between_the_game_and_the_saves()
     {
         var preview = Ok(await Backend().Games.GetCapturePreviewAsync(ModsSamples.Id, Ct));

@@ -43,7 +43,8 @@ public class ClearAllDataTests
 
         var run = StartAsync(rig);
 
-        Assert.Equal(1, rig.Calls<ISettingsApi>(nameof(ISettingsApi.GetClearAllDataPreviewAsync)));
+        // The question is worded from what the preview found, so it could not have been asked before the read.
+        Assert.Contains("79.3 GB", Dialog(rig).Freed, StringComparison.Ordinal);
         Dialog(rig).CancelCommand.Execute(null);
         await run;
     }

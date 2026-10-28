@@ -4,6 +4,8 @@ namespace Savepoint.App.Tests.Theme.Material;
 
 public class Md3PaletteTests
 {
+    private const uint BlueSeed = 0xFF2986CC;
+
     [Fact]
     public void ToHex_drops_alpha_and_uses_uppercase_digits()
     {
@@ -49,17 +51,17 @@ public class Md3PaletteTests
     [Fact]
     public void Build_records_the_seed_and_mode()
     {
-        var palette = Md3Palette.Build(ReadmeTableTests.BlueSeed, dark: true);
+        var palette = Md3Palette.Build(BlueSeed, dark: true);
 
-        Assert.Equal(ReadmeTableTests.BlueSeed, palette.SeedArgb);
+        Assert.Equal(BlueSeed, palette.SeedArgb);
         Assert.True(palette.IsDark);
     }
 
     [Fact]
     public void Build_is_deterministic_and_value_equal()
     {
-        Assert.Equal(Md3Palette.Build(ReadmeTableTests.BlueSeed, true), Md3Palette.Build(ReadmeTableTests.BlueSeed, true));
-        Assert.NotEqual(Md3Palette.Build(ReadmeTableTests.BlueSeed, true), Md3Palette.Build(ReadmeTableTests.BlueSeed, false));
+        Assert.Equal(Md3Palette.Build(BlueSeed, true), Md3Palette.Build(BlueSeed, true));
+        Assert.NotEqual(Md3Palette.Build(BlueSeed, true), Md3Palette.Build(BlueSeed, false));
     }
 
     [Fact]

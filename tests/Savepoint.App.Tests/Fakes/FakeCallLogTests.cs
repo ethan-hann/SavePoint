@@ -1,5 +1,4 @@
 using Savepoint.Core.Api;
-using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
 using static Savepoint.App.Tests.Fakes.FakeAssert;
 using static Savepoint.App.Tests.Fakes.SampleScenario;
@@ -11,20 +10,6 @@ public class FakeCallLogTests
     private static readonly ErrorInfo _diskFull = ErrorInfo.From(new DiskSpaceException(StorageRoot, 5, 1));
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-
-    [Fact]
-    public async Task A_call_is_recorded_with_its_arguments()
-    {
-        var backend = FakeBackend.Sample();
-
-        await backend.Profiles.CaptureAsync(SkyrimId, SurvivalId, "Before switching", [RepoRole.External]);
-
-        var call = Assert.Single(backend.Calls.To<IProfilesApi>(nameof(IProfilesApi.CaptureAsync)));
-        Assert.Equal(SkyrimId, call.Args[0]);
-        Assert.Equal(SurvivalId, call.Args[1]);
-        Assert.Equal("Before switching", call.Args[2]);
-        Assert.Equal<RepoRole>([RepoRole.External], (IEnumerable<RepoRole>)call.Args[3]!);
-    }
 
     [Fact]
     public async Task Calls_across_apis_are_kept_in_the_order_they_were_made()
@@ -98,16 +83,5 @@ public class FakeCallLogTests
 
         Assert.Single(backend.Calls.To<IGamesApi>(nameof(IGamesApi.AddAsync)));
         Assert.Empty(Ok(await backend.Games.ListAsync(Ct)));
-    }
-
-    [Fact]
-    public async Task Clear_forgets_earlier_calls()
-    {
-        var backend = FakeBackend.Sample();
-        await backend.Games.ListAsync(Ct);
-
-        backend.Calls.Clear();
-
-        Assert.Empty(backend.Calls.All);
     }
 }

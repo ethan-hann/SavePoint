@@ -102,10 +102,13 @@ public class AppearanceUiScaleTests
     {
         var rig = await SettingsRig.ShownAsync();
         var saves = rig.Calls<ISettingsApi>(nameof(ISettingsApi.SaveAsync));
+        var stored = rig.Backend.State.Settings;
 
         rig.Screen.Appearance.SelectedScale = rig.Screen.Appearance.ScaleOptions.Single(option => option.Percent == 100);
 
         Assert.Equal(saves, rig.Calls<ISettingsApi>(nameof(ISettingsApi.SaveAsync)));
+        Assert.Equal(stored, rig.Backend.State.Settings);
+        Assert.Equal(100, rig.Screen.Appearance.SelectedScale.Percent);
     }
 
     [Fact]

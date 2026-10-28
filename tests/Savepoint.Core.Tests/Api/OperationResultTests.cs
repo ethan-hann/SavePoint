@@ -1,7 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Errors;
 
-namespace Savepoint.App.Tests.Fakes;
+namespace Savepoint.Core.Tests.Api;
 
 public class OperationResultTests
 {
