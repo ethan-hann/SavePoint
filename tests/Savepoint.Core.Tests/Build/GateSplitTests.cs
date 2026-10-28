@@ -76,8 +76,7 @@ public sealed class GateSplitTests : IDisposable
             File.Copy(Path.Combine(RepoRoot, "build", file), Path.Combine(build, file));
         }
 
-        Directory.CreateDirectory(FakeFolder);
-        await File.WriteAllTextAsync(Path.Combine(FakeFolder, "fake-dotnet.ps1"), _fakeScript, TestContext.Current.CancellationToken);
+        await WriteStandInAsync(RealDotnet());
         // The gate asks git for the folder of its lock; a repository of its own keeps the lock out of the real checkout.
         var init = await ScriptProcess.RunAsync("git", ["init", "-q"], _root);
         if (init is null)
@@ -86,17 +85,67 @@ public sealed class GateSplitTests : IDisposable
         }
 
         Assert.True(init.ExitCode == 0, init.Output);
+        return true;
+    }
+
+    // The SDK's own dotnet, found from the runtime this test host runs on, so it never depends on what the stand-in hides on PATH.
+    private static string RealDotnet()
+    {
+        var program = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet";
+        var coreLib = typeof(object).Assembly.Location;
+        // <dotnet>/shared/Microsoft.NETCore.App/<version>/System.Private.CoreLib.dll
+        var root = coreLib.Length == 0 ? null : Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(coreLib))));
+        if (root is not null && File.Exists(Path.Combine(root, program)))
+        {
+            return Path.Combine(root, program);
+        }
+
+        foreach (var folder in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (File.Exists(Path.Combine(folder, program)))
+            {
+                return Path.Combine(folder, program);
+            }
+        }
+
+        throw new InvalidOperationException("The real dotnet was not found, so the stand-in cannot hand PowerShell's own starts to it.");
+    }
+
+    // The stand-in dotnet of the gate tests. PowerShell installed as a .NET tool is a shim that starts "dotnet <path>/pwsh.dll" from PATH,
+    // which finds this stand-in first, so those starts go to the real dotnet. Without that, the stand-in starts pwsh, the shim starts the
+    // stand-in again, and processes pile up until the machine runs out of memory. The depth counter stops any other way of calling itself.
+    private async Task WriteStandInAsync(string realDotnet)
+    {
+        Directory.CreateDirectory(FakeFolder);
+        await File.WriteAllTextAsync(Path.Combine(FakeFolder, "fake-dotnet.ps1"), _fakeScript, TestContext.Current.CancellationToken);
 
         var unixWrapper = Path.Combine(FakeFolder, "dotnet");
-        await File.WriteAllTextAsync(unixWrapper, "#!/bin/sh\nexec pwsh -NoProfile -File \"$(dirname \"$0\")/fake-dotnet.ps1\" \"$@\"\n", TestContext.Current.CancellationToken);
+        var script = $$"""
+            #!/bin/sh
+            case "$1" in
+              *pwsh.dll) exec "{{ScriptProcess.ForBash(realDotnet)}}" "$@" ;;
+            esac
+            depth="${SAVEPOINT_STANDIN_DEPTH:-0}"
+            if [ "$depth" -ge {{_standInDepthLimit}} ]; then
+              echo "The stand-in dotnet was started from itself $depth times in a row and stops here." >&2
+              exit 97
+            fi
+            SAVEPOINT_STANDIN_DEPTH=$((depth + 1))
+            export SAVEPOINT_STANDIN_DEPTH
+            exec pwsh -NoProfile -File "$(dirname "$0")/fake-dotnet.ps1" "$@"
+
+            """.ReplaceLineEndings("\n");
+        await File.WriteAllTextAsync(unixWrapper, script, TestContext.Current.CancellationToken);
         if (!OperatingSystem.IsWindows())
         {
             File.SetUnixFileMode(unixWrapper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
 
         await File.WriteAllTextAsync(Path.Combine(FakeFolder, "dotnet.cmd"), "@pwsh -NoProfile -File \"%~dp0fake-dotnet.ps1\" %*\r\n", TestContext.Current.CancellationToken);
-        return true;
     }
+
+    // The gate runs the stand-in once for each dotnet command; nothing it starts calls dotnet again, so a deeper start is a loop.
+    private const int _standInDepthLimit = 3;
 
     private const int _laneTests = 2;
     private const int _restTests = 3;
@@ -170,6 +219,44 @@ public sealed class GateSplitTests : IDisposable
             ? Directory.GetFiles(tempFolders).Select(file => File.ReadAllText(file).Trim().Split('|')).Select(parts => (parts[0], string.Equals(parts[1], "True", StringComparison.OrdinalIgnoreCase))).ToList()
             : [];
         return new Gate(run.ExitCode, run.Output, calls, temps);
+    }
+
+    // Runs the stand-in's own script, the way a shell on PATH would, and returns what it printed; null when bash is not installed here.
+    private async Task<ScriptProcess.Result?> RunStandInAsync(string realDotnet, IEnumerable<string> arguments, IReadOnlyDictionary<string, string>? environment = null)
+    {
+        await WriteStandInAsync(realDotnet);
+        return await ScriptProcess.RunAsync(ScriptProcess.BashProgram(), [ScriptProcess.ForBash(Path.Combine(FakeFolder, "dotnet")), .. arguments], _root, environment);
+    }
+
+    [Fact]
+    public async Task The_stand_in_dotnet_hands_a_start_of_pwsh_dll_to_the_real_dotnet_and_runs_nothing_of_its_own()
+    {
+        // A PowerShell installed as a .NET tool starts "dotnet <folder>/pwsh.dll ..." through PATH; the real one must answer that.
+        var recorded = Path.Combine(_root, "forwarded.txt");
+        var real = Path.Combine(_root, "real-dotnet");
+        await File.WriteAllTextAsync(real, $"#!/bin/sh\nprintf '%s\\n' \"$*\" > \"{ScriptProcess.ForBash(recorded)}\"\n", TestContext.Current.CancellationToken);
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(real, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        var run = await RunStandInAsync(real, ["/tools/pwsh.dll", "-NoProfile", "-File", "gate.ps1"]);
+
+        Assert.SkipWhen(run is null, "bash is not installed here.");
+        Assert.True(File.Exists(recorded), $"The real dotnet was never started. The stand-in printed: {run!.Output}");
+        Assert.Equal("/tools/pwsh.dll -NoProfile -File gate.ps1", (await File.ReadAllTextAsync(recorded, TestContext.Current.CancellationToken)).Trim());
+        Assert.False(Directory.Exists(Path.Combine(FakeFolder, "calls")), "The stand-in recorded a call for a start that was PowerShell's own.");
+    }
+
+    [Fact]
+    public async Task The_stand_in_dotnet_stops_when_it_has_been_started_from_itself_too_many_times_in_a_row()
+    {
+        var run = await RunStandInAsync(Path.Combine(_root, "unused"), ["test"], new Dictionary<string, string> { ["SAVEPOINT_STANDIN_DEPTH"] = _standInDepthLimit.ToString(CultureInfo.InvariantCulture) });
+
+        Assert.SkipWhen(run is null, "bash is not installed here.");
+        Assert.Equal(97, run!.ExitCode);
+        Assert.Contains("started from itself", run.Output, StringComparison.Ordinal);
+        Assert.False(Directory.Exists(Path.Combine(FakeFolder, "calls")), "The stand-in kept going after its limit.");
     }
 
     // The test processes of a run: every call that asked for an xunit report, by the name of its report.
