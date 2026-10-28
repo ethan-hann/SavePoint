@@ -1,0 +1,11 @@
+# How the gates split the App tests across test processes.
+#
+# Every App UI test runs on the one headless UI thread of its process, so one process runs them one at a time. The gates start one
+# process per line below, plus a last one named "rest" that runs every test no line names (it excludes each namespace listed here).
+# Because "rest" is a complement, a test is in exactly one process, and a namespace added later lands in "rest" instead of being
+# dropped. The gates then compare the sum of the processes' test methods with a full listing, so a mistake here fails the gate.
+#
+# One lane per line: <name> <namespace>. A namespace is matched exactly: its child namespaces are not part of it.
+# Keep the lanes of similar length; the longest one sets how long the App tests take.
+endtoend Savepoint.App.Tests.Features.EndToEnd
+journeys Savepoint.App.Tests.Features.EndToEnd.RealBackend

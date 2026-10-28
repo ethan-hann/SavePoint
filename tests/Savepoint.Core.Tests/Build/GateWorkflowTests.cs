@@ -83,6 +83,21 @@ public class GateWorkflowTests
         Assert.True(append < run, "Git's usr\\bin is put on the path after the gate starts.");
     }
 
+    // The format check gives the same answer on every OS, so one job runs it: the Linux job, which is the faster one.
+    [Fact]
+    public void The_windows_job_leaves_out_the_format_check_and_the_linux_job_keeps_it()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoRoot, _workflowPath));
+        var windowsJob = Regex.Match(workflow, @"(?ms)^  windows:\r?\n(.*)\z").Groups[1].Value;
+        var windowsGate = Regex.Split(windowsJob, @"\r?\n      - ").Single(step => step.Contains("name: Gate", StringComparison.Ordinal));
+        var linuxGate = LinuxSteps()[IndexOfStep(LinuxSteps(), "Gate")];
+
+        Assert.Matches(@"(?m)^\s*\./build/gate\.ps1 -SkipFormat\s*$", windowsGate);
+        Assert.Matches(@"bash build/gate\.sh\s*$", linuxGate);
+        Assert.DoesNotContain("SkipFormat", linuxGate, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("skip-format", linuxGate, StringComparison.OrdinalIgnoreCase);
+    }
+
     // Both jobs decide alone whether a change needs the gate, so they must agree on which files cannot change a build or a test.
     private static string SkipPattern()
     {

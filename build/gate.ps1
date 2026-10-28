@@ -1,12 +1,19 @@
 #Requires -Version 7
 # Local gate: build, test, format check. Exits non-zero on the first failure.
 #
+# The tests run as four processes at once: the Core tests, and the App tests in the lanes of build/app-test-lanes.txt (the UI tests of
+# one process share one UI thread, so they run one at a time). Their test methods must add up to the full listing's, so no test is dropped.
+#
 # SAVEPOINT_TEST_ARGS takes only a report (--report-*). Anything else, such as a filter or a retry of failed tests (the retry
 # extension is no longer part of the test projects), is refused unless -AllowNarrowedTests says it is on purpose, because a run
 # that tests part of the code or lets a failure pass would read as a passed gate.
+#
+# -SkipFormat leaves out the format check. The CI job on Windows passes it because the Linux job runs the same check and the answer
+# does not depend on the OS; a local gate keeps the check.
 [CmdletBinding()]
 param(
-    [switch]$AllowNarrowedTests
+    [switch]$AllowNarrowedTests,
+    [switch]$SkipFormat
 )
 
 $ErrorActionPreference = 'Stop'
@@ -24,6 +31,8 @@ $env:DOTNET_NOLOGO = '1'
 # Caps that keep one gate from saturating the machine; override per run when needed.
 $buildNodes = if ($env:SAVEPOINT_GATE_BUILD_NODES) { $env:SAVEPOINT_GATE_BUILD_NODES } else { '4' }
 $testThreads = if ($env:SAVEPOINT_GATE_TEST_THREADS) { $env:SAVEPOINT_GATE_TEST_THREADS } else { '4' }
+# The App lanes are mostly UI tests that wait for one UI thread each, so two threads serve a lane. Core takes the full cap: at most 4 + 3 x 2 test threads.
+$appThreads = [Math]::Min([int]$testThreads, 2)
 # Where the test step writes its xunit reports, which the skip check reads. The gate always asks for them, so SAVEPOINT_TEST_ARGS must not.
 $resultsDir = Join-Path (Get-Location) 'artifacts/test-results'
 # Extra test-platform arguments (a report), space-separated, as gate.sh takes them.
@@ -93,14 +102,79 @@ function Invoke-Step {
     }
 }
 
+# The App test processes: one per line of build/app-test-lanes.txt, then "rest", which runs everything the lines do not name.
+function Get-AppTestLanes {
+    $lanes = @()
+    foreach ($line in Get-Content -LiteralPath 'build/app-test-lanes.txt') {
+        $text = $line.Trim()
+        if (-not $text -or $text.StartsWith('#')) { continue }
+        $words = @($text -split '\s+')
+        if ($words.Count -ne 2 -or $words[0] -eq 'rest') {
+            throw "build/app-test-lanes.txt: expected '<name> <namespace>' (the name 'rest' is taken), got '$text'"
+        }
+        $lanes += [pscustomobject]@{ Name = $words[0]; Namespace = $words[1]; Filter = @('--filter-namespace', $words[1]) }
+    }
+    $lanes += [pscustomobject]@{ Name = 'rest'; Namespace = $null; Filter = @($lanes | ForEach-Object { '--filter-not-namespace'; $_.Namespace }) }
+    return $lanes
+}
+
+# Starts every run at once and waits for all of them. Each run's output is kept and printed as one block when it ends, so the
+# processes do not interleave; a failure names the process. A run is { Name; Project; Filter; Threads }.
+function Invoke-TestProcesses {
+    param([object[]]$Runs)
+    $repoRoot = (Get-Location).Path
+    $outcomes = $Runs | ForEach-Object -ThrottleLimit $Runs.Count -Parallel {
+        $run = $_
+        Set-Location $using:repoRoot
+        $filter = @($run.Filter)
+        $extra = @($using:testArgs)
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        $output = & dotnet test --project $run.Project -c Release --no-build --max-threads $run.Threads --report-xunit --report-xunit-filename "$($run.Name).xunit" --results-directory $using:resultsDir @filter @extra 2>&1 | Out-String
+        $code = $LASTEXITCODE
+        Write-Host ("==> test process '{0}' ended with exit code {1} after {2:m\:ss}`n{3}" -f $run.Name, $code, $watch.Elapsed, $output.TrimEnd())
+        [pscustomobject]@{ Name = $run.Name; ExitCode = $code }
+    }
+    $failed = @($outcomes | Where-Object { $_.ExitCode -ne 0 })
+    if ($failed.Count -gt 0) {
+        throw "test failed in: $(($failed | ForEach-Object { "$($_.Name) (exit code $($_.ExitCode))" }) -join ', ')"
+    }
+}
+
 try {
     Invoke-Step 'build' { dotnet build Savepoint.slnx -c Release -warnaserror "-m:$buildNodes" -nodeReuse:false }
     # Cleared first so a report left by an earlier run cannot stand in for this one.
     if (Test-Path -LiteralPath $resultsDir) { Remove-Item -LiteralPath $resultsDir -Recurse -Force }
-    Invoke-Step 'test' { dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 2 --max-threads $testThreads --report-xunit --results-directory $resultsDir @testArgs }
+    New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
+    if ($narrowing.Count -gt 0) {
+        # A filter of the caller's cannot be combined with the lanes' filters, so a narrowed run keeps the modules whole.
+        Invoke-Step 'test' { dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 2 --max-threads $testThreads --report-xunit --results-directory $resultsDir @testArgs }
+    }
+    else {
+        $appProject = 'tests/Savepoint.App.Tests'
+        $listing = (& dotnet test --project $appProject -c Release --no-build --list-tests 2>&1 | Out-String)
+        $listExitCode = $LASTEXITCODE
+        # A listed test is "  <class>.<method>(<data>)". A theory whose data cannot be listed shows once in the listing and once per
+        # row in a report, so the check counts methods, not cases.
+        $appTestCount = @($listing -split '\r?\n' | Where-Object { $_ -match '^  [A-Za-z_][A-Za-z0-9_.+]*\.[A-Za-z_][A-Za-z0-9_]*(\(|$)' } | ForEach-Object { ($_ -replace '\(.*$', '').Trim() } | Sort-Object -Unique).Count
+        if ($listExitCode -ne 0 -or $appTestCount -eq 0) {
+            throw "listing the App tests failed (exit code $listExitCode):`n$listing"
+        }
+        Write-Host "==> test (Core, and $appTestCount App test methods in separate processes)"
+        $lanes = @(Get-AppTestLanes)
+        $runs = @([pscustomobject]@{ Name = 'core'; Project = 'tests/Savepoint.Core.Tests'; Filter = @(); Threads = $testThreads })
+        $runs += $lanes | ForEach-Object { [pscustomobject]@{ Name = "app-$($_.Name)"; Project = $appProject; Filter = $_.Filter; Threads = $appThreads } }
+        Invoke-TestProcesses $runs
+        $appReports = @($lanes | ForEach-Object { Join-Path $resultsDir "app-$($_.Name).xunit" })
+        Invoke-Step 'test count' { & ./build/check-test-counts.ps1 -Expected $appTestCount @appReports }
+    }
     # A skip probe that breaks turns real tests into skips and the run still passes; this fails on any skip the list does not name.
     Invoke-Step 'skips' { dotnet run --project tools/SkipCheck -c Release --no-build -- --reports $resultsDir --expected build/expected-skips/windows.txt }
-    Invoke-Step 'format' { dotnet format Savepoint.slnx --verify-no-changes }
+    if ($SkipFormat) {
+        Write-Host '==> format: skipped (-SkipFormat)'
+    }
+    else {
+        Invoke-Step 'format' { dotnet format Savepoint.slnx --verify-no-changes }
+    }
 }
 catch {
     Write-Host "gate failed: $($_.Exception.Message)" -ForegroundColor Red
