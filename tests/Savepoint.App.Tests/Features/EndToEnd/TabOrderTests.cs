@@ -239,29 +239,19 @@ public class TabOrderTests
     }
 
     [AvaloniaFact]
-    public async Task The_game_editor_goes_from_the_back_arrow_to_the_form_in_the_order_it_is_drawn()
-    {
-        using var app = await ComposedApp.StartWithViewAsync();
-        app.Games.EditGameCommand.Execute(null);
-        app.Settle();
-
-        var stops = TabStops(app);
-
-        var back = stops.IndexOf("Back");
-        Assert.True(back >= 0, "The back arrow is a tab stop.");
-        Assert.Equal(
-            ["Back", "Export", "Save changes", "Name", "Where the game is installed"],
-            Enumerable.Range(back, 5).Select(i => stops[i % stops.Count]));
-    }
-
-    [AvaloniaFact]
-    public async Task The_game_editor_visits_its_cards_in_the_order_they_are_drawn_and_the_mods_card_keeps_its_folder_and_its_mod_files_together()
+    public async Task The_game_editor_goes_from_the_back_arrow_to_the_form_and_visits_its_cards_in_the_order_they_are_drawn_with_the_mods_card_keeping_its_folder_and_its_mod_files_together()
     {
         using var app = await ComposedApp.StartWithViewAsync();
         app.Games.EditGameCommand.Execute(null);
         app.Settle();
 
         var stops = TabStops(app, limit: 100);
+
+        var back = stops.IndexOf("Back");
+        Assert.True(back >= 0, "The back arrow is a tab stop.");
+        Assert.Equal(
+            ["Back", "Export", "Save changes", "Name", "Where the game is installed"],
+            Enumerable.Range(back, 5).Select(i => stops[i % stops.Count]));
 
         string[] drawn =
         [
