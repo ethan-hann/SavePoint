@@ -3,6 +3,9 @@
 #
 #   build/gate.sh [--allow-narrowed-tests]
 #
+# The tests run as four processes at once: the Core tests, and the App tests in the lanes of build/app-test-lanes.txt (the UI tests of
+# one process share one UI thread, so they run one at a time). Their test methods must add up to the full listing's, so no test is dropped.
+#
 # SAVEPOINT_TEST_ARGS takes only a report (--report-*). Anything else, such as a filter or a retry of failed tests (the retry
 # extension is no longer part of the test projects), is refused unless --allow-narrowed-tests says it is on purpose, because a run
 # that tests part of the code or lets a failure pass would read as a passed gate.
@@ -25,6 +28,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 renice -n 10 $$ >/dev/null 2>&1 || true
 build_nodes="${SAVEPOINT_GATE_BUILD_NODES:-4}"
 test_threads="${SAVEPOINT_GATE_TEST_THREADS:-4}"
+# The App lanes are mostly UI tests that wait for one UI thread each, so two threads serve a lane. Core takes the full cap: at most 4 + 3 x 2 test threads.
+app_threads=$(( test_threads < 2 ? test_threads : 2 ))
 
 # SAVEPOINT_TEST_ARGS is for a report (--report-*). Any other argument, a filter in whatever spelling, a response file (@file) or
 # an option that lets failures pass (a retry of failed tests among them), could make "gate passed" mean less than a full run, so
@@ -75,13 +80,92 @@ fi
 echo "==> build"
 dotnet build Savepoint.slnx -c Release -warnaserror "-m:${build_nodes}" -nodeReuse:false
 
-echo "==> test"
-# SAVEPOINT_TEST_ARGS is empty unless the caller sets it (a report).
-# shellcheck disable=SC2086
+# Starts one test process in the background. Its output is kept and printed as one block when it ends, so the processes do not
+# interleave; the exit code is the process's own. Arguments after the thread count are its filter.
+test_pids=()
+test_names=()
+start_test_process() {
+  local name="$1" project="$2" threads="$3"
+  shift 3
+  (
+    set +e
+    started=$SECONDS
+    # SAVEPOINT_TEST_ARGS is empty unless the caller sets it (a report); it goes to every process.
+    # shellcheck disable=SC2086
+    dotnet test --project "$project" -c Release --no-build --max-threads "$threads" --report-xunit --report-xunit-filename "$name.xunit" --results-directory "$results_dir" "$@" ${SAVEPOINT_TEST_ARGS:-} >"$results_dir/$name.log" 2>&1
+    code=$?
+    echo "==> test process '$name' ended with exit code $code after $((SECONDS - started)) s"
+    cat "$results_dir/$name.log"
+    exit "$code"
+  ) &
+  test_pids+=($!)
+  test_names+=("$name")
+}
+
 # The gate always asks for the xunit report itself (the skip check reads it), so SAVEPOINT_TEST_ARGS must not.
 results_dir="$PWD/artifacts/test-results"
 rm -rf "$results_dir"
-dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 2 --max-threads "${test_threads}" --report-xunit --results-directory "$results_dir" ${SAVEPOINT_TEST_ARGS:-}
+mkdir -p "$results_dir"
+if [ -n "$narrowing" ]; then
+  echo "==> test"
+  # A filter of the caller's cannot be combined with the lanes' filters, so a narrowed run keeps the modules whole.
+  # shellcheck disable=SC2086
+  dotnet test Savepoint.slnx -c Release --no-build --max-parallel-test-modules 2 --max-threads "${test_threads}" --report-xunit --results-directory "$results_dir" ${SAVEPOINT_TEST_ARGS:-}
+else
+  app_project="tests/Savepoint.App.Tests"
+  listing="$(dotnet test --project "$app_project" -c Release --no-build --list-tests 2>&1)" || {
+    echo "listing the App tests failed:" >&2
+    echo "$listing" >&2
+    exit 1
+  }
+  # A listed test is "  <class>.<method>(<data>)". A theory whose data cannot be listed shows once in the listing and once per row in a
+  # report, so the check counts methods, not cases.
+  app_test_count="$({ printf '%s\n' "$listing" | grep -E '^  [A-Za-z_][A-Za-z0-9_.+]*\.[A-Za-z_][A-Za-z0-9_]*(\(|$)' || true; } | cut -d'(' -f1 | sort -u | wc -l | tr -d ' ')"
+  if [ "$app_test_count" -eq 0 ]; then
+    echo "listing the App tests failed: no tests in:" >&2
+    echo "$listing" >&2
+    exit 1
+  fi
+
+  # The App test processes: one per line of build/app-test-lanes.txt, then "rest", which runs everything the lines do not name.
+  lane_names=()
+  lane_namespaces=()
+  while read -r lane namespace extra || [ -n "$lane" ]; do
+    case "$lane" in '' | '#'*) continue ;; esac
+    if [ -z "$namespace" ] || [ -n "$extra" ] || [ "$lane" = rest ]; then
+      echo "build/app-test-lanes.txt: expected '<name> <namespace>' (the name 'rest' is taken), got '$lane $namespace $extra'" >&2
+      exit 1
+    fi
+    lane_names+=("$lane")
+    lane_namespaces+=("$namespace")
+  done <build/app-test-lanes.txt
+
+  echo "==> test (Core, and ${app_test_count} App test methods in separate processes)"
+  start_test_process core tests/Savepoint.Core.Tests "$test_threads"
+  rest_filter=()
+  app_reports=()
+  for i in "${!lane_names[@]}"; do
+    start_test_process "app-${lane_names[$i]}" "$app_project" "$app_threads" --filter-namespace "${lane_namespaces[$i]}"
+    rest_filter+=(--filter-not-namespace "${lane_namespaces[$i]}")
+    app_reports+=("$results_dir/app-${lane_names[$i]}.xunit")
+  done
+  start_test_process app-rest "$app_project" "$app_threads" ${rest_filter[@]+"${rest_filter[@]}"}
+  app_reports+=("$results_dir/app-rest.xunit")
+
+  failed=""
+  for i in "${!test_pids[@]}"; do
+    if ! wait "${test_pids[$i]}"; then
+      failed="$failed ${test_names[$i]}"
+    fi
+  done
+  if [ -n "$failed" ]; then
+    echo "test failed in:${failed}" >&2
+    exit 1
+  fi
+
+  echo "==> test count"
+  bash build/check-test-counts.sh "$app_test_count" "${app_reports[@]}"
+fi
 
 # A skip probe that breaks turns real tests into skips and the run still passes; this fails on any skip the list does not name.
 # SAVEPOINT_EXPECTED_SKIPS names the list in build/expected-skips; Linux defaults to linux-ci, and no macOS list exists yet.

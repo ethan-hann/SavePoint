@@ -1,5 +1,5 @@
 # Runs the Linux and Windows gates (build with warnings as errors, every test, skip check, format check) on pull requests,
-# and by hand from the Actions page. Not on pushes to main: main is protected and takes fast-forward merges only, so the
+# and by hand from the Actions page. Only the Linux job runs the format check: it does not depend on the OS, and the Windows job is the slower one. Not on pushes to main: main is protected and takes fast-forward merges only, so the
 # commit that lands is the one its pull request already passed, and running it again only loads the shared runners.
 # The Windows job runs on a self-hosted Windows VM in host mode, as a standard (non-admin) account.
 name: Gate
@@ -143,4 +143,5 @@ jobs:
           # The runner has no gpg of its own, and the test of the source-archive signatures needs one: Git for Windows ships it. It goes
           # last on the path so its Unix tools do not shadow the Windows ones.
           $env:PATH = $env:PATH + ';' + (Join-Path $env:ProgramFiles 'Git\usr\bin')
-          ./build/gate.ps1
+          # The format check gives the same answer on every OS, so the Linux job runs it and this one does not.
+          ./build/gate.ps1 -SkipFormat
