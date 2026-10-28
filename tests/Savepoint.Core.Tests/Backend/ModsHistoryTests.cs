@@ -10,11 +10,19 @@ public class ModsHistoryTests
 {
     private static async Task<(BackendWorkspace Workspace, GameDefinition Game, Profile Vanilla)> WorldAsync(IReadOnlyList<string>? hints = null)
     {
-        var workspace = new BackendWorkspace();
+        // The game and its first profile cost dozens of git processes, so each shape is built once per run and every test gets a copy.
+        var effective = hints ?? ["data"];
+        var workspace = await BackendWorkspace.FromWorldAsync(
+            "mods-history-" + string.Join(',', effective),
+            async built =>
+            {
+                var made = await built.AddGameAsync(built.NewGameWithMods() with { ModPathHints = effective });
+                await built.CreateProfileAsync(made, "Vanilla");
+            });
         try
         {
-            var game = await workspace.AddGameAsync(workspace.NewGameWithMods() with { ModPathHints = hints ?? ["data"] });
-            var (vanilla, _) = await workspace.CreateProfileAsync(game, "Vanilla");
+            var game = Assert.Single((await workspace.Games.ListAsync(workspace.Token)).Value!);
+            var vanilla = Assert.Single((await workspace.Profiles.ListAsync(game.Id, workspace.Token)).Value!);
             return (workspace, game, vanilla);
         }
         catch

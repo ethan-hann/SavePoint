@@ -116,6 +116,53 @@ internal sealed class BackendWorkspace : IDisposable
     // The copy's backend is built with the given options, which the template's own backend need not share.
     public static BackendWorkspace CopyOf(BackendWorkspace template, Func<BackendOptions, BackendOptions>? configure = null, bool steamLibrary = false) => new(template.Root, configure, steamLibrary);
 
+    private static readonly Lock _worldGate = new();
+    private static readonly Dictionary<string, Task<BackendWorkspace>> _worlds = [];
+
+    // A new workspace over its own copy of a world that build made once for the whole run: the first caller's delegate builds it in a
+    // workspace with the default options, and every caller (that one too) gets a copy, so no test shares a folder another test changes.
+    // Games and profiles are read back from the copy, since the ones the delegate saw name the template's folders.
+    public static async Task<BackendWorkspace> FromWorldAsync(string name, Func<BackendWorkspace, Task> build, Func<BackendOptions, BackendOptions>? configure = null)
+    {
+        BackendWorkspace template;
+        try
+        {
+            template = await WorldAsync(name, build);
+        }
+        catch (OperationCanceledException) when (!TestContext.Current.CancellationToken.IsCancellationRequested)
+        {
+            // The test that started the shared build was cancelled; this one is not, so it builds the world again.
+            template = await WorldAsync(name, build);
+        }
+
+        return CopyOf(template, configure);
+    }
+
+    // A build that failed (or was canceled with the test that started it) is not kept, so the next test builds it again.
+    private static Task<BackendWorkspace> WorldAsync(string name, Func<BackendWorkspace, Task> build)
+    {
+        lock (_worldGate)
+        {
+            if (!_worlds.TryGetValue(name, out var built) || built.IsFaulted || built.IsCanceled)
+            {
+                built = BuildWorldAsync(build);
+                _worlds[name] = built;
+            }
+
+            return built;
+        }
+    }
+
+    private static async Task<BackendWorkspace> BuildWorldAsync(Func<BackendWorkspace, Task> build)
+    {
+        var workspace = new BackendWorkspace();
+        var folder = workspace.Root;
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Savepoint.Core.Tests.Git.GitWorkspace.DeleteDirectory(folder);
+        await build(workspace);
+        await workspace.WaitForIdleAsync();
+        return workspace;
+    }
+
     // A second backend over the same folders, as the app has after a restart: nothing in memory carries over.
     public CoreBackend Restart() => Backend = Build();
 
