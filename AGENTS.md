@@ -68,7 +68,7 @@ SavePoint is licensed GPL-3.0-or-later (`LICENSE`). Bundled components keep thei
 ## Branches and commits
 
 - Work on a branch named `issue-<n>-<slug>` and open a pull request to `main`.
-- The maintainer signs every commit on `main`. Contributed commits do not need to be signed.
+- Every commit is signed, including an agent's commits on its own branch. When signing fails or asks for a passphrase, the coordinator arms signing first and the commit is made again signed. Never commit unsigned, pass `--no-gpg-sign` or `-c commit.gpgsign=false`, or change git config to get past it; an implementer stops and reports instead.
 - Write commit messages and PR descriptions in ASCII. Say what changed and why. Add no tool attribution footer.
 - Make follow-ups found along the way into issues, not comments in code or notes in docs.
 
