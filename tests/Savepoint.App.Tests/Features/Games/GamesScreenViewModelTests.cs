@@ -107,6 +107,44 @@ public class GamesScreenViewModelTests
         Assert.Equal([true, false], rig.Screen.Profiles.Select(row => row.IsActive));
     }
 
+    // Anything watching IsLoading, from another thread or from its change notice, acts on the state it finds when the flag drops.
+    [Fact]
+    public async Task Loading_ends_only_once_the_rows_hold_their_stats()
+    {
+        var rig = await GamesRig.StartAsync();
+        IReadOnlyList<string>? versionsWhenLoadingEnded = null;
+        rig.Screen.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(GamesScreenViewModel.IsLoading) && !rig.Screen.IsLoading)
+            {
+                versionsWhenLoadingEnded ??= [.. rig.Screen.Profiles.Select(row => row.VersionText)];
+            }
+        };
+
+        rig.Shell.SelectGame(SampleScenario.SatisfactoryId);
+
+        Assert.Equal(["1.1.0.4", "1.1.0.4"], versionsWhenLoadingEnded);
+    }
+
+    [Fact]
+    public async Task Loading_ends_only_once_a_failed_profile_list_shows_its_error_card()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.ListAsync), SampleScenario.FolderGoneError);
+        bool? errorShownWhenLoadingEnded = null;
+        rig.Screen.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(GamesScreenViewModel.IsLoading) && !rig.Screen.IsLoading)
+            {
+                errorShownWhenLoadingEnded ??= rig.Screen.LoadError is not null && rig.Screen.Profiles.Count == 0;
+            }
+        };
+
+        await rig.Screen.ReloadAsync();
+
+        Assert.True(errorShownWhenLoadingEnded);
+    }
+
     [Fact]
     public async Task Each_row_says_what_state_the_profile_is_in()
     {

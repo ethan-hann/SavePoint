@@ -301,7 +301,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             return;
         }
 
-        IsLoading = false;
+        // The flag drops last: whoever sees loading end must find the rows with their stats, or the error card, already in place.
         _loaded = true;
         StorageFooterText = usage.Ok ? StorageFooter(usage.Value) : string.Empty;
 
@@ -310,6 +310,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
             ClearRows();
             LoadError = LoadFailure(list.Error);
             RaiseTableState();
+            IsLoading = false;
             return;
         }
 
@@ -323,6 +324,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         ApplyRows(list.Value, stats.Ok ? stats.Value : []);
         RefreshPlayAvailability();
         RaiseTableState();
+        IsLoading = false;
     }
 
     /// <summary>Tells the screen how wide its profile table is, so it can drop columns that do not fit.</summary>
