@@ -127,7 +127,7 @@ public class HelpAccessTests
         using var app = await AppStates.OpenAsync(state);
         app.Window.Width = width;
         app.Settle();
-        app.Render("reflow", $"{state}-{width}");
+        app.RenderIfRequested("reflow", $"{state}-{width}");
 
         var answers = app.All<Border>().Where(border => border.Name == "AnswerBox" && border.IsEffectivelyVisible).ToList();
 

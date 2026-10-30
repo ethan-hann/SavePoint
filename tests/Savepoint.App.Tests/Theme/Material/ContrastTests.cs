@@ -4,58 +4,43 @@ namespace Savepoint.App.Tests.Theme.Material;
 
 public class ContrastTests
 {
-    public static TheoryData<double, double, double> RatioSamples()
+    [Fact]
+    public void RatioOfTones_matches_the_reference()
     {
-        var data = new TheoryData<double, double, double>();
+        var mismatches = new GoldenMismatches();
         foreach (var sample in GoldenData.Current.Contrast.Ratios)
         {
-            data.Add(sample.A, sample.B, sample.Ratio);
+            mismatches.Row();
+            mismatches.Same($"RatioOfTones({sample.A:R}, {sample.B:R})", "ratio", sample.Ratio, Contrast.RatioOfTones(sample.A, sample.B));
         }
 
-        return data;
+        mismatches.AssertNone("Contrast.RatioOfTones", 64);
     }
 
-    public static TheoryData<double, double, double> LighterSamples()
+    [Fact]
+    public void Lighter_matches_the_reference()
     {
-        var data = new TheoryData<double, double, double>();
+        var mismatches = new GoldenMismatches();
         foreach (var sample in GoldenData.Current.Contrast.Lighter)
         {
-            data.Add(sample.Tone, sample.Ratio, sample.Result);
+            mismatches.Row();
+            mismatches.Same($"Lighter(tone {sample.Tone:R}, ratio {sample.Ratio:R})", "tone", sample.Result, Contrast.Lighter(sample.Tone, sample.Ratio));
         }
 
-        return data;
+        mismatches.AssertNone("Contrast.Lighter", 48);
     }
 
-    public static TheoryData<double, double, double> DarkerSamples()
+    [Fact]
+    public void Darker_matches_the_reference()
     {
-        var data = new TheoryData<double, double, double>();
+        var mismatches = new GoldenMismatches();
         foreach (var sample in GoldenData.Current.Contrast.Darker)
         {
-            data.Add(sample.Tone, sample.Ratio, sample.Result);
+            mismatches.Row();
+            mismatches.Same($"Darker(tone {sample.Tone:R}, ratio {sample.Ratio:R})", "tone", sample.Result, Contrast.Darker(sample.Tone, sample.Ratio));
         }
 
-        return data;
-    }
-
-    [Theory]
-    [MemberData(nameof(RatioSamples))]
-    public void RatioOfTones_matches_the_reference(double toneA, double toneB, double expected)
-    {
-        Numbers.AssertSame(expected, Contrast.RatioOfTones(toneA, toneB), "ratio");
-    }
-
-    [Theory]
-    [MemberData(nameof(LighterSamples))]
-    public void Lighter_matches_the_reference(double tone, double ratio, double expected)
-    {
-        Numbers.AssertSame(expected, Contrast.Lighter(tone, ratio), "lighter");
-    }
-
-    [Theory]
-    [MemberData(nameof(DarkerSamples))]
-    public void Darker_matches_the_reference(double tone, double ratio, double expected)
-    {
-        Numbers.AssertSame(expected, Contrast.Darker(tone, ratio), "darker");
+        mismatches.AssertNone("Contrast.Darker", 48);
     }
 
     [Fact]

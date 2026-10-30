@@ -58,7 +58,7 @@ Walk every question. A "yes" adds rules, and the walk goes on to the next questi
 
 1. Break the product line the test names. Run the test. It must fail with an assertion failure. AGENTS.md, section "Code", asks for this mutation check when a test passes on its first run.
 2. For a theory, invert its assertion instead. Run it. Every row must fail. A row that still passes never reached the assertion.
-3. List the render checks that only measure a file. Read each hit. Every hit should be a picture behind a skip switch, or a test of the tool that saves frames; hits in the classes #257 lists, `AppIconTests` and `BackendContractTests` are known and tracked there:
+3. List the render checks that only measure a file. Read each hit. Every hit should be a picture behind a skip switch, or a test of the tool that saves frames; hits in `AppIconTests` and `BackendContractTests` are known and tracked there:
 
    ```bash
    grep -rn "FileInfo(path).Length\|Assert.True(File.Exists(path))\|Length > [0-9_]*0_000" tests/Savepoint.App.Tests
@@ -373,9 +373,7 @@ public async Task Every_dialogs_buttons_and_their_focus_rings_clear_its_edge(str
 
 The audit found these. Do not copy them. Each entry must have an issue in the `Code Cleanup` milestone. When the code is fixed, close the issue and delete the entry.
 
-- **Make every case able to fail:** render checks that only check a file and still run in the gate: the render cases in `ActivityScreenViewTests`, `StyleGalleryRenderTests`, and the render calls in `GamesProfileSearchViewTests`, `HistorySearchViewTests`, `ShellGameSearchViewTests`, `PinnedFooterTests`, `HelpAccessTests`, and `RenderSettleTests` (#257).
 - **Assert what the player or caller sees:** the `EstimatesStoppedAtRunStart` flag that `FakeGamesApi` and `FakeSettingsApi` set for themselves (#259).
-- **Make every theory row reach its assertion:** large golden theories that a loop can replace: `DynamicColorToneGoldenTests`, `HctTests`, `TonalPaletteTests`, `ContrastTests`, and the per-role rows of `Md3PaletteGoldenTests` (#258).
 - **Test a test tool only for its own logic:** `FakeCallLogTests`, and the fake tests that only check a fake stores or echoes its input (#261).
 
 ## Additional Resources

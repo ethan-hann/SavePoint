@@ -5,15 +5,37 @@ namespace Savepoint.App.Tests.Theme.Material;
 // Hand-built colors reach tone branches the Material role table never does.
 public class DynamicColorToneGoldenTests
 {
-    public static TheoryData<int> PairCases() => Indices("pair");
-
-    public static TheoryData<int> SingleCases() => Indices("single");
-
-    [Theory]
-    [MemberData(nameof(PairCases))]
-    public void Tone_delta_pairs_resolve_to_the_reference_tones(int index)
+    [Fact]
+    public void Tone_delta_pairs_resolve_to_the_reference_tones()
     {
-        var spec = GoldenData.Current.ToneCases[index];
+        var mismatches = new GoldenMismatches();
+        foreach (var (index, spec) in Cases("pair"))
+        {
+            mismatches.Row();
+            var (a, b) = ResolvePair(spec);
+            var row = $"case {index} ({Describe(spec)})";
+            mismatches.Close(row, "color a", spec.ExpectedA, a);
+            mismatches.Close(row, "color b", spec.ExpectedB!.Value, b);
+        }
+
+        mismatches.AssertNone("Tone delta pairs", 400);
+    }
+
+    [Fact]
+    public void Colors_with_one_or_two_backgrounds_resolve_to_the_reference_tone()
+    {
+        var mismatches = new GoldenMismatches();
+        foreach (var (index, spec) in Cases("single"))
+        {
+            mismatches.Row();
+            mismatches.Close($"case {index} ({Describe(spec)})", "tone", spec.ExpectedA, ResolveSingle(spec));
+        }
+
+        mismatches.AssertNone("Single colors", 450);
+    }
+
+    private static (double A, double B) ResolvePair(GoldenToneCase spec)
+    {
         var palette = TonalPalette.FromHueAndChroma(250.0, 36.0);
         var scheme = SchemeFor(spec, palette);
         var background = DynamicColor.FromPalette("bg", _ => palette, _ => spec.BgTone, isBackground: true);
@@ -36,15 +58,11 @@ public class DynamicColorToneGoldenTests
             toneDeltaPair: _ => pair!);
         pair = new ToneDeltaPair(colorA, colorB, spec.Delta!.Value, Polarity(spec.Polarity!), spec.StayTogether!.Value);
 
-        Numbers.AssertClose(spec.ExpectedA, colorA.GetTone(scheme), $"case {index} color a");
-        Numbers.AssertClose(spec.ExpectedB!.Value, colorB.GetTone(scheme), $"case {index} color b");
+        return (colorA.GetTone(scheme), colorB.GetTone(scheme));
     }
 
-    [Theory]
-    [MemberData(nameof(SingleCases))]
-    public void Colors_with_one_or_two_backgrounds_resolve_to_the_reference_tone(int index)
+    private static double ResolveSingle(GoldenToneCase spec)
     {
-        var spec = GoldenData.Current.ToneCases[index];
         var palette = TonalPalette.FromHueAndChroma(250.0, 36.0);
         var scheme = SchemeFor(spec, palette);
         var background = DynamicColor.FromPalette("bg", _ => palette, _ => spec.BgTone, isBackground: true);
@@ -58,7 +76,7 @@ public class DynamicColorToneGoldenTests
             secondBackground: spec.Bg2Tone is null ? null : _ => second,
             contrastCurve: Curve(spec.CurveA));
 
-        Numbers.AssertClose(spec.ExpectedA, foreground.GetTone(scheme), $"case {index}");
+        return foreground.GetTone(scheme);
     }
 
     [Fact]
@@ -74,20 +92,11 @@ public class DynamicColorToneGoldenTests
         Assert.Contains(cases, c => c.Contrast > 0);
     }
 
-    private static TheoryData<int> Indices(string kind)
-    {
-        var data = new TheoryData<int>();
-        var cases = GoldenData.Current.ToneCases;
-        for (var i = 0; i < cases.Length; i++)
-        {
-            if (cases[i].Kind == kind)
-            {
-                data.Add(i);
-            }
-        }
+    private static IEnumerable<(int Index, GoldenToneCase Spec)> Cases(string kind) =>
+        GoldenData.Current.ToneCases.Select((spec, index) => (index, spec)).Where(c => c.spec.Kind == kind);
 
-        return data;
-    }
+    private static string Describe(GoldenToneCase spec) =>
+        $"{(spec.Dark ? "dark" : "light")}, contrast {spec.Contrast:R}, background tone {spec.BgTone:R}, tone {spec.ToneA:R}";
 
     private static DynamicScheme SchemeFor(GoldenToneCase spec, TonalPalette palette) =>
         new(new DynamicSchemeArgs(0xFF2986CC, Variant.TonalSpot, spec.Contrast, spec.Dark, palette, palette, palette, palette, palette));

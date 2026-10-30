@@ -279,7 +279,7 @@ public class ActivityScreenViewTests
         Assert.Contains("Snapshots, switches, freeing up space and moves show up here.", texts);
         Assert.False(harness.Find<Button>("ShowAllButton").IsEffectivelyVisible);
         Assert.False(harness.Find<Grid>("Panes").IsEffectivelyVisible);
-        harness.Render("empty");
+        harness.RenderIfRequested("empty");
     }
 
     [AvaloniaFact]
@@ -335,7 +335,7 @@ public class ActivityScreenViewTests
         Assert.True(panes.Bounds.Width > 0 && panes.Bounds.Height > 0);
         Assert.True(harness.Find<Border>("ListPane").Bounds.Right <= harness.Window.Width + 0.5);
         Assert.True(harness.Find<Panel>("DetailsPane").Bounds.Right <= harness.Window.Width + 0.5);
-        harness.Render($"fit-{width}x{height}");
+        harness.RenderIfRequested($"fit-{width}x{height}");
     }
 
     [AvaloniaTheory]
@@ -484,50 +484,33 @@ public class ActivityScreenViewTests
 
     // ---- Renders
 
-    [AvaloniaTheory]
-    [InlineData(ThemePreference.Dark)]
-    [InlineData(ThemePreference.Light)]
-    public async Task The_screen_renders_a_running_a_finished_a_failed_a_partly_done_and_a_canceled_job(ThemePreference theme)
-    {
-        using var harness = await StartAsync(await BusyAsync(theme), theme);
-
-        var path = harness.Render($"running-{theme.ToString().ToLowerInvariant()}");
-
-        Assert.True(File.Exists(path));
-    }
-
-    [AvaloniaTheory]
-    [InlineData(ThemePreference.Dark)]
-    [InlineData(ThemePreference.Light)]
-    public async Task The_screen_renders_the_details_of_a_failed_and_a_partly_done_job(ThemePreference theme)
-    {
-        using var harness = await StartAsync(await BusyAsync(theme), theme);
-        var screen = Screen(harness);
-
-        screen.SelectedRow = screen.Rows.Single(row => row.StatusText == "Failed");
-        harness.Render($"failed-{theme.ToString().ToLowerInvariant()}");
-        screen.SelectedRow = screen.Rows.Single(row => row.StatusText == "Partly done");
-        var path = harness.Render($"partly-done-{theme.ToString().ToLowerInvariant()}");
-
-        Assert.True(File.Exists(path));
-    }
-
     [AvaloniaFact]
-    public async Task The_screen_renders_a_canceled_job_and_every_games_jobs()
+    public async Task Writes_every_Activity_render_on_request()
     {
+        RenderOutput.SkipUnlessRequested();
+
+        foreach (var theme in new[] { ThemePreference.Dark, ThemePreference.Light })
+        {
+            var name = theme.ToString().ToLowerInvariant();
+            using var harness = await StartAsync(await BusyAsync(theme), theme);
+            var screen = Screen(harness);
+            harness.Render($"running-{name}");
+
+            screen.SelectedRow = screen.Rows.Single(row => row.StatusText == "Failed");
+            harness.Render($"failed-{name}");
+            screen.SelectedRow = screen.Rows.Single(row => row.StatusText == "Partly done");
+            harness.Render($"partly-done-{name}");
+        }
+
         var backend = await BusyAsync();
         FakeAssert.Ok(await backend.Games.OptimizeStorageAsync(CaretakerId));
         FakeAssert.Ok(await backend.Settings.RelocateStorageAsync(@"D:\SavePoint"));
-        using var harness = await StartAsync(backend);
-        var screen = Screen(harness);
-
-        screen.SelectedRow = screen.Rows.Single(row => row.StatusText == "Canceled");
-        harness.Render("canceled-dark");
-        harness.Find<ListBox>("ScopeToggle").SelectedIndex = 1;
-        harness.Settle();
-        var path = harness.Render("all-games-dark");
-
-        Assert.True(File.Exists(path));
+        using var canceled = await StartAsync(backend);
+        Screen(canceled).SelectedRow = Screen(canceled).Rows.Single(row => row.StatusText == "Canceled");
+        canceled.Render("canceled-dark");
+        canceled.Find<ListBox>("ScopeToggle").SelectedIndex = 1;
+        canceled.Settle();
+        canceled.Render("all-games-dark");
     }
 
     // Choosing a task commits the list's selection, and the screen drops the old open task from the list while that commit is still running.
@@ -578,9 +561,7 @@ public class ActivityScreenViewTests
         using var harness = await StartAsync(backend);
 
         Assert.Contains("Activity", harness.All<ListBox>().Single(list => list.Name == "TopNavList").GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text));
-        var path = harness.Render("library-layout");
-
-        Assert.True(File.Exists(path));
+        harness.RenderIfRequested("library-layout");
         _ = HistoryRig.SampleZone;
     }
 }

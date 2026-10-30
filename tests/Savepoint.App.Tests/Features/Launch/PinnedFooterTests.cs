@@ -39,7 +39,7 @@ public class PinnedFooterTests
         using var harness = await StartAllSectionsAsync(width, height);
         var begin = harness.Flow.BeginAsync(SampleScenario.SkyrimId, LaunchRig.SurvivalTip);
         harness.Settle();
-        harness.Render($"launch-dialog-all-sections-{width}x{height}");
+        harness.RenderIfRequested($"launch-dialog-all-sections-{width}x{height}");
         var cancel = harness.Find<Button>("CancelButton");
         var switchButton = harness.Find<Button>("SwitchButton");
         var body = harness.Find<ItemsControl>("UnsavedList").GetVisualAncestors().OfType<ScrollViewer>().First();

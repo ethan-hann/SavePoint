@@ -5,34 +5,27 @@ namespace Savepoint.App.Tests.Theme.Material;
 
 public class Md3PaletteGoldenTests
 {
-    // One row per seed, mode and role for exactly what SavePoint v1 derives (contrast 0, tonal spot).
-    public static TheoryData<string, bool, string, string> V1Roles()
-    {
-        var data = new TheoryData<string, bool, string, string>();
-        foreach (var scheme in GoldenData.Current.Schemes.Where(s => s.Group == "v1"))
-        {
-            foreach (var (role, hex) in scheme.Colors)
-            {
-                data.Add(scheme.Seed, scheme.Dark, role, hex);
-            }
-        }
-
-        return data;
-    }
-
     public static TheoryData<string> V1Schemes() => SchemeIds(scheme => scheme.Group == "v1");
 
     public static TheoryData<string> ExtraSchemes() => SchemeIds(scheme => scheme.Group != "v1");
 
-    [Theory]
-    [MemberData(nameof(V1Roles))]
-    public void Build_matches_the_reference_role(string seed, bool dark, string role, string expectedHex)
+    // Every seed, mode and role for exactly what SavePoint v1 derives (contrast 0, tonal spot).
+    [Fact]
+    public void Build_matches_the_reference_roles()
     {
-        var seedArgb = GoldenData.ParseArgb("#FF" + GoldenData.Current.Seeds[seed][1..]);
+        var mismatches = new GoldenMismatches();
+        foreach (var scheme in GoldenData.Current.Schemes.Where(s => s.Group == "v1"))
+        {
+            var seedArgb = GoldenData.ParseArgb("#FF" + GoldenData.Current.Seeds[scheme.Seed][1..]);
+            var roles = Md3Palette.Build(seedArgb, scheme.Dark).ToRoleMap();
+            foreach (var (role, hex) in scheme.Colors)
+            {
+                mismatches.Row();
+                mismatches.Exact($"seed {scheme.Seed}, {(scheme.Dark ? "dark" : "light")}, role {role}", "color", hex, roles.TryGetValue(role, out var actual) ? GoldenData.Hex(actual) : "(missing)");
+            }
+        }
 
-        var roles = Md3Palette.Build(seedArgb, dark).ToRoleMap();
-
-        Assert.Equal(expectedHex, GoldenData.Hex(roles[role]));
+        mismatches.AssertNone("Md3Palette.Build", 540);
     }
 
     [Theory]

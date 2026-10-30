@@ -126,14 +126,15 @@ public class GamesProfileSearchViewTests
     }
 
     [AvaloniaFact]
-    public async Task Renders_the_search_over_the_table_and_over_no_matches()
+    public async Task Writes_the_profile_search_renders_on_request()
     {
+        RenderOutput.SkipUnlessRequested();
         using var app = await ComposedApp.StartWithViewAsync();
         app.Games.ProfileSearch.Text = "vanilla";
-        Assert.True(File.Exists(app.Render("games", "profile-search")));
+        app.Render("games", "profile-search");
 
         app.Games.ProfileSearch.Text = "zzz";
-        Assert.True(File.Exists(app.Render("games", "profile-search-empty")));
+        app.Render("games", "profile-search-empty");
     }
 
     [AvaloniaFact]

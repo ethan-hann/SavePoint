@@ -109,6 +109,15 @@ internal sealed class LaunchViewHarness : IDisposable
         return ThemeTestSupport.SaveFrame(Window, Path.Combine(OutputFolder, fileName + ".png"));
     }
 
+    // For a picture no test reads: drawn only when a person asks for the renders (SAVEPOINT_RENDER=1), so a gate run does not wait on it.
+    public void RenderIfRequested(string fileName)
+    {
+        if (RenderOutput.Requested)
+        {
+            Render(fileName);
+        }
+    }
+
     public void Dispose()
     {
         Main.Dispose();

@@ -12,11 +12,11 @@ public class RenderSettleTests
         item.GetVisualDescendants().OfType<Border>().First(border => border.Name == "PART_Selected").Opacity;
 
     [AvaloniaFact]
-    public async Task A_render_is_taken_after_the_nav_pills_have_finished_fading()
+    public async Task Settling_the_animations_before_a_render_leaves_the_nav_pills_finished_fading()
     {
         using var app = await ComposedApp.StartWithViewAsync();
 
-        app.Render("settle", "nav-pills");
+        app.SettleAnimations();
 
         var layers = app.Find<ListBox>("NavList").GetVisualDescendants().OfType<ListBoxItem>().Select(SelectedLayer).ToList();
         Assert.True(layers.Count > 1, "the rail has more than one destination");
