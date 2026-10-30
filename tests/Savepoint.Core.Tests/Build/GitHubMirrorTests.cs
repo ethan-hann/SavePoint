@@ -190,6 +190,52 @@ public class GitHubMirrorTests
     }
 
     [Fact]
+    public async Task A_file_missing_from_the_checksum_list_fails_the_run_and_nothing_is_sent()
+    {
+        using var stub = new MirrorStub();
+        var release = PublishedRelease(stub);
+        release.Assets.RemoveAll(a => a.Name == "SHA256SUMS.txt");
+        release.Assets.Add(File("SHA256SUMS.txt", MirrorStub.SumsFor(File("SavePoint-win-Setup.exe", "setup bytes"))));
+        stub.GitHubTags.Add("v0.9.21");
+
+        var run = await MirrorAsync(stub, "v0.9.21");
+
+        Assert.NotEqual(0, run.ExitCode);
+        Assert.Contains("SavePoint.AppImage", run.Output, StringComparison.Ordinal);
+        Assert.Contains("SHA256SUMS.txt", run.Output, StringComparison.Ordinal);
+        Assert.All(stub.GitHubReleases, mirrored => Assert.Empty(mirrored.Assets));
+    }
+
+    [Fact]
+    public async Task A_release_with_no_checksum_list_fails_the_run_and_nothing_is_sent()
+    {
+        using var stub = new MirrorStub();
+        stub.AddForgejoRelease("v0.9.21", "SavePoint v0.9.21", "Notes", prerelease: true, draft: false, Package());
+        stub.GitHubTags.Add("v0.9.21");
+
+        var run = await MirrorAsync(stub, "v0.9.21");
+
+        Assert.NotEqual(0, run.ExitCode);
+        Assert.Contains("SHA256SUMS.txt", run.Output, StringComparison.Ordinal);
+        Assert.All(stub.GitHubReleases, mirrored => Assert.Empty(mirrored.Assets));
+    }
+
+    [Fact]
+    public async Task A_same_size_file_on_GitHub_with_no_reported_digest_is_hashed_and_replaced_when_its_bytes_differ()
+    {
+        using var stub = new MirrorStub { ReportDigests = false };
+        var release = PublishedRelease(stub);
+        var github = stub.AddGitHubRelease("v0.9.21", release.Name, release.Body, true,
+            File("SavePoint-win-Setup.exe", "SETUP BYTES"), File("SavePoint.AppImage", "appimage bytes\n"), release.Assets.Single(a => a.Name == "SHA256SUMS.txt"));
+
+        var run = await MirrorAsync(stub, "v0.9.21");
+
+        Assert.True(run.ExitCode == 0, run.Output);
+        Assert.Equal(Encoding.UTF8.GetBytes("setup bytes"), github.Assets.Single(a => a.Name == "SavePoint-win-Setup.exe").Bytes);
+        Assert.DoesNotContain(stub.RequestsTo("/gh-up"), request => request.Path.Contains("AppImage", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task A_digest_GitHub_reports_that_differs_from_the_checksum_fails_the_run()
     {
         using var stub = new MirrorStub { DigestOverride = new string('0', 64) };

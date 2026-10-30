@@ -281,6 +281,20 @@ internal sealed class MirrorStub : IDisposable
             var release = GitHubReleases.FirstOrDefault(r => r.Tag == Uri.UnescapeDataString(rest["/releases/tags/".Length..]));
             Reply(context, release is null ? 404 : 200, release is null ? new { message = "Not Found" } : GitHubJson(release));
         }
+        else if (method == "GET" && rest.StartsWith("/releases/assets/", StringComparison.Ordinal))
+        {
+            var id = long.Parse(rest["/releases/assets/".Length..]);
+            var asset = GitHubReleases.SelectMany(r => r.Assets).FirstOrDefault(a => a.Id == id);
+            if (asset is null)
+            {
+                Reply(context, 404, new { message = "Not Found" });
+                return;
+            }
+
+            context.Response.StatusCode = 200;
+            context.Response.OutputStream.Write(asset.Bytes);
+            context.Response.Close();
+        }
         else if (method == "POST" && rest == "/releases")
         {
             var json = JsonDocument.Parse(body).RootElement;
