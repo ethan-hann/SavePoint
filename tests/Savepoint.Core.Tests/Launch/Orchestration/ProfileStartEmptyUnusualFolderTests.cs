@@ -131,7 +131,7 @@ public class ProfileStartEmptyUnusualFolderTests
         var preview = await SavesPreviewAsync(rig);
         var refused = await rig.Profiles.CreateAsync(rig.Game.Id, "Bare", null, "Bare", [RepoRole.External]);
 
-        Assert.Equal(StartEmptyBlock.Other, preview.StartEmptyBlocked);
+        Assert.Equal(StartEmptyBlock.OlderSnapshot, preview.StartEmptyBlocked);
         Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnchecked, RefusalOf(refused));
     }
 
