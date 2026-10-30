@@ -17,11 +17,11 @@ namespace Savepoint.App.Tests.Features.History;
 
 public class HistoryScreenViewTests
 {
-    private static Task<ScreenHarness> StartAsync(FakeBackend? backend = null, ThemePreference theme = ThemePreference.Dark, double width = 1040, double height = 660)
+    private static Task<ScreenHarness> StartAsync(FakeBackend? backend = null, ThemePreference theme = ThemePreference.Dark, double width = 1040, double height = 660, IUiDispatcher? dispatcher = null)
     {
         backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme }));
         var clock = backend.Clock;
-        return ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, clock))], NavDestination.History, backend, theme, width, height);
+        return ScreenHarness.StartAsync("history", context => [new HistoryScreenFactory(FeatureComposition.HistoryDependenciesOf(context, clock))], NavDestination.History, backend, theme, width, height, dispatcher: dispatcher);
     }
 
     private static HistoryScreenViewModel Screen(ScreenHarness harness) => (HistoryScreenViewModel)harness.Shell.CurrentScreen!;
@@ -63,7 +63,7 @@ public class HistoryScreenViewTests
     [AvaloniaFact]
     public async Task Choosing_list_shows_the_two_columns_with_their_headings_and_hides_the_cards()
     {
-        using var harness = await StartAsync();
+        using var harness = await StartAsync(dispatcher: new AvaloniaUiDispatcher());
 
         Screen(harness).SelectedViewOption = Screen(harness).ViewOptions[1];
         harness.Settle();
@@ -104,7 +104,7 @@ public class HistoryScreenViewTests
     [AvaloniaFact]
     public async Task The_toggle_in_the_header_drives_the_view_model()
     {
-        using var harness = await StartAsync();
+        using var harness = await StartAsync(dispatcher: new AvaloniaUiDispatcher());
 
         harness.Find<ListBox>("ViewToggle").SelectedIndex = 1;
         harness.Settle();
