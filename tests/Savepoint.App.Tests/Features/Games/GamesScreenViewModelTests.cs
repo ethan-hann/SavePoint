@@ -107,7 +107,8 @@ public class GamesScreenViewModelTests
         Assert.Equal([true, false], rig.Screen.Profiles.Select(row => row.IsActive));
     }
 
-    // Anything watching IsLoading, from another thread or from its change notice, acts on the state it finds when the flag drops.
+    // Anything watching IsLoading from its change notice acts on the state it finds when the flag drops. These tests read from that
+    // notice, on the thread that writes; a reader on another thread would also need the dispatcher.
     [Fact]
     public async Task Loading_ends_only_once_the_rows_hold_their_stats()
     {
@@ -132,17 +133,117 @@ public class GamesScreenViewModelTests
         var rig = await GamesRig.StartAsync();
         rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.ListAsync), SampleScenario.FolderGoneError);
         bool? errorShownWhenLoadingEnded = null;
+        bool? rowsClearedWhenLoadingEnded = null;
         rig.Screen.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(GamesScreenViewModel.IsLoading) && !rig.Screen.IsLoading)
             {
-                errorShownWhenLoadingEnded ??= rig.Screen.LoadError is not null && rig.Screen.Profiles.Count == 0;
+                errorShownWhenLoadingEnded ??= rig.Screen.LoadError is not null;
+                rowsClearedWhenLoadingEnded ??= rig.Screen.Profiles.Count == 0;
             }
         };
 
         await rig.Screen.ReloadAsync();
 
         Assert.True(errorShownWhenLoadingEnded);
+        Assert.True(rowsClearedWhenLoadingEnded);
+    }
+
+    [Fact]
+    public async Task A_failed_reload_of_a_game_with_rows_never_shows_the_loading_card_on_its_way_to_the_error_card()
+    {
+        var rig = await GamesRig.StartAsync();
+        rig.Backend.FailNext<IProfilesApi>(nameof(IProfilesApi.ListAsync), SampleScenario.FolderGoneError);
+        var loadingShown = new List<bool>();
+        rig.Screen.PropertyChanged += (_, _) => loadingShown.Add(rig.Screen.ShowLoading);
+        rig.Screen.Profiles.CollectionChanged += (_, _) => loadingShown.Add(rig.Screen.ShowLoading);
+
+        await rig.Screen.ReloadAsync();
+
+        Assert.NotEmpty(loadingShown);
+        Assert.DoesNotContain(true, loadingShown);
+        Assert.NotNull(rig.Screen.LoadError);
+    }
+
+    [Fact]
+    public async Task Reloading_a_game_with_no_profiles_never_shows_the_loading_card_and_the_empty_state_together()
+    {
+        var rig = await GamesRig.StartAsync(WithProfiles());
+        var both = new List<bool>();
+        rig.Screen.PropertyChanged += (_, _) => both.Add(rig.Screen.ShowLoading && rig.Screen.ShowEmptyState);
+
+        await rig.Screen.ReloadAsync();
+
+        Assert.NotEmpty(both);
+        Assert.DoesNotContain(true, both);
+        Assert.True(rig.Screen.ShowEmptyState);
+    }
+
+    [Fact]
+    public async Task A_reload_that_throws_after_its_last_read_still_ends_loading()
+    {
+        var rig = await GamesRig.StartAsync();
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        rig.Backend.Profiles.StatsGate = token =>
+        {
+            reached.TrySetResult();
+            return release.Task.WaitAsync(token);
+        };
+        var armed = false;
+        rig.Screen.PropertyChanged += (_, e) =>
+        {
+            if (armed && e.PropertyName == nameof(GamesScreenViewModel.ShowTable))
+            {
+                throw new InvalidOperationException("a subscriber broke");
+            }
+        };
+        var reload = rig.Screen.ReloadAsync();
+        await reached.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        armed = true;
+        release.SetResult();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => reload);
+
+        Assert.False(rig.Screen.IsLoading);
+    }
+
+    [Fact]
+    public async Task A_reload_that_throws_after_a_newer_one_started_leaves_the_newer_ones_loading_flag_alone()
+    {
+        var rig = await GamesRig.StartAsync();
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        rig.Backend.Profiles.StatsGate = token =>
+        {
+            reached.TrySetResult();
+            return release.Task.WaitAsync(token);
+        };
+        var newerRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task? newer = null;
+        var armed = false;
+        rig.Screen.PropertyChanged += (_, e) =>
+        {
+            if (armed && e.PropertyName == nameof(GamesScreenViewModel.ShowTable))
+            {
+                armed = false;
+                rig.Backend.Profiles.StatsGate = null;
+                rig.Backend.Profiles.ListGate = token => newerRelease.Task.WaitAsync(token);
+                newer = rig.Screen.ReloadAsync();
+                throw new InvalidOperationException("a subscriber broke");
+            }
+        };
+        var reload = rig.Screen.ReloadAsync();
+        await reached.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        armed = true;
+        release.SetResult();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => reload);
+
+        Assert.True(rig.Screen.IsLoading);
+        newerRelease.SetResult();
+        await newer!;
+        Assert.False(rig.Screen.IsLoading);
     }
 
     [Fact]

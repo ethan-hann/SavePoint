@@ -138,7 +138,7 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
     public bool ShowTable => HasGame && LoadError is null && Profiles.Count > 0;
 
     /// <summary>True while the first read of a game's profiles has nothing to show yet, which is when the screen says it is loading.</summary>
-    public bool ShowLoading => HasGame && IsLoading && Profiles.Count == 0 && LoadError is null;
+    public bool ShowLoading => HasGame && !_loaded && IsLoading && Profiles.Count == 0 && LoadError is null;
 
     /// <summary>True when the game has no profiles yet and the screen prompts for the first one.</summary>
     public bool ShowEmptyState => HasGame && _loaded && LoadError is null && Profiles.Count == 0;
@@ -250,6 +250,22 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
         }
 
         IsLoading = true;
+        try
+        {
+            await ReadAsync(game, generation, cts);
+        }
+        finally
+        {
+            // Whatever ended the read, the flag must not stay up; a newer reload owns it once the generation moved on.
+            if (generation == _generation && !_disposed)
+            {
+                IsLoading = false;
+            }
+        }
+    }
+
+    private async Task ReadAsync(GameDefinition game, long generation, CancellationTokenSource cts)
+    {
         RaiseTableState();
 
         var listTask = _deps.Profiles.ListAsync(game.Id, cts.Token);
@@ -307,8 +323,8 @@ public sealed partial class GamesScreenViewModel : ObservableObject, IScreen, IP
 
         if (!list.Ok)
         {
-            ClearRows();
             LoadError = LoadFailure(list.Error);
+            ClearRows();
             RaiseTableState();
             IsLoading = false;
             return;

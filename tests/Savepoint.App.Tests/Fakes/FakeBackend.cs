@@ -244,7 +244,8 @@ public sealed class FakeBackend
                 pending = [];
                 if (Delivery == EventDelivery.Background && _drain is null)
                 {
-                    // A thread of its own, so the events never run on the pool thread a test's await may resume on.
+                    // A thread of its own, so the events never run on the caller's thread. A test that awaits WhenEventsDeliveredAsync
+                    // resumes on this thread, because the wait continues inline where the drain completes.
                     _drain = Task.Factory.StartNew(Drain, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
                 }
             }

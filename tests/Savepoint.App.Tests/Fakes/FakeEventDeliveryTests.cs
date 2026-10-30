@@ -59,21 +59,28 @@ public class FakeEventDeliveryTests
     {
         var backend = FakeBackend.Sample();
         backend.Delivery = EventDelivery.Background;
-        // The pool can hand the test's thread to the delivery after an await, so thread ids prove nothing; mark the call itself.
+        // The delivery thread is created while the calling thread is alive, so each event's thread must differ from the thread that
+        // made the call that raised it. The window flag marks events raised inside a call (which an inline delivery would do). The
+        // test itself continues on the delivery thread once the wait ends (the wait resumes inline there), so it never compares
+        // against its own thread after the wait.
         using var insideCall = new ThreadLocal<bool>();
-        var seen = new List<(JobSnapshot Job, bool InsideCall)>();
+        var seen = new List<(JobSnapshot Job, bool InsideCall, int Thread)>();
         backend.Jobs.JobChanged += (_, job) =>
         {
             lock (seen)
             {
-                seen.Add((job, insideCall.Value));
+                seen.Add((job, insideCall.Value, Environment.CurrentManagedThreadId));
             }
         };
 
+        var callers = new List<int> { Environment.CurrentManagedThreadId };
         insideCall.Value = true;
         var capture = backend.Profiles.CaptureAsync(SkyrimId, ModdedId, "Background");
         insideCall.Value = false;
+        // The window above only means "after the call returned" if the fake finished the call without yielding.
+        Assert.True(capture.IsCompleted);
         var started = Ok(await capture);
+        callers.Add(Environment.CurrentManagedThreadId);
         insideCall.Value = true;
         backend.Jobs.Complete(started.JobId);
         insideCall.Value = false;
@@ -83,6 +90,11 @@ public class FakeEventDeliveryTests
         {
             Assert.Equal([JobStatus.Running, JobStatus.Succeeded], seen.Select(raised => raised.Job.Status));
             Assert.All(seen, raised => Assert.False(raised.InsideCall));
+            Assert.Equal(callers.Count, seen.Count);
+            for (var i = 0; i < seen.Count; i++)
+            {
+                Assert.NotEqual(callers[i], seen[i].Thread);
+            }
         }
     }
 
