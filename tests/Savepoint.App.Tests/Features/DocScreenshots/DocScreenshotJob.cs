@@ -244,7 +244,7 @@ internal static class DocScreenshotJob
         jobs.Complete(first);
 
         backend.Clock.Advance(TimeSpan.FromMinutes(6));
-        var running = FakeAssert.Ok(await backend.Profiles.CaptureAsync(GameId, ModdedId, "Session - Jul 8, 2026")).JobId;
+        var running = FakeAssert.Ok(await backend.Profiles.CaptureAsync(GameId, ModdedId, "Session - Jul 8, 2026", [RepoRole.Install, RepoRole.External])).JobId;
         jobs.ReportStep(running, JobSteps.CaptureFolder, ("folder", RepoRole.Install), ("path", Install));
         for (var i = 1; i <= 30; i++)
         {

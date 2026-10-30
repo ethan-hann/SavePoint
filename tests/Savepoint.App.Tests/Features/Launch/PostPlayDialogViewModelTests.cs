@@ -86,7 +86,7 @@ public class PostPlayDialogViewModelTests : IDisposable
         var dialog = Build(exited);
 
         Assert.Equal("The program closed right away", dialog.Title);
-        Assert.Equal("The program you chose closed right away. Either the game did not start because Steam was not running, or the program is a launcher that starts the game and then closes. If this is a Steam game, start Steam first, then play again. If the game starts through Steam, Steam can update it and replace the version you switched to. If the program is a launcher, set the game's process name in Edit game.", dialog.NotSeenHint);
+        Assert.Equal("The program you chose closed right away. If Steam wasn't running, start Steam first, then play again. If the program is a launcher that starts the game and closes, set the game's program name in Edit game. Starting through Steam can let Steam update the game and replace the version you switched to.", dialog.NotSeenHint);
         Assert.Equal("Open Edit game", dialog.EditGameLabel);
     }
 
