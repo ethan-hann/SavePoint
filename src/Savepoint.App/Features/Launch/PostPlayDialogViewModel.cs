@@ -68,7 +68,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
         };
 
         // An unreadable process list is not the name's fault, so there is nothing in Edit game to point at.
-        EditGameLabel = exited.EndKind is SessionEndKind.NamedProcessNeverAppeared or SessionEndKind.NamedProcessNeverMatched or SessionEndKind.ProgramFailedAtStart
+        EditGameLabel = exited.EndKind is SessionEndKind.NamedProcessNeverAppeared or SessionEndKind.NamedProcessNeverMatched or SessionEndKind.ProgramFailedAtStart or SessionEndKind.ProgramQuitAtStart
             ? _text.Message("launch.postPlay.notSeen.editGame")
             : string.Empty;
 
