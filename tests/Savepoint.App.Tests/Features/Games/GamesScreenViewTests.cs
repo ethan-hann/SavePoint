@@ -286,6 +286,36 @@ public class GamesScreenViewTests
         Assert.Same(row.DeleteCommand, items[^1].Command);
     }
 
+    // The row's padding and the gaps between its cells hold no text, so only a row that paints a background there is under the pointer.
+    private static Point EmptySpotIn(GamesViewHarness harness, Control row) =>
+        row.TranslatePoint(new Point(4, row.Bounds.Height / 2), harness.Window)!.Value;
+
+    [AvaloniaFact]
+    public async Task Hovering_the_empty_part_of_a_row_highlights_it()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var row = Rows(harness)[1];
+
+        harness.Window.MouseMove(EmptySpotIn(harness, row));
+        harness.Settle();
+
+        Assert.True(row.IsPointerOver);
+    }
+
+    [AvaloniaFact]
+    public async Task Right_clicking_the_empty_part_of_a_row_opens_its_menu()
+    {
+        using var harness = await GamesViewHarness.StartAsync();
+        var at = EmptySpotIn(harness, Rows(harness)[1]);
+
+        harness.Window.MouseMove(at);
+        harness.Window.MouseDown(at, MouseButton.Right);
+        harness.Window.MouseUp(at, MouseButton.Right);
+        harness.Settle();
+
+        Assert.Equal("Switch to this profile", harness.OpenMenuItems().FirstOrDefault()?.Header);
+    }
+
     [AvaloniaTheory]
     [InlineData(Key.Apps, KeyModifiers.None)]
     [InlineData(Key.F10, KeyModifiers.Shift)]
