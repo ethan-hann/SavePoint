@@ -38,5 +38,6 @@ standard if needed. Loading standards that do not apply burns context and dilute
   process starts with `ArgumentList`, never a joined string or a shell command. Read when the App opens a file manager,
   a link, or another program.
 - [View models, views, and screen wiring](../../../.agents/coding-standards/app-mvvm-view-models.md) - The shape of a view
-  model and its commands, the view beside it, the `FeatureComposition` factory, and the UI thread. Read when adding or
+  model and its commands, the view beside it, the `FeatureComposition` factory, and the UI thread (including never
+  changing a list from its own selection setter). Read when adding or
   changing a screen, a dialog, a view model property or command, or a view.

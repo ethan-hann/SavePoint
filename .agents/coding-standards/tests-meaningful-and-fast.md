@@ -7,7 +7,7 @@ paths:
 
 - **Status:** accepted
 - **Date Created:** 2026-10-27 18:21
-- **Last Updated:** 2026-10-27 21:45
+- **Last Updated:** 2026-10-30 12:06
 - **Applies To:**
   - Any test case, theory, fake, rig, or test helper in `tests/`.
 

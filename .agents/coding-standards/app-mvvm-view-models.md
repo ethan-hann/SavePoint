@@ -8,7 +8,7 @@ paths:
 
 - **Status:** accepted
 - **Date Created:** 2026-10-26 17:50
-- **Last Updated:** 2026-10-26 18:10
+- **Last Updated:** 2026-10-30 12:06
 - **Applies To:**
   - Any view model, view, or screen factory in `src/Savepoint.App/`.
   - Any App code that reacts to an Api event or reads the time.
@@ -35,7 +35,7 @@ C# and Avalonia XAML (`.axaml`) in `src/Savepoint.App/`.
 2. **Are you adding a property or a command to a view model?**
    - If yes, apply "Generate properties and commands". For a command that one object builds and hands to another, see "Exception - handed-off commands".
    - If no, continue.
-3. **Does the view model handle an Api event, or need the time?**
+3. **Does the view model handle an Api event, need the time, or change a list from a selection setter?**
    - If yes, apply "Reach the UI thread through `IUiDispatcher`, and the time through the clock".
    - If no, this standard does not apply.
 
