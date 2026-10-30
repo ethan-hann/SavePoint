@@ -10,6 +10,13 @@ public sealed record SessionOutcome(SessionEndKind Kind, DateTimeOffset StartedA
     /// <summary>The process id of the program SavePoint started, or null for a link.</summary>
     public int? StartedPid { get; init; }
 
+    /// <summary>
+    /// Whether any process listed during the session had the configured process name, the started program included; null when no process
+    /// name is configured. False at the end of a session means the name never matched anything, so a game that went unnoticed is told
+    /// apart from a name that is wrong.
+    /// </summary>
+    public bool? NamedProcessSeen { get; init; }
+
     /// <summary>The ids of the processes with the configured name, other than the started program, that the watcher saw; empty when it saw none.</summary>
     public IReadOnlyList<int> FollowedPids { get; init; } = [];
 

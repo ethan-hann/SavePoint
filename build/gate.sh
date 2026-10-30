@@ -42,15 +42,39 @@ app_single_threads=$(( test_threads < 4 ? test_threads : 4 ))
 
 # Four test processes at once need about 10 GB free; below that the App tests run as one process, as before the lanes (the
 # 7 GB Linux VM ran out of memory with four). SAVEPOINT_GATE_APP_LANES=1 forces one process and 3 forces the lanes (any number
-# above 1 does); SAVEPOINT_GATE_AVAILABLE_MEMORY_MB replaces the reading of free memory.
+# above 1 does); SAVEPOINT_GATE_AVAILABLE_MEMORY_MB replaces the reading of free memory. On Linux the reading is the smaller of
+# MemAvailable and the container's cgroup limit; SAVEPOINT_GATE_MEMINFO_FILE and SAVEPOINT_GATE_CGROUP_DIR point it at other files
+# (the tests use them). When the memory cannot be read at all, the single App process runs.
 lanes_memory_mb=10240
+
+# Prints the memory limit of the container in MB, or nothing when there is none (cgroup v2 says "max", v1 a number near 2^63).
+# SAVEPOINT_GATE_CGROUP_DIR replaces /sys/fs/cgroup.
+cgroup_limit_mb() {
+  local dir="${SAVEPOINT_GATE_CGROUP_DIR:-/sys/fs/cgroup}" file bytes
+  for file in "$dir/memory.max" "$dir/memory/memory.limit_in_bytes"; do
+    [ -r "$file" ] || continue
+    bytes="$(tr -d '[:space:]' <"$file")"
+    if [[ "$bytes" =~ ^[0-9]{1,15}$ ]]; then
+      printf '%s\n' $(( bytes / 1048576 ))
+      return 0
+    fi
+  done
+  return 0
+}
 
 # Prints the memory, in MB, that programs can use without the machine swapping or killing something, or nothing when it is unknown.
 available_memory_mb() {
   if [ -n "${SAVEPOINT_GATE_AVAILABLE_MEMORY_MB:-}" ]; then
     printf '%s\n' "$SAVEPOINT_GATE_AVAILABLE_MEMORY_MB"
-  elif [ -r /proc/meminfo ]; then
-    awk '/^MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo
+  elif [ -n "${SAVEPOINT_GATE_MEMINFO_FILE:-}" ] || [ -r /proc/meminfo ]; then
+    # Inside a container /proc/meminfo shows the host's memory, so the container's own limit caps it.
+    local meminfo="${SAVEPOINT_GATE_MEMINFO_FILE:-/proc/meminfo}" available limit
+    [ -r "$meminfo" ] || return 0
+    available="$(awk '/^MemAvailable:/ { print int($2 / 1024) }' "$meminfo")"
+    [ -n "$available" ] || return 0
+    limit="$(cgroup_limit_mb)"
+    if [ -n "$limit" ] && [ "$limit" -lt "$available" ]; then available="$limit"; fi
+    printf '%s\n' "$available"
   elif command -v vm_stat >/dev/null 2>&1; then
     # macOS: free, inactive and speculative pages can be handed out again.
     local page_size pages
@@ -76,8 +100,9 @@ choose_app_mode() {
   fi
   memory="$(available_memory_mb)"
   if [ -z "$memory" ]; then
-    app_mode=lanes
-    app_mode_reason="free memory could not be read"
+    # Unknown memory takes the layout that needs less of it.
+    app_mode=one
+    app_mode_reason="free memory could not be read; SAVEPOINT_GATE_APP_LANES=3 runs the lanes anyway"
   elif [ "$memory" -lt "$lanes_memory_mb" ]; then
     app_mode=one
     app_mode_reason="${memory} MB free is below ${lanes_memory_mb} MB; SAVEPOINT_GATE_APP_LANES=3 runs the lanes anyway"

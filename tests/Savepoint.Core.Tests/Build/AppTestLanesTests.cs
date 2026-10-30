@@ -162,6 +162,48 @@ public sealed partial class AppTestLanesTests : IDisposable
         Assert.Contains(listed.ToString(System.Globalization.CultureInfo.InvariantCulture), run.Output, StringComparison.Ordinal);
     }
 
+    private string ReportOf(string name, params (string Type, string Method)[] tests)
+    {
+        var elements = string.Concat(tests.Select((test, index) => $"<test id=\"{index}\" name=\"x\" result=\"Pass\" type=\"{test.Type}\" method=\"{test.Method}\" />"));
+        var path = Path.Combine(_root, name);
+        File.WriteAllText(path, $"<?xml version=\"1.0\" encoding=\"utf-8\"?><assemblies schema-version=\"3\"><assembly id=\"a\"><collection id=\"c\">{elements}</collection></assembly></assemblies>");
+        return path;
+    }
+
+    // Both scripts count test methods in a report their own way (a pattern, XML parsing), so the same reports must give the same verdict.
+    [Theory]
+    [InlineData("a")]
+    [InlineData("case")]
+    [InlineData("escaped")]
+    [InlineData("nested")]
+    [InlineData("repeated")]
+    [InlineData("empty")]
+    public async Task The_two_count_checks_give_the_same_verdict_and_count_for_the_same_reports(string scenario)
+    {
+        (string Type, string Method)[] first = scenario switch
+        {
+            "case" => [("T.A", "Method"), ("T.A", "METHOD")],
+            "escaped" => [("T.A", "Run&lt;int&gt;"), ("T.A", "Run&amp;more")],
+            "nested" => [("T.A+Inner", "M"), ("T.A", "M"), ("T.B`1", "M")],
+            "repeated" => [("T.A", "M"), ("T.A", "M"), ("T.A", "M")],
+            "empty" => [],
+            _ => [("T.A", "One"), ("T.B", "One")],
+        };
+        var reports = new[] { ReportOf("one.xunit", first), ReportOf("two.xunit", ("T.C", "Other")) };
+
+        foreach (var expected in new[] { 0, 1, 2, 3, 4 })
+        {
+            var powerShell = await RunCountCheckAsync(Script.PowerShell, expected, reports);
+            var bash = await RunCountCheckAsync(Script.Bash, expected, reports);
+            Assert.SkipWhen(powerShell is null || bash is null, "pwsh or bash is not installed here.");
+            Assert.True(powerShell!.ExitCode == bash!.ExitCode, $"expected {expected}: pwsh {powerShell.ExitCode}: {powerShell.Output} / bash {bash.ExitCode}: {bash.Output}");
+            Assert.Equal(CountsIn(powerShell.Output), CountsIn(bash.Output));
+        }
+    }
+
+    // The "a + b = c" part of the check's one line of output.
+    private static string CountsIn(string output) => Regex.Match(output, @"\d+( \+ \d+)* = \d+").Value;
+
     [Theory]
     [InlineData(Script.PowerShell)]
     [InlineData(Script.Bash)]
