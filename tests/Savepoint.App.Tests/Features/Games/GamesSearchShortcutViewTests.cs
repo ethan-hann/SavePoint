@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Common.Search;
 using Savepoint.App.Features.Shell;
 using Savepoint.App.Tests.Fakes;
@@ -117,15 +118,30 @@ public class GamesSearchShortcutViewTests
     }
 
     [AvaloniaFact]
-    public async Task Ctrl_Shift_F_leaves_the_icon_rail_alone_because_it_has_no_search_box()
+    public async Task Ctrl_Shift_F_in_the_icon_rail_leaves_focus_and_says_the_list_is_too_narrow_for_a_search_box()
     {
         using var app = await ComposedApp.StartWithViewAsync(width: 800);
-        var before = app.Focused;
+        var row = app.Find<ItemsControl>("Rows").GetVisualDescendants().OfType<Border>().First(border => border.Classes.Contains("table-row"));
+        row.Focus();
+        Assert.Same(row, app.Focused);
 
         PressGamesSearchKey(app);
 
-        Assert.Same(before, app.Focused);
+        Assert.Same(row, app.Focused);
+        Assert.Equal("The games list is too narrow for a search box. Make the window wider to search it.", Announced(app));
     }
+
+    [AvaloniaFact]
+    public async Task Ctrl_Shift_F_with_no_games_added_says_there_is_nothing_to_search_yet()
+    {
+        using var app = await ComposedApp.StartWithViewAsync(new FakeBackend(ScenarioBuilder.Empty()));
+
+        PressGamesSearchKey(app);
+
+        Assert.Equal("You haven't added any games yet, so there is nothing to search.", Announced(app));
+    }
+
+    private static string? Announced(ComposedApp app) => app.All<AnnouncementRegion>().First(region => region.Name == "PageAnnouncer").Text;
 
     [AvaloniaFact]
     public async Task Ctrl_Shift_F_does_nothing_while_a_dialog_is_open()

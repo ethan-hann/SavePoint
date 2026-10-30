@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Common.Search;
 
 namespace Savepoint.App.Features.Shell;
@@ -46,7 +47,7 @@ public partial class ShellView : UserControl
     /// Puts the cursor in the games' search box, in the rail or on the shelf, whichever shows, whatever screen is in front. In the
     /// library layout the shelf shows only on the Games screen, so another screen gives way to it first.
     /// </summary>
-    /// <returns>True when a search box took focus; false in the icon rail, which has none.</returns>
+    /// <returns>True when a search box took focus; false when there is none (the icon rail, or no games), in which case the reason is announced.</returns>
     public bool FocusGameSearch()
     {
         if (FocusShownGameSearch())
@@ -54,15 +55,22 @@ public partial class ShellView : UserControl
             return true;
         }
 
-        // Only the library layout hides its box by screen; the icon rail has none on any screen, so it stays where it is.
-        if (DataContext is not ShellViewModel { IsLibraryLayout: true, Destination: not NavDestination.Games } shell)
+        // Only the library layout hides its box by screen; with no games or in the icon rail there is none on any screen.
+        if (DataContext is ShellViewModel { IsLibraryLayout: true, Destination: not NavDestination.Games, GameSearchUnavailableText.Length: 0 } shell)
         {
-            return false;
+            shell.Navigate(NavDestination.Games);
+            UpdateLayout();
+            return FocusShownGameSearch();
         }
 
-        shell.Navigate(NavDestination.Games);
-        UpdateLayout();
-        return FocusShownGameSearch();
+        // Silence reads as a broken key, so say why focus stayed where it was.
+        if (DataContext is ShellViewModel { GameSearchUnavailableText: { Length: > 0 } why }
+            && this.GetVisualAncestors().OfType<IAnnouncementHost>().FirstOrDefault() is { } host)
+        {
+            host.Announce(why);
+        }
+
+        return false;
     }
 
     private bool FocusShownGameSearch() => this.FindControl<SearchBoxView>("RailSearch")!.FocusSearch() || this.FindControl<SearchBoxView>("ShelfSearch")!.FocusSearch();

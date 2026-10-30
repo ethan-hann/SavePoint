@@ -225,6 +225,38 @@ public sealed class SkipCheckTests : IDisposable
         Assert.Equal(2, RunProgram("--reports", reports, "--expected", WriteFile("e.txt", ""), "--bogus").Code);
     }
 
+    [Fact]
+    public void Without_a_list_a_test_named_never_skip_that_skipped_fails_the_check_and_is_named()
+    {
+        var reports = ReportsFolder(Report(("N.C.Parses", "Skip", "pwsh is not installed here."), ("N.C.Other", "Skip", "r")));
+
+        var (code, _, error) = RunProgram("--reports", reports, "--never-skip", "N.C.Parses");
+
+        Assert.Equal(1, code);
+        Assert.Contains("N.C.Parses", error);
+        Assert.Contains("pwsh is not installed here.", error);
+        Assert.DoesNotContain("N.C.Other", error);
+    }
+
+    [Fact]
+    public void Without_a_list_a_test_named_never_skip_that_ran_passes_whatever_else_skipped()
+    {
+        var reports = ReportsFolder(Report(("N.C.Parses", "Pass", null), ("N.C.Other", "Skip", "r")));
+
+        var (code, _, _) = RunProgram("--reports", reports, "--never-skip", "N.C.Parses");
+
+        Assert.Equal(0, code);
+    }
+
+    [Fact]
+    public void A_test_named_never_skip_fails_the_check_even_when_the_list_names_it()
+    {
+        var reports = ReportsFolder(Report(("N.C.Parses", "Skip", "r")));
+        var list = WriteFile("expected.txt", "N.C.Parses\n");
+
+        Assert.Equal(1, RunProgram("--reports", reports, "--expected", list, "--never-skip", "N.C.Parses").Code);
+    }
+
     [Theory]
     [InlineData("windows")]
     [InlineData("linux-ci")]

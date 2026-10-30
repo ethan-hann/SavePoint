@@ -28,6 +28,7 @@
   "library.entry": "Add games from your libraries",
   "library.entry.hint": "Finds your Steam and GOG Galaxy games.",
   "library.picker.add": "{count, plural, =0 {Add games} one {Add 1 game} other {Add # games}}",
+  "library.picker.allAdded": "Every game is already added. Turn off \"Hide games already added\" to see them.",
   "library.picker.count": "{selected} of {total} selected",
   "library.picker.empty": "No installed games were found.",
   "library.picker.error": "SavePoint couldn't look through your libraries.",

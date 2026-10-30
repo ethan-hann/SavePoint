@@ -266,7 +266,7 @@ else
 fi
 
 # A skip probe that breaks turns real tests into skips and the run still passes; this fails on any skip the list does not name.
-# SAVEPOINT_EXPECTED_SKIPS names the list in build/expected-skips; Linux defaults to linux-ci, and no macOS list exists yet.
+# SAVEPOINT_EXPECTED_SKIPS names the list in build/expected-skips; Linux defaults to linux-ci, and no macOS list exists yet (macOS only checks that the script parse test ran).
 expected_skips="${SAVEPOINT_EXPECTED_SKIPS:-}"
 if [ -z "$expected_skips" ]; then
   case "$(uname -s)" in
@@ -277,7 +277,9 @@ if [ -n "$expected_skips" ]; then
   echo "==> skips (expected: build/expected-skips/${expected_skips}.txt)"
   dotnet run --project tools/SkipCheck -c Release --no-build -- --reports "$results_dir" --expected "build/expected-skips/${expected_skips}.txt"
 else
-  echo "==> skips: no list for $(uname -s), not checked"
+  # No list for this system yet, but the script parse test needs PowerShell 7 everywhere, so its skip must not pass silently.
+  echo "==> skips: no list for $(uname -s); checking that the script parse test ran"
+  dotnet run --project tools/SkipCheck -c Release --no-build -- --reports "$results_dir" --never-skip Savepoint.Core.Tests.Build.BuildScriptSyntaxTests.Every_powershell_script_under_build_parses
 fi
 
 echo "==> format"

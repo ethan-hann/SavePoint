@@ -8,15 +8,18 @@ namespace Savepoint.Tools.SkipCheck
     public static class SkipCheckProgram
     {
         /// <summary>
-        /// Usage: <c>--reports &lt;folder&gt; --expected &lt;list file&gt; [--write]</c>. Reads every xunit report under the folder and compares
-        /// the skipped tests with the list. Returns 0 when every skip was expected, 1 when one was not, 2 when the input is unusable (no
-        /// report, no tests in it, no list). With <c>--write</c> it rewrites the list from the run instead and returns 0.
+        /// Usage: <c>--reports &lt;folder&gt; [--expected &lt;list file&gt;] [--never-skip &lt;test name&gt;]... [--write]</c>. Reads every xunit report
+        /// under the folder and compares the skipped tests with the list. A test named by <c>--never-skip</c> fails the check when it skipped,
+        /// even if the list names it; without a list that is the only check, for a system that has none. Returns 0 when every skip was
+        /// expected, 1 when one was not, 2 when the input is unusable (no report, no tests in it, no list and nothing named by
+        /// <c>--never-skip</c>). With <c>--write</c> it rewrites the list from the run instead and returns 0.
         /// </summary>
         public static int Run(string[] args, TextWriter output, TextWriter error)
         {
             string? reportsFolder = null;
             string? listPath = null;
             var write = false;
+            var neverSkip = new List<string>();
             for (var i = 0; i < args.Length; i++)
             {
                 switch (args[i])
@@ -27,6 +30,9 @@ namespace Savepoint.Tools.SkipCheck
                     case "--expected" when i + 1 < args.Length:
                         listPath = args[++i];
                         break;
+                    case "--never-skip" when i + 1 < args.Length:
+                        neverSkip.Add(args[++i]);
+                        break;
                     case "--write":
                         write = true;
                         break;
@@ -36,12 +42,12 @@ namespace Savepoint.Tools.SkipCheck
                 }
             }
 
-            if (reportsFolder is null || listPath is null)
+            if (reportsFolder is null || (listPath is null && neverSkip.Count == 0) || (write && listPath is null))
             {
                 return Usage(error);
             }
 
-            if (!File.Exists(listPath))
+            if (listPath is not null && !File.Exists(listPath))
             {
                 error.WriteLine($"skip check: there is no skip list at {listPath}");
                 return 2;
@@ -62,6 +68,23 @@ namespace Savepoint.Tools.SkipCheck
             {
                 error.WriteLine($"skip check: the reports under {reportsFolder} hold no tests, so there is nothing to check");
                 return 2;
+            }
+
+            var skippedAgainstRule = neverSkip.Where(report.Skipped.ContainsKey).Order(StringComparer.Ordinal).ToList();
+            foreach (var name in skippedAgainstRule)
+            {
+                error.WriteLine($"skip check FAILED: {name} skipped here ({report.Skipped[name]}), and it must run on every machine that runs the gate");
+            }
+
+            if (listPath is null)
+            {
+                if (skippedAgainstRule.Count > 0)
+                {
+                    return 1;
+                }
+
+                output.WriteLine($"skip check passed: no skip list for this system; {neverSkip.Count} tests that must never skip all ran or were not in the run");
+                return 0;
             }
 
             SkipList list;
@@ -109,13 +132,18 @@ namespace Savepoint.Tools.SkipCheck
                 return 1;
             }
 
+            if (skippedAgainstRule.Count > 0)
+            {
+                return 1;
+            }
+
             output.WriteLine($"skip check passed: {report.Skipped.Count} of {verdict.TotalTests} tests skipped, all of them listed");
             return 0;
         }
 
         private static int Usage(TextWriter error)
         {
-            error.WriteLine("usage: SkipCheck --reports <folder> --expected <list file> [--write]");
+            error.WriteLine("usage: SkipCheck --reports <folder> [--expected <list file>] [--never-skip <test name>]... [--write]");
             return 2;
         }
 
