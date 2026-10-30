@@ -65,6 +65,39 @@ public class GameSessionWatcherTests
         Assert.Equal(9, outcome.ChildExitCode);
     }
 
+    // ---- whether the game was seen under its process name ----
+
+    [Fact]
+    public async Task A_session_ended_by_the_named_process_going_away_says_the_name_was_seen()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        rig.Processes.Set(WatcherRig.Game, ScriptedInspector.Bystander);
+        await rig.ExitChildAsync();
+        rig.Processes.Set(ScriptedInspector.Bystander);
+        await rig.AdvanceAsync(Seconds(2));
+
+        Assert.True((await rig.OutcomeAsync()).NamedProcessSeen);
+    }
+
+    [Fact]
+    public async Task A_session_whose_named_process_never_showed_up_says_the_name_was_never_seen()
+    {
+        using var rig = await WatcherRig.ProgramAsync(_name);
+        await rig.ExitChildAsync();
+        await rig.AdvanceAsync(Seconds(30));
+
+        Assert.False((await rig.OutcomeAsync()).NamedProcessSeen);
+    }
+
+    [Fact]
+    public async Task A_session_with_no_process_name_says_nothing_about_a_name_being_seen()
+    {
+        using var rig = await WatcherRig.ProgramAsync();
+        rig.Child!.Exit();
+
+        Assert.Null((await rig.OutcomeAsync()).NamedProcessSeen);
+    }
+
     // ---- a launcher stub: the program exits early and the named process takes over ----
 
     [Fact]

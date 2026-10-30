@@ -64,7 +64,14 @@ public sealed partial class LaunchOrchestrator
                 ? $"; followed none of the game-folder processes {string.Join(", ", outcome.AmbiguousHandoverPids)} that started right after the starter, since more than one could be the game"
                 : "";
             var exit = outcome.ChildExitCode is { } code ? $"; the program exited with code {code}" : "";
-            _services.Log.Information($"Launch session for {gameId} (job {launchJobId}): ended as {outcome.Kind}; {started}, followed pids {followed}{exit}{ambiguous}.");
+            // A game that was never seen under its name tells a wrong name apart from an exit that went unnoticed.
+            var named = outcome.NamedProcessSeen switch
+            {
+                true => "; the game was seen under its process name",
+                false => "; the game was never seen under its process name",
+                null => "; no process name is set",
+            };
+            _services.Log.Information($"Launch session for {gameId} (job {launchJobId}): ended as {outcome.Kind}; {started}, followed pids {followed}{exit}{named}{ambiguous}.");
         }
 
         var endedAt = outcome?.EndedAt ?? _services.Time.GetUtcNow();

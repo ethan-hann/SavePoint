@@ -68,6 +68,7 @@ public class LaunchActionLogTests
         Assert.Equal(LogLevel.Information, line.Level);
         Assert.Contains("ManuallyFinished", line.Message, StringComparison.Ordinal);
         Assert.Contains($"started pid {pid}", line.Message, StringComparison.Ordinal);
+        Assert.Contains("no process name is set", line.Message, StringComparison.Ordinal);
     }
 
     [Fact(Timeout = 120_000)]

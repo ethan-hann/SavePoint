@@ -42,6 +42,7 @@ public sealed class GameSessionWatcher : IDisposable
     private IReadOnlyList<(int Pid, DateTimeOffset? Start)> _followedLive = [];
     private bool _disposed;
     private bool _childReleased;
+    private volatile bool _nameSeen;
     private int? _earlyExit;
     private IReadOnlyList<int> _ambiguous = [];
 
@@ -279,6 +280,11 @@ public sealed class GameSessionWatcher : IDisposable
 
             readable |= childGone && state != NamedProcessState.Unknown;
             selfSeen |= look.IgnoredMatched;
+            if (observed || selfSeen || namedSeen)
+            {
+                _nameSeen = true;
+            }
+
             if (look.OtherPids.Count > 0 || following)
             {
                 lock (_gate)
@@ -429,6 +435,7 @@ public sealed class GameSessionWatcher : IDisposable
         var outcome = new SessionOutcome(kind, StartedAt, endedAt ?? _clock.GetUtcNow(), ChildExitCode())
         {
             StartedPid = _child?.Pid,
+            NamedProcessSeen = _processName is null ? null : _nameSeen,
             FollowedPids = followed,
             AmbiguousHandoverPids = ambiguous,
         };
