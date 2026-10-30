@@ -145,9 +145,9 @@ public class HowItWorksViewModelTests
         Assert.DoesNotContain("logs", files.Body, StringComparison.Ordinal);
         Assert.Contains("A rule tells SavePoint to skip the files that match it", files.Body, StringComparison.Ordinal);
         Assert.Contains("* stands for any name", files.Body, StringComparison.Ordinal);
-        Assert.Contains("** stands for any folder", files.Body, StringComparison.Ordinal);
+        Assert.Contains("** for any folder", files.Body, StringComparison.Ordinal);
         Assert.Contains("patterns, not regular expressions", files.Body, StringComparison.Ordinal);
-        Assert.Contains("? stands for one character and [abc] for one of those characters", files.Body, StringComparison.Ordinal);
+        Assert.Contains("? for one character and [abc] for any one of those characters", files.Body, StringComparison.Ordinal);
         Assert.Contains("starts with /", files.Body, StringComparison.Ordinal);
         Assert.Contains("ends with /", files.Body, StringComparison.Ordinal);
         Assert.Contains("starts with !", files.Body, StringComparison.Ordinal);
@@ -162,7 +162,7 @@ public class HowItWorksViewModelTests
 
         Assert.Equal("Online games and anti-cheat", online.Title);
         Assert.StartsWith("Don't use SavePoint with online games that have anti-cheat.", online.Body, StringComparison.Ordinal);
-        Assert.Contains("Changed game files can get your account flagged.", online.Body, StringComparison.Ordinal);
+        Assert.Contains("changed files can get your account flagged.", online.Body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public class HowItWorksViewModelTests
         var appId = TopicFor(HowItWorksSection.SteamAppId);
 
         Assert.Equal("The Steam app ID", appId.Title);
-        Assert.Contains("the number after /app/ in the game's Steam store address", appId.Body, StringComparison.Ordinal);
+        Assert.Contains("the number after /app/ in the address of the game's Steam store page", appId.Body, StringComparison.Ordinal);
         Assert.Contains("find the game's cover", appId.Body, StringComparison.Ordinal);
         Assert.Contains("It doesn't change how the game starts.", appId.Body, StringComparison.Ordinal);
     }
@@ -195,7 +195,7 @@ public class HowItWorksViewModelTests
         var starts = Assert.Single(new HowItWorksViewModel(HelpText.Formatter("linux"), () => { }).Topics, topic => topic.Section == HowItWorksSection.HowTheGameStarts);
 
         Assert.Contains("\"Run the program\" starts the game's own program.", starts.Body, StringComparison.Ordinal);
-        Assert.Contains("Games installed by Steam on Linux usually need Steam running. When you play, SavePoint checks for Steam and offers to start it. Starting the game through Steam can update it first and replace the version you switched to.", starts.Body, StringComparison.Ordinal);
+        Assert.Contains("Games installed by Steam on Linux usually need Steam running. When you press Play, SavePoint checks for Steam and offers to start it. If the game starts through Steam, Steam can update it first and replace the version you switched to.", starts.Body, StringComparison.Ordinal);
         Assert.DoesNotContain("safer choice", starts.Body, StringComparison.Ordinal);
         Assert.DoesNotContain("avoids that", starts.Body, StringComparison.Ordinal);
     }

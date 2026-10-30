@@ -251,7 +251,7 @@ public class GameEditorGuidanceViewTests
 
         Assert.Equal(3, buttons.Count);
         Assert.False(Shows(harness, text => text == "Used when the launcher closes itself before the game opens."));
-        Assert.False(Shows(harness, text => text.StartsWith("Only to make the mod file counts", StringComparison.Ordinal)));
+        Assert.False(Shows(harness, text => text.StartsWith("Fill this in when your game keeps mods", StringComparison.Ordinal)));
         Assert.False(Shows(harness, text => text.StartsWith("SavePoint uses it to find the game's cover", StringComparison.Ordinal)));
 
         foreach (var button in buttons)
@@ -260,13 +260,12 @@ public class GameEditorGuidanceViewTests
         }
 
         Assert.True(Shows(harness, text => text == "Used when the launcher closes itself before the game opens."));
-        Assert.True(Shows(harness, text => text.StartsWith("Only to make the mod file counts", StringComparison.Ordinal)));
+        Assert.True(Shows(harness, text => text.StartsWith("Fill this in when your game keeps mods", StringComparison.Ordinal)));
         Assert.True(Shows(harness, text => text.StartsWith("SavePoint uses it to find the game's cover", StringComparison.Ordinal)));
     }
 
-    // Explanations of an idea the "How SavePoint works" page covers end with its link. The online-games warning and the Steam app ID are
-    // not on the page, so they have nothing to link to.
-    private static readonly string[] _questionsWithNoPageTopic = ["Can I use this with online games?", "When do I need the Steam app ID?"];
+    // Explanations of an idea the "How SavePoint works" page covers end with its link. A question whose idea is not on the page has nothing to link to.
+    private static readonly string[] _questionsWithNoPageTopic = [];
 
     [AvaloniaFact]
     public async Task Every_question_button_in_the_editor_opens_an_answer_that_ends_with_the_page_link_unless_the_page_has_no_topic_for_it()

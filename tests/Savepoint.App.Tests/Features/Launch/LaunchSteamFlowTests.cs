@@ -186,7 +186,7 @@ public class LaunchSteamFlowTests : IDisposable
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Waiting for Steam to start…", card.Title);
         Assert.Equal(
-            "SavePoint started Steam for Skyrim Special Edition. When Steam has signed in, the game starts. It waits up to 90 seconds. Nothing in your game folders has changed yet.",
+            "SavePoint started Steam for Skyrim Special Edition, and the game starts once Steam has signed in. SavePoint waits up to 90 seconds. Nothing in your game folders has changed yet.",
             card.Body);
         Assert.Equal(["Stop waiting"], card.Actions.Select(action => action.Label));
         Assert.True(_f.Flow.IsActive(FlowRig.Skyrim));
