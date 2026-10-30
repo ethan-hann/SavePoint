@@ -92,7 +92,9 @@ public sealed record CaptureRequest
     /// volume by itself, before any object is stored. A save of several folders uses it to judge them together without listing any folder
     /// twice: the call may wait for the other folders, and an exception from it (a <see cref="Savepoint.Core.Errors.DiskSpaceException"/>)
     /// ends the capture with nothing written. It is not called when the capture ends before it stages, as when the branch already holds the
-    /// point. Null by default.
+    /// point. The first argument is the bytes the capture would add. The second finds that figure again after reading the files that fit the
+    /// read limit for content the store already holds, and returns it (the same figure when it was already found that way). A save of several
+    /// folders calls it only when the folders' figures together do not fit, so it costs nothing otherwise. Null by default.
     /// </summary>
-    public Func<long, CancellationToken, Task>? BeforeWriting { get; init; }
+    public Func<long, Func<CancellationToken, Task<long>>, CancellationToken, Task>? BeforeWriting { get; init; }
 }

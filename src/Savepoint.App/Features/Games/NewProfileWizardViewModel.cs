@@ -225,6 +225,7 @@ public sealed partial class NewProfileWizardViewModel : DialogViewModel<bool>
         StartEmptyBlock.FirstProfile => "profiles.wizard.startEmpty.firstProfile",
         StartEmptyBlock.StoppedSwitch => "profiles.wizard.startEmpty.stoppedSwitch",
         StartEmptyBlock.Other => "profiles.wizard.startEmpty.other",
+        StartEmptyBlock.NotConfirmed => "profiles.wizard.startEmpty.notConfirmed",
         _ => "profiles.wizard.startEmpty.newChanges",
     });
 

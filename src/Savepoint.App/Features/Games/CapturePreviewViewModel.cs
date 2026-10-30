@@ -98,7 +98,12 @@ public sealed partial class CapturePreviewViewModel : ObservableObject
         }
     }
 
-    private CaptureRowViewModel Row(FolderCapturePreview folder) => folder.Role switch
+    // A folder whose files were not read has no count to show, and starting it empty is not on offer, so only its path and the reason for the missing count are given.
+    private CaptureRowViewModel Row(FolderCapturePreview folder) => folder.FilesCounted
+        ? CountedRow(folder)
+        : CountedRow(folder) with { Subtitle = _text.Message("profiles.wizard.preview.unreadableSubtitle", ("path", folder.Path)) };
+
+    private CaptureRowViewModel CountedRow(FolderCapturePreview folder) => folder.Role switch
     {
         RepoRole.Install => new CaptureRowViewModel(Icons.Folder, _text.Message("profiles.wizard.preview.installTitle", ("hasMods", FolderRoles.HasMods(HasModsRow))), InstallSubtitle(folder)),
         RepoRole.Mods when _empty.Contains(RepoRole.Mods) => new CaptureRowViewModel(

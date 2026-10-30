@@ -1,6 +1,7 @@
 using Savepoint.Core.Api;
 using Savepoint.Core.Backend;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Errors;
 using Savepoint.Core.Git;
 using Savepoint.Core.Services.Profiles;
 
@@ -36,8 +37,21 @@ internal sealed partial class GamesApi
         CancellationToken cancellationToken)
     {
         var rules = game.IgnorePathsFor(repo.Role);
-        var candidates = await storage.Engine.ListCaptureCandidatesAsync(repo, rules, cancellationToken).ConfigureAwait(false);
-        var newBytes = await storage.Engine.EstimateNewBytesAsync(repo, candidates, rules, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<CaptureCandidate> candidates;
+        long newBytes;
+        try
+        {
+            candidates = await storage.Engine.ListCaptureCandidatesAsync(repo, rules, cancellationToken).ConfigureAwait(false);
+            newBytes = await storage.Engine.EstimateNewBytesAsync(repo, candidates, rules, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ConsentMarkerException e)
+        {
+            // This folder's files are not read, but the others are still previewed, and the wizard gives this one its own reason.
+            var markerBlock = e.Args["reason"] is ConsentFailure.Missing ? StartEmptyBlock.NotConfirmed : StartEmptyBlock.Other;
+            return (new FolderCapturePreview(repo.Role, repo.WorkTree, 0, 0, 0, false, repo.Role != RepoRole.Install && profileBranches.Count == 0 ? StartEmptyBlock.FirstProfile : markerBlock, FilesCounted: false), 0);
+        }
+
+
         var mods = repo.Role switch
         {
             RepoRole.Install => candidates.Count(candidate => GameInsights.MatchesHint(candidate.Path, game.ModPathHints)),

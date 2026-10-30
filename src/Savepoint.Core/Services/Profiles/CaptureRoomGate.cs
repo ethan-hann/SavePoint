@@ -15,7 +15,7 @@ internal sealed class CaptureRoomGate
     private readonly GitEngine _engine;
     private readonly IReadOnlyDictionary<RepoRole, RepoRef> _folders;
     private readonly HashSet<RepoRole> _undecided;
-    private readonly Dictionary<RepoRole, long> _reported = [];
+    private readonly Dictionary<RepoRole, Report> _reported = [];
     private readonly TaskCompletionSource _verdict = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly object _gate = new();
 
@@ -40,14 +40,15 @@ internal sealed class CaptureRoomGate
     /// <param name="role">The folder.</param>
     /// <param name="newBytes">The bytes its capture would add.</param>
     /// <param name="cancellationToken">Stops the wait.</param>
-    /// <exception cref="DiskSpaceException">The folders that reported cannot fit together.</exception>
-    public Task ReportAsync(RepoRole role, long newBytes, CancellationToken cancellationToken)
+    /// <param name="reduce">Finds the figure again once files are read for content the store already holds; called only when the folders' first figures together do not fit. Null when the figure cannot be reduced.</param>
+    /// <exception cref="DiskSpaceException">The folders that reported cannot fit together, even with their figures reduced.</exception>
+    public Task ReportAsync(RepoRole role, long newBytes, CancellationToken cancellationToken, Func<CancellationToken, Task<long>>? reduce = null)
     {
         lock (_gate)
         {
             if (_undecided.Remove(role))
             {
-                _reported[role] = newBytes;
+                _reported[role] = new Report(newBytes, reduce, cancellationToken);
                 JudgeWhenDecided();
             }
         }
@@ -76,11 +77,32 @@ internal sealed class CaptureRoomGate
             return;
         }
 
+        // Finishes on the spot unless a figure has to be reduced, which waits on file reads without holding the lock.
+        _ = JudgeAsync(_reported.ToArray());
+    }
+
+    private async Task JudgeAsync(KeyValuePair<RepoRole, Report>[] reports)
+    {
         try
         {
-            if (_reported.Count > 1)
+            if (reports.Length > 1)
             {
-                _engine.RequireCaptureRoom([.. _reported.Keys.Select(role => _folders[role])], _reported.Values.Sum());
+                var repos = reports.Select(report => _folders[report.Key]).ToArray();
+                try
+                {
+                    _engine.RequireCaptureRoom(repos, reports.Sum(report => report.Value.NewBytes));
+                }
+                catch (DiskSpaceException) when (reports.Any(report => report.Value.Reduce is not null))
+                {
+                    // Each folder passed on its raw size alone, so the sum may be refused where the content the store already holds would fit.
+                    var reduced = 0L;
+                    foreach (var (_, report) in reports)
+                    {
+                        reduced += report.Reduce is { } reduce ? await reduce(report.Cancellation).ConfigureAwait(false) : report.NewBytes;
+                    }
+
+                    _engine.RequireCaptureRoom(repos, reduced);
+                }
             }
 
             _verdict.TrySetResult();
@@ -91,4 +113,6 @@ internal sealed class CaptureRoomGate
             _verdict.TrySetException(e);
         }
     }
+
+    private readonly record struct Report(long NewBytes, Func<CancellationToken, Task<long>>? Reduce, CancellationToken Cancellation);
 }

@@ -305,7 +305,7 @@ Folder work reports one `FolderOutcome(Role, Error?)` per folder it touched. All
 - `GameDefinition` has `IgnorePaths` (every folder) and `InstallIgnorePaths` (the game's own folder only). Code that needs one folder's rules calls `IgnorePathsFor(role)`.
 - `OrphanedHistory` names the old game id, the folders, and each old profile with a suggested name or null (the UI supplies fallback copy). `OrphanResolution` is `StartFresh` or `Reconnect(existingGameId, profiles)`, with the names the user will see.
 - `FolderStatus` gives each folder's stored and resolved path, whether it exists (the "moved or is gone" card), and its `ConsentStatus(Confirmed, ConfirmedAt)`.
-- `CapturePreview` lists each folder's path, file count, mod-file count, and bytes, plus the bytes a capture would add after reuse. Each folder also says whether its files are safe in a snapshot (`HeldInSnapshot`) and, when not, why (`StartEmptyBlocked`), which the new profile wizard needs for its start-empty boxes (D65).
+- `CapturePreview` lists each folder's path, file count, mod-file count, and bytes, plus the bytes a capture would add after reuse. Each folder also says whether its files are safe in a snapshot (`HeldInSnapshot`) and, when not, why (`StartEmptyBlocked`), which the new profile wizard needs for its start-empty boxes (D65). A folder whose consent marker is missing, foreign or damaged is listed with `FilesCounted` false and no counts, so the other folders still preview.
 
 ### History
 

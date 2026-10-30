@@ -494,7 +494,7 @@ internal sealed class CaptureRunner
             IgnorePatterns = game.IgnorePathsFor(repo.Role),
             ExpectedStartCommit = plan?.ExpectedStartCommit,
             SkipAmendWhenUnchanged = plan?.SkipWhenClean ?? false,
-            BeforeWriting = room is null ? null : (newBytes, token) => room.ReportAsync(repo.Role, newBytes, token),
+            BeforeWriting = room is null ? null : (newBytes, reduce, token) => room.ReportAsync(repo.Role, newBytes, token, reduce),
         };
         var outcome = await storage.Engine.CaptureAsync(repo, request, progress, cancellationToken).ConfigureAwait(false);
         if (outcome.Changed || outcome.TipCommitId is not null)
