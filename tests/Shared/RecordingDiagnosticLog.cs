@@ -10,6 +10,9 @@ internal sealed class RecordingDiagnosticLog : IDiagnosticLog
 
     public string? CurrentFile { get; set; }
 
+    // Runs on the logging thread right after an entry is recorded, so a test can act at an exact point of the code under test.
+    public Action<string>? OnEntry { get; set; }
+
     public IReadOnlyList<LogEntry> Entries
     {
         get
@@ -37,6 +40,8 @@ internal sealed class RecordingDiagnosticLog : IDiagnosticLog
         {
             _entries.Add(new LogEntry(level, message, exception));
         }
+
+        OnEntry?.Invoke(message);
     }
 }
 
