@@ -17,10 +17,40 @@ internal static class UnixFiles
     private const uint _statxIno64 = 0x100;
     private const int _atFdCwd = -100;
 
+    // statfs: only f_type, the first field, is read; the buffer is larger than any architecture's struct.
+    private const int _statfsSize = 256;
+    private const long _msdosSuperMagic = 0x4d44;
+    private const long _exfatSuperMagic = 0x2011BAB0;
+
     // macOS stat with 64-bit inodes: st_dev is a 32-bit number at 0 and st_ino a 64-bit number at 8, on x64 and arm64 alike.
     private const int _macStatSize = 256;
     private const int _macStatDev = 0;
     private const int _macStatIno = 8;
+
+    // True for a file system type whose inodes stay put between reads. FAT and exFAT make inode numbers up as directory entries are
+    // cached, so the same folder can report another one after the cache drops it.
+    public static bool KeepsInodes(long fileSystemType) => (fileSystemType & 0xFFFFFFFFL) is not (_msdosSuperMagic or _exfatSuperMagic);
+
+    // The file system type of the one holding the path, or null when it cannot be read.
+    [SupportedOSPlatform("linux")]
+    public static long? ReadLinuxFileSystemType(string path)
+    {
+        try
+        {
+            var buffer = new byte[_statfsSize];
+            if (LinuxStatfs(path, buffer) != 0)
+            {
+                return null;
+            }
+
+            // f_type is the first field and as wide as a C long.
+            return IntPtr.Size == 8 ? BitConverter.ToInt64(buffer, 0) : BitConverter.ToInt32(buffer, 0);
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+        {
+            return null;
+        }
+    }
 
     [SupportedOSPlatform("linux")]
     public static FileIdentity? ReadLinuxIdentity(string path)
@@ -82,6 +112,9 @@ internal static class UnixFiles
             return MacStatPlain(path, buffer);
         }
     }
+
+    [DllImport("libc.so.6", EntryPoint = "statfs", SetLastError = true)]
+    private static extern int LinuxStatfs([MarshalAs(UnmanagedType.LPUTF8Str)] string path, byte[] buffer);
 
     [DllImport("libc.so.6", EntryPoint = "statx", SetLastError = true)]
     private static extern int LinuxStatx(int directoryFd, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags, uint mask, byte[] buffer);

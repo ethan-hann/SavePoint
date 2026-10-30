@@ -29,6 +29,17 @@ public class HostIdentityTests
         Assert.NotEqual(identity, fileIdentity);
     }
 
+    [Theory]
+    [InlineData(0x4d44L, false)] // vfat and msdos
+    [InlineData(0x2011BAB0L, false)] // exfat
+    [InlineData(0xEF53L, true)] // ext4
+    [InlineData(0x01021994L, true)] // tmpfs
+    [InlineData(0L, true)]
+    public void Only_file_systems_that_number_their_files_again_are_said_to_change_inodes(long fileSystemType, bool keepsInodes)
+    {
+        Assert.Equal(keepsInodes, UnixFiles.KeepsInodes(fileSystemType));
+    }
+
     [Fact]
     public void On_Linux_the_identity_is_the_device_and_inode_the_system_reports()
     {

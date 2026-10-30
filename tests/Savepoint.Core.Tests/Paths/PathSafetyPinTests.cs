@@ -21,6 +21,35 @@ public class PathSafetyPinTests
     private static PathSafety Safety(TempTree tree) =>
         new(FakePlatforms.ForHost(tree.Dir("home")), Path.Combine(tree.Root, "own-storage"));
 
+    // A FAT or exFAT folder on Linux: the inode it reports differs from one read to the next.
+    private sealed class ChangingIdentities : IPathProbe
+    {
+        private ulong _reads;
+
+        public string? ReadLinkTarget(string path) => PathProbes.Host.ReadLinkTarget(path);
+
+        public string? ExpandShortName(string path) => PathProbes.Host.ExpandShortName(path);
+
+        public FileIdentity? ReadIdentity(string path) => new FileIdentity(1, ++_reads);
+
+        public bool KeepsStableIdentity(string path) => false;
+
+        public IReadOnlyList<string> ReadFinalPaths(string path) => PathProbes.Host.ReadFinalPaths(path);
+    }
+
+    [Fact]
+    public void A_folder_on_a_file_system_that_changes_identities_is_pinned_by_its_path_and_stays_pinned()
+    {
+        using var tree = new TempTree();
+        var safety = new PathSafety(FakePlatforms.ForHost(tree.Dir("home")), Path.Combine(tree.Root, "own-storage"), null, new ChangingIdentities());
+        var game = tree.Dir("games", "alpha");
+
+        var pin = safety.Pin(game);
+
+        Assert.Null(pin.Identity);
+        Assert.True(safety.IsStillPinned(game, pin));
+    }
+
     [Fact]
     public void Where_no_identities_are_reported_a_link_pointed_at_another_folder_is_still_caught_by_the_real_path()
     {

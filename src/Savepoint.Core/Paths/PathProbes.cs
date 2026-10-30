@@ -85,6 +85,9 @@ public static class PathProbes
 
         public IReadOnlyList<string> ReadFinalPaths(string path) => OperatingSystem.IsWindows() ? WindowsFiles.ReadFinalPaths(path) : [];
 
+        public bool KeepsStableIdentity(string path) =>
+            !OperatingSystem.IsLinux() || UnixFiles.ReadLinuxFileSystemType(path) is not { } type || UnixFiles.KeepsInodes(type);
+
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetLongPathNameW")]
         private static extern uint GetLongPathName(string shortPath, char[] longPath, uint bufferLength);
     }

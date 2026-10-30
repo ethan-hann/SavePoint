@@ -16,6 +16,14 @@ public interface IPathProbe
     FileIdentity? ReadIdentity(string path);
 
     /// <summary>
+    /// Whether the file system holding <paramref name="path"/> gives a folder the same identity on every read. A file system that
+    /// numbers its files again (FAT and exFAT on Linux) does not, so a pin must not rely on its identity.
+    /// </summary>
+    /// <param name="path">An existing file or folder.</param>
+    /// <returns>False only when the file system is known to change identities; true when it is stable or not known.</returns>
+    bool KeepsStableIdentity(string path) => true;
+
+    /// <summary>
     /// Every absolute name the OS gives the existing file or folder at <paramref name="path"/> once links, SUBST and mapped drives,
     /// and mounted-folder volumes are followed (on Windows, the final path of an open handle). Empty when it does not exist,
     /// cannot be opened, has no such name, or the OS offers none (only Windows reports one). More than one name only when a
