@@ -79,15 +79,15 @@ public class PostPlayDialogViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task A_program_that_quit_cleanly_right_away_points_at_Steam_without_an_error_code()
+    public async Task A_program_that_quit_cleanly_right_away_names_Steam_and_a_launcher_handing_off_and_offers_Edit_game()
     {
         var exited = (await _rig.ExitedAsync()) with { EndKind = SessionEndKind.ProgramQuitAtStart };
 
         var dialog = Build(exited);
 
         Assert.Equal("The program closed right away", dialog.Title);
-        Assert.Equal("The program you chose closed right away, so the game may not have started. If this is a Steam game, start Steam first, then play again. If the game starts through Steam, Steam can update it and replace the version you switched to.", dialog.NotSeenHint);
-        Assert.False(dialog.HasEditGame);
+        Assert.Equal("The program you chose closed right away. Either the game did not start because Steam was not running, or the program is a launcher that starts the game and then closes. If this is a Steam game, start Steam first, then play again. If the game starts through Steam, Steam can update it and replace the version you switched to. If the program is a launcher, set the game's process name in Edit game.", dialog.NotSeenHint);
+        Assert.Equal("Open Edit game", dialog.EditGameLabel);
     }
 
     [Fact]

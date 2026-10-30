@@ -179,6 +179,20 @@ public class ProfileStartEmptyUnusualFolderTests
     }
 
     [Fact(Timeout = 240_000)]
+    public async Task A_game_folder_without_a_marker_is_left_uncounted_and_never_blocks_starting_empty()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        await rig.ProfileAsync("Vanilla");
+        File.Delete(Path.Combine(rig.Game.Install.Path, ConsentMarker.FileName));
+
+        var preview = (await rig.Workspace.Games.GetCapturePreviewAsync(rig.Game.Id, Ct)).Value!;
+
+        var install = preview.Folders.Single(folder => folder.Role == RepoRole.Install);
+        Assert.False(install.FilesCounted);
+        Assert.Equal(StartEmptyBlock.None, install.StartEmptyBlocked);
+    }
+
+    [Fact(Timeout = 240_000)]
     public async Task A_saves_folder_without_a_marker_is_refused_with_a_reason_that_points_at_confirming_it()
     {
         using var rig = await LaunchRig.CreateAsync();

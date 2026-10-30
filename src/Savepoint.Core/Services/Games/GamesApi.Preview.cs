@@ -47,10 +47,13 @@ internal sealed partial class GamesApi
         catch (ConsentMarkerException e)
         {
             // This folder's files are not read, but the others are still previewed, and the wizard gives this one its own reason.
-            var markerBlock = e.Args["reason"] is ConsentFailure.Missing ? StartEmptyBlock.NotConfirmed : StartEmptyBlock.Other;
-            return (new FolderCapturePreview(repo.Role, repo.WorkTree, 0, 0, 0, false, repo.Role != RepoRole.Install && profileBranches.Count == 0 ? StartEmptyBlock.FirstProfile : markerBlock, FilesCounted: false), 0);
+            // The game folder never starts empty, so it reports no reason, as it does when its files are counted.
+            var markerBlock = repo.Role == RepoRole.Install ? StartEmptyBlock.None
+                : profileBranches.Count == 0 ? StartEmptyBlock.FirstProfile
+                : e.Args["reason"] is ConsentFailure.Missing ? StartEmptyBlock.NotConfirmed
+                : StartEmptyBlock.Other;
+            return (new FolderCapturePreview(repo.Role, repo.WorkTree, 0, 0, 0, false, markerBlock, FilesCounted: false), 0);
         }
-
 
         var mods = repo.Role switch
         {
