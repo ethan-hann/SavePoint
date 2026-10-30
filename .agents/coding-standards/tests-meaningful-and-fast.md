@@ -58,7 +58,7 @@ Walk every question. A "yes" adds rules, and the walk goes on to the next questi
 
 1. Break the product line the test names. Run the test. It must fail with an assertion failure. AGENTS.md, section "Code", asks for this mutation check when a test passes on its first run.
 2. For a theory, invert its assertion instead. Run it. Every row must fail. A row that still passes never reached the assertion.
-3. List the render checks that only measure a file. Read each hit. Every hit should be a picture behind a skip switch, or a test of the tool that saves frames; hits in `AppIconTests` and `BackendContractTests` are known and tracked there:
+3. List the render checks that only measure a file. Read each hit. Every hit should be a picture behind a skip switch, or a test of the tool that saves frames. Fix any other hit:
 
    ```bash
    grep -rn "FileInfo(path).Length\|Assert.True(File.Exists(path))\|Length > [0-9_]*0_000" tests/Savepoint.App.Tests
