@@ -121,11 +121,13 @@ public class GamesSearchShortcutViewTests
     public async Task Ctrl_Shift_F_in_the_icon_rail_leaves_focus_and_says_the_list_is_too_narrow_for_a_search_box()
     {
         using var app = await ComposedApp.StartWithViewAsync(width: 800);
-        var before = app.Focused;
+        var row = app.Find<ItemsControl>("Rows").GetVisualDescendants().OfType<Border>().First(border => border.Classes.Contains("table-row"));
+        row.Focus();
+        Assert.Same(row, app.Focused);
 
         PressGamesSearchKey(app);
 
-        Assert.Same(before, app.Focused);
+        Assert.Same(row, app.Focused);
         Assert.Equal("The games list is too narrow for a search box. Make the window wider to search it.", Announced(app));
     }
 
