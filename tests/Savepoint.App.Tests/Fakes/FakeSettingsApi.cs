@@ -50,7 +50,6 @@ public sealed class FakeSettingsApi : ISettingsApi
     public Task<OperationResult<JobStarted>> OptimizeAllStorageAsync(FreeUpSpaceToken? confirmed = null) =>
         _backend.Call(_api, nameof(OptimizeAllStorageAsync), [confirmed], () =>
         {
-            EstimatesStoppedAtRunStart = EstimateTokens.All(token => token.IsCancellationRequested);
             var done = new OptimizeResult([.. State.Games.Select(Optimized)]);
             var opening = State.Games.Select(game => JobLine.ForStep(JobSteps.CompactGame, ("game", game.Name))).ToList();
 
@@ -77,10 +76,8 @@ public sealed class FakeSettingsApi : ISettingsApi
     // A test sets this to keep every estimate waiting until it completes it, as a big store would; a cancelled wait fails as cancelled.
     public TaskCompletionSource? EstimateHold { get; set; }
 
-    // The token of every estimate asked for, and whether all of them were already stopped when a run was started.
+    // The token of every estimate asked for.
     public List<CancellationToken> EstimateTokens { get; } = [];
-
-    public bool EstimatesStoppedAtRunStart { get; private set; }
 
     public async Task<OperationResult<long>> EstimateFreeUpSpaceAsync(FreeUpSpaceToken token, CancellationToken cancellationToken = default)
     {

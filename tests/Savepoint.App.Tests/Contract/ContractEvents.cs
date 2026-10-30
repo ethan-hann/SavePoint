@@ -14,6 +14,17 @@ internal sealed class ContractEvents : IDisposable
     private readonly List<LaunchSessionInfo> _sessions = [];
     private readonly ContractHarness _backend;
 
+    // Jobs the story asked for, which are compared like any other job and are not what the backend does on its own.
+    private readonly HashSet<Guid> _requested = [];
+
+    public void Requested(Guid jobId)
+    {
+        lock (_gate)
+        {
+            _requested.Add(jobId);
+        }
+    }
+
     public ContractEvents(ContractHarness backend)
     {
         _backend = backend;
@@ -48,10 +59,10 @@ internal sealed class ContractEvents : IDisposable
     {
         lock (_gate)
         {
-            var kinds = _jobs.Where(job => IsBackgroundWork(job.Kind)).Select(job => job.Kind.ToString()).Distinct().Order(StringComparer.Ordinal);
+            var kinds = _jobs.Where(IsBackgroundWork).Select(job => job.Kind.ToString()).Distinct().Order(StringComparer.Ordinal);
             return
             [
-                $"jobs the backend started by itself: {(_jobs.Any(job => IsBackgroundWork(job.Kind)) ? string.Join(", ", kinds) : "none")}",
+                $"jobs the backend started by itself: {(_jobs.Any(IsBackgroundWork) ? string.Join(", ", kinds) : "none")}",
                 $"a session reported as switching: {_sessions.Any(session => session.State is SessionState.Switching)}",
             ];
         }
@@ -62,7 +73,7 @@ internal sealed class ContractEvents : IDisposable
         lock (_gate)
         {
             var lines = new List<string>();
-            foreach (var job in _jobs.Where(snapshot => !IsBackgroundWork(snapshot.Kind)).GroupBy(snapshot => snapshot.JobId))
+            foreach (var job in _jobs.Where(snapshot => !IsBackgroundWork(snapshot)).GroupBy(snapshot => snapshot.JobId))
             {
                 var events = job.ToList();
                 var last = events[^1];
@@ -87,7 +98,8 @@ internal sealed class ContractEvents : IDisposable
         }
     }
 
-    private static bool IsBackgroundWork(JobKind kind) => kind is JobKind.Compact or JobKind.PackStorage;
+    // Called with the gate held.
+    private bool IsBackgroundWork(JobSnapshot job) => job.Kind is JobKind.Compact or JobKind.PackStorage && !_requested.Contains(job.JobId);
 
     private bool Delivered()
     {

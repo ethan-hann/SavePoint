@@ -305,7 +305,6 @@ public sealed class FakeGamesApi : IGamesApi
     public Task<OperationResult<JobStarted>> OptimizeStorageAsync(string gameId, FreeUpSpaceToken? confirmed = null) =>
         _backend.Call(_api, nameof(OptimizeStorageAsync), [gameId, confirmed], () =>
         {
-            EstimatesStoppedAtRunStart = EstimateTokens.All(token => token.IsCancellationRequested);
             var game = State.Game(gameId);
             var done = new OptimizeResult([FakeSettingsApi.Optimized(game)]);
             // Once the job has run, the game's recently removed snapshots the player agreed to lose are gone for good and no others, as in the real backend.
@@ -345,10 +344,8 @@ public sealed class FakeGamesApi : IGamesApi
     // A test sets this to keep every estimate waiting until it completes it, as a big store would; a cancelled wait fails as cancelled.
     public TaskCompletionSource? EstimateHold { get; set; }
 
-    // The token of every estimate asked for, and whether all of them were already stopped when a run was started.
+    // The token of every estimate asked for.
     public List<CancellationToken> EstimateTokens { get; } = [];
-
-    public bool EstimatesStoppedAtRunStart { get; private set; }
 
     public async Task<OperationResult<long>> EstimateFreeUpSpaceAsync(string gameId, FreeUpSpaceToken token, CancellationToken cancellationToken = default)
     {
