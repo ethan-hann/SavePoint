@@ -100,6 +100,24 @@ public sealed partial class FreeUpSpaceViewModel : ObservableObject, IDisposable
         {
             Handle(job);
         }
+
+        if (gameId is not null)
+        {
+            _ = StartSizeAsync(gameId);
+        }
+    }
+
+    // Asks for the size as soon as the game is picked, so a store whose answer takes longer than the question waits has it by the time the
+    // button is pressed (the backend keeps its answer until the store changes, so asking again then is cheap).
+    private async Task StartSizeAsync(string gameId)
+    {
+        var preview = await _games.GetFreeUpSpacePreviewAsync(gameId);
+        if (_disposed || _gameId != gameId || !preview.Ok || preview.Value.RecentlyRemovedSnapshots <= 0)
+        {
+            return;
+        }
+
+        await _size.Start(preview.Value.Token, (token, cancellationToken) => _games.EstimateFreeUpSpaceAsync(gameId, token, cancellationToken));
     }
 
     /// <summary>Clears how the last run ended; a run that is still going keeps its status.</summary>
