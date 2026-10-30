@@ -175,6 +175,45 @@ public class NewProfileWizardViewModelTests
         Assert.False(rig.Wizard.Preview.IsLoading);
     }
 
+    // Anything watching IsLoading acts on the state it finds when the flag drops.
+    [Fact]
+    public async Task Loading_ends_only_once_the_preview_holds_its_rows_and_note()
+    {
+        var rig = await Rig.StartAsync(loadPreview: false);
+        (int Rows, string Note, bool IsRead)? whenLoadingEnded = null;
+        rig.Wizard.Preview.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(CapturePreviewViewModel.IsLoading) && !rig.Wizard.Preview.IsLoading)
+            {
+                whenLoadingEnded ??= (rig.Wizard.Preview.Rows.Count, rig.Wizard.Preview.Note, rig.Wizard.Preview.IsRead);
+            }
+        };
+
+        await rig.Wizard.LoadPreviewAsync();
+
+        Assert.Equal((2, "Files SavePoint already has are reused, so only about 2.4 GB is added.", true), whenLoadingEnded);
+    }
+
+    [Fact]
+    public async Task Loading_ends_only_once_a_failed_preview_shows_its_error()
+    {
+        var backend = FakeBackend.Sample();
+        backend.FailNext<IGamesApi>(nameof(IGamesApi.GetCapturePreviewAsync), SampleScenario.FileInUseError);
+        var rig = await Rig.StartAsync(backend, loadPreview: false);
+        string? errorWhenLoadingEnded = null;
+        rig.Wizard.Preview.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(CapturePreviewViewModel.IsLoading) && !rig.Wizard.Preview.IsLoading)
+            {
+                errorWhenLoadingEnded ??= rig.Wizard.Preview.Error;
+            }
+        };
+
+        await rig.Wizard.LoadPreviewAsync();
+
+        Assert.Equal("SavePoint couldn't check how much will be copied. You can still continue.", errorWhenLoadingEnded);
+    }
+
     [Fact]
     public async Task One_file_and_no_mods_read_naturally()
     {

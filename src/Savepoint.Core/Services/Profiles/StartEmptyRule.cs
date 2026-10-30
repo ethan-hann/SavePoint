@@ -27,8 +27,8 @@ internal static class StartEmptyRule
     /// <see cref="StartEmptyBlock.NewChanges"/> is a new or changed file on a profile's branch, whose files are in no snapshot yet;
     /// <see cref="StartEmptyBlock.NotConfirmed"/> is a folder without SavePoint's marker; <see cref="StartEmptyBlock.Other"/> is a file
     /// that is held or unreadable, a folder holding another game's marker or a corrupt one, any other failure reading the folder, or a
-    /// folder on an older point (changes or not) or on no profile of the game. A snapshot is the way out of
-    /// <see cref="StartEmptyBlock.NewChanges"/> only.
+    /// folder on no profile of the game. A folder on an older point (changes or not) is <see cref="StartEmptyBlock.OlderSnapshot"/>:
+    /// loading one of the game's profiles is the way out. A snapshot is the way out of <see cref="StartEmptyBlock.NewChanges"/> only.
     /// </summary>
     /// <param name="engine">The storage engine.</param>
     /// <param name="repo">The folder, carrying the ignore patterns it leaves out now.</param>
@@ -47,7 +47,7 @@ internal static class StartEmptyRule
             // Before the changes: a snapshot of a folder on an older point is refused, so asking for one would send the player in a circle.
             if (status.IsDetached)
             {
-                return StartEmptyBlock.Other;
+                return StartEmptyBlock.OlderSnapshot;
             }
 
             if (!status.IsClean)
@@ -76,13 +76,13 @@ internal static class StartEmptyRule
         }
     }
 
-    /// <summary>The refusal for a folder that is not safe: the issue says to take a snapshot for new changes, to confirm the folder when it has no marker, and that the folder cannot be checked for any other block.</summary>
+    /// <summary>The refusal for a folder that is not safe: the issue says to take a snapshot for new changes, to confirm the folder when it has no marker, and that the folder cannot be checked for any other block (a stopped switch, an older snapshot or another reason).</summary>
     /// <param name="block">What <see cref="WhyNotAsync"/> found; not <see cref="StartEmptyBlock.None"/>.</param>
     public static ValidationException Refusal(StartEmptyBlock block) =>
         new([new ValidationIssue("startEmpty", block switch
         {
             StartEmptyBlock.NotConfirmed => ValidationMessageIds.ProfileStartEmptyUnconfirmed,
-            StartEmptyBlock.StoppedSwitch or StartEmptyBlock.Other => ValidationMessageIds.ProfileStartEmptyUnchecked,
+            StartEmptyBlock.StoppedSwitch or StartEmptyBlock.Other or StartEmptyBlock.OlderSnapshot => ValidationMessageIds.ProfileStartEmptyUnchecked,
             _ => ValidationMessageIds.ProfileStartEmptyUnsaved,
         })]);
 }

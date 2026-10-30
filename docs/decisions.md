@@ -831,3 +831,10 @@ The push mirror sends every commit and tag to GitHub but no releases, so a visit
 4. **The token goes to two hosts.** The repository secret `GH_MIRROR_TOKEN` is a fine-grained GitHub token for `ethan-hann/SavePoint` alone with Contents read and write. The script checks the host of every request and sends it only to `api.github.com` and `uploads.github.com` (a test switch also allows a server on the local machine). It reaches curl on standard input, never as an argument or in a file, is never printed, and the secret is set on the one step that runs the script. Reading the Forgejo release uses the job's own token, sent only to the Forgejo server.
 5. **No secret yet is not a failure for a release event.** A release published before `GH_MIRROR_TOKEN` exists ends the run with a notice and exit 0, without contacting a server; a manual run with no secret fails.
 6. **Backfill** is one manual run with the tag `all`: every published `v*` release, oldest first, with the same checks. A release that fails is reported at the end and does not stop the others. Run it once after the secret is added.
+
+## D72. A folder left on an older snapshot has its own empty-start reason
+
+After Go back, a folder sits on an older snapshot, and the new profile wizard's box said SavePoint can't check the files and to close programs using them (D65.4). That sent the player to the wrong step (#249).
+
+1. **Core names the case.** `StartEmptyBlock.OlderSnapshot` is reported when a folder is on an older snapshot instead of a profile's newest, with or without changes since. It takes the place of `Other` for that case only. The check order of D65.2 is unchanged, and Core still refuses the empty start, with the same "can't check" refusal as `Other`, because a snapshot of such a folder is refused too.
+2. **The wizard's box says the step that helps.** "This folder is on an older snapshot after Go back. Load one of this game's profiles first, then try again." Loading a profile puts the folder on that profile's newest snapshot, after which the box can turn on. The reason is on that folder's box alone, like the others.

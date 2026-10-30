@@ -18,6 +18,9 @@ public enum StartEmptyBlock
     /// <summary>A switch of the folder stopped part way, so it cannot be told whether a snapshot holds its files until the switch is finished or discarded.</summary>
     StoppedSwitch,
 
-    /// <summary>Another reason: a file is held by another program or unreadable, the folder holds another game's marker or a damaged one, reading the folder failed, the folder sits on an older snapshot, or it is not on one of the game's profiles.</summary>
+    /// <summary>Another reason: a file is held by another program or unreadable, the folder holds another game's marker or a damaged one, reading the folder failed, or it is not on one of the game's profiles.</summary>
     Other,
+
+    /// <summary>The folder sits on an older snapshot (after Go back) instead of a profile's newest one, so its files cannot be told from that profile's history until one of the game's profiles is loaded. A snapshot of it is refused too.</summary>
+    OlderSnapshot,
 }

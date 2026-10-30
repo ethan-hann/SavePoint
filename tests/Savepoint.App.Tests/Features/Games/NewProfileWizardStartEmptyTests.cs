@@ -184,6 +184,16 @@ public class NewProfileWizardStartEmptyTests
         Assert.Equal("SavePoint can't check these files right now. Load one of this game's profiles and close any program using them, then try again.", wizard.StartWithoutSavesHint);
     }
 
+    [Fact]
+    public async Task A_folder_left_on_an_older_snapshot_by_go_back_says_to_load_one_of_the_games_profiles_first()
+    {
+        var (wizard, _) = await StartAsync(held: false, block: StartEmptyBlock.OlderSnapshot);
+
+        Assert.Equal("This folder is on an older snapshot after Go back. Load one of this game's profiles first, then try again.", wizard.StartWithoutSavesHint);
+        Assert.Equal("This folder is on an older snapshot after Go back. Load one of this game's profiles first, then try again.", wizard.StartWithoutModsHint);
+        Assert.True(wizard.SavesBoxIsOff);
+    }
+
     [Theory]
     [InlineData(StartEmptyBlock.NotConfirmed, "SavePoint hasn't confirmed this folder yet. Open Edit game and choose Save changes to confirm it, then try again.")]
     [InlineData(StartEmptyBlock.Other, "SavePoint can't check these files right now. Load one of this game's profiles and close any program using them, then try again.")]
