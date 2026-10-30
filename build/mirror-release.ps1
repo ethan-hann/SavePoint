@@ -39,6 +39,13 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
+# Any failure ends the run with its message as one plain line on standard error; PowerShell's own error view adds colors, a file
+# prefix and line wraps that differ between systems and split the message in the CI log.
+trap {
+    [Console]::Error.WriteLine("$($_.Exception.Message)")
+    exit 1
+}
+
 $checksumName = 'SHA256SUMS.txt'
 $sourcesLinkPrefix = 'Source code of the bundled git'
 
