@@ -67,8 +67,14 @@ public sealed partial class GitEngine
 
     // Whether HEAD can name a snapshot (a detached one, a branch with a ref file, or any packed ref); with none, nothing is stored yet and
     // reading files to look for stored content would be wasted. A wrong "yes" only costs the reads.
-    private static bool HasSnapshot(RepoRef repo)
+    internal static bool HasSnapshot(RepoRef repo)
     {
+        // Without ref files there is nothing to look at, and the reads are the cheap side of a wrong answer.
+        if (!GitDirFiles.UsesFilesBackend(repo.GitDir))
+        {
+            return true;
+        }
+
         var head = GitDirFiles.ReadHead(repo.GitDir);
         if (head.IsDetached)
         {
