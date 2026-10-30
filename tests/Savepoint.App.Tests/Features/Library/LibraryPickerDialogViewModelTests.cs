@@ -197,6 +197,27 @@ public class LibraryPickerDialogViewModelTests
     }
 
     [Fact]
+    public async Task Hiding_the_added_games_when_every_game_is_added_says_so_and_points_at_the_check_box()
+    {
+        var (picker, _) = await LoadedAsync(LibraryTestData.Scan(LibraryTestData.Game("A", addedGameId: "a-1")));
+
+        picker.HideAdded = true;
+
+        Assert.Equal("Every game is already added. Turn off \"Hide games already added\" to see them.", picker.NoMatchesText);
+    }
+
+    [Fact]
+    public async Task A_search_that_finds_nothing_still_says_no_games_match_while_the_added_ones_are_hidden()
+    {
+        var (picker, _) = await LoadedAsync(LibraryTestData.Scan(LibraryTestData.Game("A", addedGameId: "a-1"), LibraryTestData.Game("B")));
+        picker.HideAdded = true;
+
+        picker.SearchText = "zzz";
+
+        Assert.Equal("No games match your search.", picker.NoMatchesText);
+    }
+
+    [Fact]
     public async Task Hiding_the_games_already_added_leaves_only_the_new_ones()
     {
         var (picker, _) = await LoadedAsync(LibraryTestData.Scan(LibraryTestData.Game("A", addedGameId: "a-1"), LibraryTestData.Game("B")));

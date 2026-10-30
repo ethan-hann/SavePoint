@@ -22,6 +22,12 @@ public sealed partial class ShellViewModel
     /// <summary>"No games match.", under the search box.</summary>
     public string NoGameMatchesText { get; private set; } = string.Empty;
 
+    /// <summary>Why the games' search box is not there to type in (no games yet, or the icon rail); empty when it is.</summary>
+    public string GameSearchUnavailableText =>
+        Games.Count == 0 ? _deps.Text.Message("search.games.unavailableEmpty")
+        : IsSidebarLayout && IsCompact ? _deps.Text.Message("search.games.unavailableNarrow")
+        : string.Empty;
+
     private void InitializeGameSearch()
     {
         NoGameMatchesText = _deps.Text.Message("search.games.noMatch");

@@ -8,7 +8,7 @@ How to build, run, test, package, and release SavePoint. The working rules for e
 - **On Windows, PowerShell 7 (`pwsh`).** The build calls `build/fetch-git.ps1` through it.
 - **On Linux and macOS, `bash`, `tar`, and `curl` or `wget`.** No JSON tool is necessary.
 - **Network access on the first build**, to download SavePoint's own git. Later builds reuse it.
-- **For the full test run:** PowerShell 7 on every OS, `gpg`, and on Linux `dbus-daemon`. On Windows, `gpg` comes from Gpg4win or from Git for Windows' `usr\bin`. On the Linux VM, `build/gate-linux.sh` installs the .NET SDK and PowerShell into its own folder. If `rsync`, `flock`, `dbus-daemon`, or `gpg` is missing, it stops with the `apt install` line to run. A test that skips because one of these is missing fails the gate.
+- **For the full test run:** PowerShell 7 on every OS (on macOS the gate fails when the script parse test skips for want of it), `gpg`, and on Linux `dbus-daemon`. On Windows, `gpg` comes from Gpg4win or from Git for Windows' `usr\bin`. On the Linux VM, `build/gate-linux.sh` installs the .NET SDK and PowerShell into its own folder. If `rsync`, `flock`, `dbus-daemon`, or `gpg` is missing, it stops with the `apt install` line to run. A test that skips because one of these is missing fails the gate.
 - **For packaging only:** `dotnet tool restore`, which installs the pinned `vpk`, and git on `PATH`.
 
 SavePoint never uses a git installed on the machine. Only the package scripts call git, to read the commit they build.

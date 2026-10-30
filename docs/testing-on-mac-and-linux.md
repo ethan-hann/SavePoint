@@ -12,7 +12,7 @@ git clone https://git.tortal.tech/ethan-hann/SavePoint.git
 cd SavePoint
 ```
 
-On a Mac, the first `git` asks to install the Command Line Tools. Accept. Install the .NET 10 SDK from https://dotnet.microsoft.com/download/dotnet/10.0 (the macOS Arm64 installer on Apple silicon, x64 on Intel). On Linux, use the distribution's `dotnet-sdk-10.0` package or Microsoft's install script. Install nothing else: the build downloads its own git.
+On a Mac, the first `git` asks to install the Command Line Tools. Accept. Install the .NET 10 SDK from https://dotnet.microsoft.com/download/dotnet/10.0 (the macOS Arm64 installer on Apple silicon, x64 on Intel). On Linux, use the distribution's `dotnet-sdk-10.0` package or Microsoft's install script. The gate also needs PowerShell 7 (`brew install powershell` on macOS, Microsoft's `powershell` package on Linux) and `gpg`; without PowerShell the gate fails on the script parse test. Install nothing else: the build downloads its own git.
 
 ## 1. The automated gate
 
@@ -38,6 +38,9 @@ On Linux, also try the AppImage: download `SavePoint.AppImage` from the latest r
 - [ ] Starting SavePoint a second time brings the first window forward instead of opening another.
 - [ ] Turning on the OS's reduce-motion setting (macOS: Accessibility > Display > Reduce motion; GNOME: Settings > Accessibility > Reduce animation) makes progress show a still bar.
 - [ ] The tour, F1 help, and every question button (such as "What's a snapshot?") work, and the text is sharp (Retina or HiDPI).
+- [ ] Search by keyboard: type in the games search and the profile search, and the count ("3 of 120 games") is read after a pause. Tab to **Clear search** after a search that finds nothing, press Enter, and focus is back in the box. Selecting a game chip or a filter chip is announced and works from the keyboard.
+- [ ] Interface size (Settings): each size keeps every control reachable by Tab. When a larger size turns the games list into the narrow icon list, Ctrl+Shift+F (Cmd+Shift+F) says the list is too narrow instead of doing nothing.
+- [ ] The profile menu opens with Enter or Space, arrow keys move through it, Escape closes it, and the screen reader reads each item.
 - [ ] Settings > About > Open the log folder opens the folder in Finder or the file manager.
 - [ ] Settings > Where SavePoint keeps your snapshots > Change moves the snapshots to another drive, and the app finds them after a restart.
 
@@ -48,13 +51,16 @@ On Linux, also try the AppImage: download `SavePoint.AppImage` from the latest r
 - [ ] **A game that is an `.app` bundle** (any Mac game from Steam, or any app as a stand-in) starts from SavePoint, and SavePoint notices when it quits.
 - [ ] **Case:** APFS ignores case by default. Taking and switching snapshots of a folder holding `Mods/Foo` and `Mods/foo` refuses with a clear message instead of losing a file.
 - [ ] **Safety:** choosing `/System`, `/Applications`, or `~/Library` itself as a game folder is refused.
-- [ ] **VoiceOver** (Cmd+F5): the Games screen, the launch dialog, and Settings read their buttons and rows.
+- [ ] **VoiceOver** (Cmd+F5): the Games screen, the launch dialog, Settings, History, the Add games from your libraries dialog, and the tour read their buttons, rows and counts.
+- [ ] **Wrong folder identity:** a game folder on a drive whose `stat` reports a wrong or repeated identity (an SMB share, or an exFAT or FAT USB drive) is never wrongly refused as "the same folder" or "protected", and a real duplicate or a protected folder on it is still refused (D57).
 - [ ] **A mods folder outside the game folder:** if 7 Days to Die runs on this Mac, add it from its template, install a mod the way the game expects, and check the game loads it from the mods folder the template filled in (D61.5). Run the folder identity tests (`HostIdentityTests`, `PathSafetyPinTests`, `FolderRecheckTests`) and note whether the Mac is Intel or Apple Silicon, since each takes a different `stat` path (D57).
 
 ## 5. Linux VM only
 
 - [ ] **A launcher game:** with Steam installed, a game started through Steam (or a Proton game) is followed until it quits.
 - [ ] **A game on an NTFS or exFAT drive** (a second virtual disk formatted that way): taking and switching snapshots works, and a case-only clash is refused.
+- [ ] **Orca** (Super+Alt+S): the Games screen, the launch dialog, Settings, History, the Add games from your libraries dialog, and the tour read their buttons, rows and counts.
+- [ ] **Unusual drive format:** a game folder on a FAT or exFAT drive (which gives every file the same or no identity) is never wrongly refused as "the same folder" or "protected", and a real duplicate is still refused (D57).
 - [ ] **Wayland and X11:** if the VM offers both at login, start SavePoint once under each.
 - [ ] **A mods folder outside the game folder:** if 7 Days to Die runs on the VM, add it from its template, install a mod the way the game expects, and check the game loads it from the mods folder the template filled in (D61.5).
 - [ ] **Apps menu:** Settings > Apps menu adds SavePoint with its icon to the GNOME apps menu, shows the entry as out of date after the AppImage is moved (Update fixes it), and Remove takes the entry and icons away again.

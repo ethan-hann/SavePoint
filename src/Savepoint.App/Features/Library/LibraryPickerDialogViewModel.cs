@@ -98,8 +98,11 @@ public sealed partial class LibraryPickerDialogViewModel : DialogViewModel<IRead
     /// <summary>True when there are games but none match the search and filters.</summary>
     public bool ShowNoMatches => _rows.Count > 0 && VisibleRows.Count == 0;
 
-    /// <summary>"No games match your search.".</summary>
-    public string NoMatchesText => _text.Message("library.picker.noMatches");
+    /// <summary>
+    /// "No games match your search."; when the search box is empty and hiding the added games is what leaves nothing, it says every
+    /// game is added and where to turn the hiding off.
+    /// </summary>
+    public string NoMatchesText => _text.Message(HideAdded && SearchText.Trim().Length == 0 ? "library.picker.allAdded" : "library.picker.noMatches");
 
     /// <summary>True when there are no matches and the typed search is what hides the games, so clearing it helps.</summary>
     public bool ShowClearSearch => ShowNoMatches && SearchText.Trim().Length > 0;
@@ -227,6 +230,7 @@ public sealed partial class LibraryPickerDialogViewModel : DialogViewModel<IRead
 
         OnPropertyChanged(nameof(ShowEmpty));
         OnPropertyChanged(nameof(ShowNoMatches));
+        OnPropertyChanged(nameof(NoMatchesText));
         OnPropertyChanged(nameof(ShowClearSearch));
         OnPropertyChanged(nameof(ShowList));
         OnSelectionChanged();
