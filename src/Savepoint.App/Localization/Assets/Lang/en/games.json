@@ -138,7 +138,7 @@
   "profiles.wizard.startEmpty.firstProfile": "Your current files aren't in a snapshot yet. Make this profile first, then a later one can start empty.",
   "profiles.wizard.startEmpty.newChanges": "Take a snapshot first, so the files you have now are kept.",
   "profiles.wizard.startEmpty.notConfirmed": "SavePoint hasn't confirmed this folder yet. Open Edit game and choose Save changes to confirm it, then try again.",
-  "profiles.wizard.startEmpty.olderSnapshot": "This folder is on an older snapshot after Go back. Load one of this game's profiles first, then try again.",
+  "profiles.wizard.startEmpty.olderSnapshot": "This folder holds an older snapshot you went back to. Load one of this game's profiles first, then try again.",
   "profiles.wizard.startEmpty.offName": "{box}. {reason}",
   "profiles.wizard.startEmpty.other": "SavePoint can't check these files right now. Load one of this game's profiles and close any program using them, then try again.",
   "profiles.wizard.startEmpty.stoppedSwitch": "Finish or discard the stopped switch first.",
