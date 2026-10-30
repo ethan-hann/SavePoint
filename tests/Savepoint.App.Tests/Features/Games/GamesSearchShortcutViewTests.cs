@@ -138,7 +138,7 @@ public class GamesSearchShortcutViewTests
 
         PressGamesSearchKey(app);
 
-        Assert.Equal("You haven't added any games yet, so there is nothing to search.", Announced(app));
+        Assert.Equal("You haven't added any games yet, so there's nothing to search.", Announced(app));
     }
 
     private static string? Announced(ComposedApp app) => app.All<AnnouncementRegion>().First(region => region.Name == "PageAnnouncer").Text;

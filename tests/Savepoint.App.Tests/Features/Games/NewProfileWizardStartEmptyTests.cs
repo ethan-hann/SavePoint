@@ -189,8 +189,8 @@ public class NewProfileWizardStartEmptyTests
     {
         var (wizard, _) = await StartAsync(held: false, block: StartEmptyBlock.OlderSnapshot);
 
-        Assert.Equal("This folder is on an older snapshot after Go back. Load one of this game's profiles first, then try again.", wizard.StartWithoutSavesHint);
-        Assert.Equal("This folder is on an older snapshot after Go back. Load one of this game's profiles first, then try again.", wizard.StartWithoutModsHint);
+        Assert.Equal("This folder holds an older snapshot you went back to. Load one of this game's profiles first, then try again.", wizard.StartWithoutSavesHint);
+        Assert.Equal("This folder holds an older snapshot you went back to. Load one of this game's profiles first, then try again.", wizard.StartWithoutModsHint);
         Assert.True(wizard.SavesBoxIsOff);
     }
 

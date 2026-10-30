@@ -149,9 +149,9 @@ public class GameEditorGuidanceTests
         Assert.StartsWith("Most games load mods from inside their own folder", editor.ModsHelp.Answer, StringComparison.Ordinal);
         Assert.Contains("7 Days to Die", editor.ModsHelp.Answer, StringComparison.Ordinal);
         Assert.Equal("When do I list mod files?", editor.ModFoldersHelp.Question);
-        Assert.StartsWith("Only to make the mod file counts", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
-        Assert.Contains("never changes what SavePoint saves", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
-        Assert.Contains("Fill it in when", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
+        Assert.StartsWith("Fill this in when your game keeps mods inside its own folder", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
+        Assert.Contains("never what SavePoint saves", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
+        Assert.Contains("It only changes the mod file counts", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
         Assert.Contains("profile table and in the switch preview", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
     }
 
