@@ -435,7 +435,7 @@ public sealed partial class GitEngine
     // exclude list decides what is left out. git prints one line per file it adds or removes, which feeds the progress reports.
     private async Task StageAsync(RepoRef repo, CaptureRequest request, IProgress<FileProgress>? progress, CancellationToken ct)
     {
-        var listing = await ListForStagingAsync(repo, ct).ConfigureAwait(false);
+        var (listing, trackedAtListing) = await ListForStagingAsync(repo, ct).ConfigureAwait(false);
         LinkedFolders.RefuseAny(repo.WorkTree, listing.Files, ct);
         NestedRepositories.RefuseAny(repo.WorkTree, listing, ct);
 
@@ -471,7 +471,8 @@ public sealed partial class GitEngine
 
         // A recorded file that is gone (or is now a folder) is dropped from the index by name. Handing it to add as a path would match
         // everything under it, and -f would store the excluded files there too.
-        var (removals, additions) = SplitRemovals(repo, listing.Files, await TrackedAsync().ConfigureAwait(false));
+        // Nothing has changed the index since the listing, which already named every recorded file.
+        var (removals, additions) = SplitRemovals(repo, listing.Files, trackedAtListing);
         IReadOnlyList<StagingBatch> batches = additions.Count == 0 ? [] : [new StagingBatch(additions, [], false)];
 
         // Packs are written without compression, so the store grows by about the files' own size; refuse before git writes any of it.
@@ -776,7 +777,8 @@ public sealed partial class GitEngine
         }
 
         // SavePoint never packs refs, so with no packed-refs file a branch without a loose file does not exist; asking git would only say so.
-        if (!File.Exists(Path.Combine(repo.GitDir, "packed-refs")) && !File.Exists(Path.Combine(repo.GitDir, GitDirFiles.BranchPrefix.Replace('/', Path.DirectorySeparatorChar) + branch)))
+        // That holds for ref files only: a repository with reftable storage has none, and git is the only one that can tell.
+        if (GitDirFiles.UsesFilesBackend(repo.GitDir) && !File.Exists(Path.Combine(repo.GitDir, "packed-refs")) && !File.Exists(Path.Combine(repo.GitDir, GitDirFiles.BranchPrefix.Replace('/', Path.DirectorySeparatorChar) + branch)))
         {
             return null;
         }

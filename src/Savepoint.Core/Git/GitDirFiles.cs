@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Savepoint.Core.Errors;
 
 namespace Savepoint.Core.Git;
@@ -38,6 +39,19 @@ internal static class GitDirFiles
     {
         var text = AtomicText.ReadOrNull(Path.Combine(gitDir, fullRef.Replace('/', Path.DirectorySeparatorChar)))?.Trim();
         return text is not null && IsObjectId(text) ? text : null;
+    }
+
+    // True when the refs are kept as files (a loose file or a packed-refs line per branch). Reftable storage has a reftable folder and
+    // names itself in the config, and in it a missing ref file says nothing about the branch.
+    public static bool UsesFilesBackend(string gitDir)
+    {
+        if (Directory.Exists(Path.Combine(gitDir, "reftable")))
+        {
+            return false;
+        }
+
+        var config = AtomicText.ReadOrNull(Path.Combine(gitDir, "config"));
+        return config is null || !Regex.IsMatch(config, @"^\s*refstorage\s*=\s*reftable", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.CultureInvariant);
     }
 
     public static bool IsObjectId(string text) =>

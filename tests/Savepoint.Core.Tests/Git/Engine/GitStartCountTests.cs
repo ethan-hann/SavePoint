@@ -40,7 +40,7 @@ public sealed class GitStartCountTests : IDisposable
     }
 
     [Fact]
-    public async Task A_later_capture_starts_five_git_processes_at_most()
+    public async Task A_later_capture_starts_four_git_processes_at_most()
     {
         var repo = await _ws.InitializedRepoAsync();
         _ws.WriteMany(repo, "Data", 10);
@@ -49,11 +49,11 @@ public sealed class GitStartCountTests : IDisposable
 
         var starts = await StartsOfAsync(() => _ws.CaptureAsync(repo));
 
-        Assert.True(starts <= 5, $"started {starts} git processes");
+        Assert.True(starts <= 4, $"started {starts} git processes");
     }
 
     [Fact]
-    public async Task A_watched_capture_starts_six_git_processes_at_most()
+    public async Task A_watched_capture_starts_five_git_processes_at_most()
     {
         var repo = await _ws.InitializedRepoAsync();
         _ws.WriteMany(repo, "Data", 10);
@@ -62,7 +62,7 @@ public sealed class GitStartCountTests : IDisposable
 
         var starts = await StartsOfAsync(() => _ws.CaptureAsync(repo, progress: new NoProgress()));
 
-        Assert.True(starts <= 6, $"started {starts} git processes");
+        Assert.True(starts <= 5, $"started {starts} git processes");
     }
 
     [Fact]

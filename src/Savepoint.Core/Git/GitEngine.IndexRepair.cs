@@ -187,7 +187,7 @@ public sealed partial class GitEngine
     {
         var gitDir = invocation.GitDir!;
         var environment = new Dictionary<string, string?> { ["GIT_INDEX_FILE"] = target };
-        var unborn = IsUnborn(gitDir);
+        var unborn = await IsUnbornAsync(gitDir, ct).ConfigureAwait(false);
         string[] read = unborn ? ["read-tree", "--empty"] : ["read-tree", "HEAD"];
 
         // A question asked of an empty folder (see Classify) must not leave the rebuilt index stamped against that folder.
@@ -268,7 +268,19 @@ public sealed partial class GitEngine
 
     // A branch with no ref yet is a folder nothing was saved from. A ref file that exists but is empty or unreadable is not that:
     // it is damage to the history itself, and building a new history over it would hide the old one.
-    private static bool IsUnborn(string gitDir)
+    internal async Task<bool> IsUnbornAsync(string gitDir, CancellationToken ct)
+    {
+        // Reftable storage keeps no ref files to look at, so git is asked whether HEAD names a commit.
+        if (!GitDirFiles.UsesFilesBackend(gitDir))
+        {
+            var head = await RunOnceAsync(new GitInvocation(["rev-parse", "--verify", "-q", "HEAD^{commit}"]) { GitDir = gitDir, AllowedExitCodes = [0, 1] }, ct).ConfigureAwait(false);
+            return head.ExitCode != 0;
+        }
+
+        return IsUnbornByFiles(gitDir);
+    }
+
+    private static bool IsUnbornByFiles(string gitDir)
     {
         HeadState head;
         try

@@ -42,11 +42,30 @@ public sealed partial class GitEngine
     // What a capture would stage: new files, plus tracked files that were changed or removed. A folder that is its own
     // repository is listed with a trailing slash instead of its files. A recorded file the patterns name is not staged, whatever
     // happened to it.
-    private async Task<WorkTreeListing> ListForStagingAsync(RepoRef repo, CancellationToken ct)
+    // The same call also lists every recorded file, so the caller needs no second one: with -t each entry carries a tag, "?" for a new
+    // file, "C" for a changed one and "R" for a removed one, and any other tag (cached, skipped, unmerged) is a recorded file.
+    private async Task<(WorkTreeListing Listing, HashSet<string> Tracked)> ListForStagingAsync(RepoRef repo, CancellationToken ct)
     {
-        var result = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-o", "-m", "-d", ExcludeFromArgument(repo)), ct).ConfigureAwait(false);
+        var result = await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "-t", "-c", "-o", "-m", "-d", ExcludeFromArgument(repo)), ct).ConfigureAwait(false);
         var named = await RecordedNamedAsync(repo, ct).ConfigureAwait(false);
-        return WorkTreeListing.From(result.SplitStandardOutputOnNul().Where(entry => !named.Contains(entry)));
+        var tracked = new HashSet<string>(StringComparer.Ordinal);
+        var entries = new List<string>();
+        foreach (var line in result.SplitStandardOutputOnNul())
+        {
+            // "<tag> <path>": the tag is one character, so the path is everything after the space that follows it.
+            var path = line[2..];
+            if (line[0] != '?')
+            {
+                tracked.Add(path);
+            }
+
+            if (line[0] is ('?' or 'C' or 'R') && !named.Contains(path))
+            {
+                entries.Add(path);
+            }
+        }
+
+        return (WorkTreeListing.From(entries), tracked);
     }
 
     // New files the exclude list does not name.
