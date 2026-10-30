@@ -79,6 +79,18 @@ public class PostPlayDialogViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_program_that_quit_cleanly_right_away_points_at_Steam_without_an_error_code()
+    {
+        var exited = (await _rig.ExitedAsync()) with { EndKind = SessionEndKind.ProgramQuitAtStart };
+
+        var dialog = Build(exited);
+
+        Assert.Equal("The program closed right away", dialog.Title);
+        Assert.Equal("The program you chose closed right away, so the game may not have started. If this is a Steam game, start Steam first, then play again. Starting it through Steam can update the game and replace the version you switched to.", dialog.NotSeenHint);
+        Assert.False(dialog.HasEditGame);
+    }
+
+    [Fact]
     public async Task A_process_list_that_could_not_be_read_does_not_blame_the_name_and_offers_no_editor()
     {
         var exited = (await _rig.ExitedAsync()) with { EndKind = SessionEndKind.ProcessListUnreadable };

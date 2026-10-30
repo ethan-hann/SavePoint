@@ -63,6 +63,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
             SessionEndKind.NamedProcessNeverMatched => _text.Message("launch.postPlay.neverMatched.hint"),
             SessionEndKind.ProcessListUnreadable => _text.Message("launch.postPlay.unreadable.hint"),
             SessionEndKind.ProgramFailedAtStart => _text.Message("launch.postPlay.failedAtStart.hint", ("code", ExitCodeText(exited))),
+            SessionEndKind.ProgramQuitAtStart => _text.Message("launch.postPlay.quitAtStart.hint"),
             _ => string.Empty,
         };
 
@@ -144,7 +145,7 @@ public sealed partial class PostPlayDialogViewModel : DialogViewModel<SessionCom
     {
         SessionEndKind.NamedProcessNeverAppeared => text.Message("launch.postPlay.notSeen.title"),
         SessionEndKind.ProcessListUnreadable => text.Message("launch.postPlay.unreadable.title"),
-        SessionEndKind.ProgramFailedAtStart => text.Message("launch.postPlay.failedAtStart.title"),
+        SessionEndKind.ProgramFailedAtStart or SessionEndKind.ProgramQuitAtStart => text.Message("launch.postPlay.failedAtStart.title"),
         _ => text.Message("launch.postPlay.title", ("duration", text.Duration(exited.PlayDuration))),
     };
 

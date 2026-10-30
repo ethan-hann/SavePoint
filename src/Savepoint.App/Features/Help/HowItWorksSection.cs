@@ -17,4 +17,10 @@ public enum HowItWorksSection
 
     /// <summary>Running the game's own program versus starting it through Steam, and how SavePoint knows the player has stopped.</summary>
     HowTheGameStarts,
+
+    /// <summary>Why SavePoint is not for online games that have anti-cheat.</summary>
+    OnlineGames,
+
+    /// <summary>What the Steam app ID is for and where to find it.</summary>
+    SteamAppId,
 }

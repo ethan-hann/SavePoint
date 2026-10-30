@@ -42,7 +42,21 @@ public class LaunchSessionEndKindTests
     }
 
     [Fact(Timeout = 120_000)]
-    public async Task A_game_that_quits_on_its_own_is_recorded_as_having_run()
+    public async Task A_game_that_quits_on_its_own_after_the_relaunch_window_is_recorded_as_having_run()
+    {
+        // A zero window stands for a game that ran longer than it.
+        var session = new GameSessionOptions { PollInterval = TimeSpan.FromMilliseconds(100), Grace = TimeSpan.FromSeconds(3), RelaunchWindow = TimeSpan.Zero };
+        using var rig = await LaunchRig.CreateAsync(gameArguments: ["--exit-after", "300"], session: session);
+        var vanilla = await rig.ProfileAsync("Vanilla");
+
+        await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        Assert.Equal(SessionEndKind.ChildExited, exited.EndKind);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_program_that_quits_cleanly_at_once_is_recorded_as_a_quit_at_start()
     {
         using var rig = await LaunchRig.CreateAsync(gameArguments: ["--exit-after", "300"]);
         var vanilla = await rig.ProfileAsync("Vanilla");
@@ -50,6 +64,6 @@ public class LaunchSessionEndKindTests
         await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
         var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
 
-        Assert.Equal(SessionEndKind.ChildExited, exited.EndKind);
+        Assert.Equal(SessionEndKind.ProgramQuitAtStart, exited.EndKind);
     }
 }

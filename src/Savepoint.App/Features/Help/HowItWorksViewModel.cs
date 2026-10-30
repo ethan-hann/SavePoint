@@ -68,6 +68,8 @@ public sealed partial class HowItWorksViewModel : ObservableObject
                 [],
                 [text.Message("help.page.cloud.turnOff")],
                 HowItWorksSection.CloudSaves),
+            new(text.Message("help.page.online.title"), text.Message("help.page.online.body"), HelpPicture.None, [], [], HowItWorksSection.OnlineGames),
+            new(text.Message("help.page.appId.title"), text.Message("help.page.appId.body"), HelpPicture.None, [], [], HowItWorksSection.SteamAppId),
             PermanentTopic(text),
         ];
     }

@@ -151,6 +151,8 @@ public class GameEditorGuidanceTests
         Assert.Equal("When do I list mod files?", editor.ModFoldersHelp.Question);
         Assert.StartsWith("Only to make the mod file counts", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
         Assert.Contains("never changes what SavePoint saves", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
+        Assert.Contains("Fill it in when", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
+        Assert.Contains("profile table and in the switch preview", editor.ModFoldersHelp.Answer, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -167,6 +169,8 @@ public class GameEditorGuidanceTests
     [InlineData("process", "help:HowTheGameStarts")]
     [InlineData("modsFolder", "help:ModsFolders")]
     [InlineData("modFiles", "help:ModsFolders")]
+    [InlineData("antiCheat", "help:OnlineGames")]
+    [InlineData("steamAppId", "help:SteamAppId")]
     public void The_answers_that_have_a_page_topic_end_with_a_link_that_opens_the_page_at_it(string which, string expectedCall)
     {
         var rig = EditorRig.Create();
@@ -177,6 +181,8 @@ public class GameEditorGuidanceTests
             "cloud" => editor.CloudSavesHelp,
             "modsFolder" => editor.ModsHelp,
             "modFiles" => editor.ModFoldersHelp,
+            "antiCheat" => editor.AntiCheatHelp,
+            "steamAppId" => editor.SteamAppIdHelp,
             _ => editor.ProcessHelp,
         };
         help.IsOpen = true;
@@ -187,15 +193,6 @@ public class GameEditorGuidanceTests
 
         Assert.False(help.IsOpen);
         Assert.Equal([expectedCall], rig.Shell.Calls.Where(call => call.StartsWith("help", StringComparison.Ordinal)));
-    }
-
-    // The online-games warning and the Steam app ID have no topic on the page, so there is nothing to link to.
-    [Fact]
-    public void The_answers_with_no_page_topic_have_no_link()
-    {
-        var editor = EditorRig.Create().New();
-
-        Assert.All([editor.AntiCheatHelp, editor.SteamAppIdHelp], help => Assert.False(help.HasLink));
     }
 
     [Fact]

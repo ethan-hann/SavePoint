@@ -133,8 +133,8 @@ public sealed partial class GameEditorViewModel
     public string SteamWarning => _text.Message("gameEditor.launch.steamWarning");
 
     /// <summary>
-    /// True when the start method runs a file on Linux and the install folder is inside a Steam library: Steam's own start scripts
-    /// there usually need Steam to run them, so <see cref="SteamStartNote"/> points at the link method instead.
+    /// True when the start method runs a file on Linux and the install folder is inside a Steam library: such a game usually needs
+    /// Steam running, so <see cref="SteamStartNote"/> says Play checks for Steam and offers to start it.
     /// </summary>
     public bool ShowSteamStartNote => _text.OsKind == OsKind.Linux && IsExeMethod && IsInSteamLibrary(InstallPath);
 

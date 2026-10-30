@@ -66,12 +66,12 @@ public sealed partial class LaunchOrchestrator
         }
 
         var token = context.CancellationToken;
-        context.AddStep(JobSteps.LaunchWaitingForSteam, ("game", game.Name));
+        context.AddStep(JobSteps.LaunchWaitingForSteam, ("game", game.Name), ("seconds", (int)Math.Ceiling(_steamWait.Timeout.TotalSeconds)));
 
         // Only the client is started: a game started through Steam would be updated first.
         if (!await Task.Run(_steam.TryStart, token).ConfigureAwait(false))
         {
-            throw new SteamDidNotStartException(game.Id);
+            throw new SteamCannotStartException(game.Id);
         }
 
         var began = _services.Time.GetTimestamp();

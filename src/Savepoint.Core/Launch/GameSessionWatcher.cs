@@ -198,7 +198,10 @@ public sealed class GameSessionWatcher : IDisposable
             else if (_child is not null)
             {
                 await _child.WaitForExitAsync(stop);
-                Settle(SessionEndKind.ChildExited);
+
+                // A clean exit this soon cannot be play; a game that needs its store quits like this when the store is closed.
+                var quitAtStart = ChildExitCode() == 0 && _clock.GetUtcNow() - StartedAt < _options.RelaunchWindow;
+                Settle(quitAtStart ? SessionEndKind.ProgramQuitAtStart : SessionEndKind.ChildExited);
             }
         }
         catch (OperationCanceledException) when (stop.IsCancellationRequested)

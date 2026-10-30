@@ -51,7 +51,7 @@ public interface ILaunchApi
     /// let Steam install a pending update over the version being loaded. So before anything is read or switched, Steam must be running
     /// and signed in. If it is not, the call fails at once, with no job, with <c>error.launch.steamNotRunning</c>. Passing
     /// <paramref name="startSteam"/> instead makes the job start the Steam client alone (no game, no app id), wait for it
-    /// to sign in, and then carry on; if it does not come up in time the job fails with <c>error.launch.steamDidNotStart</c>, and a
+    /// to sign in, and then carry on; if it does not come up in time the job fails with <c>error.launch.steamDidNotStart</c>, and if the client cannot be started at all it fails with <c>error.launch.steamCannotStart</c>. A
     /// cancelled or failed wait leaves every folder as it was. A game counts as a Steam game only when its install folder is in a Steam
     /// library; a Steam app id alone does not. A game started from a link, or one that is not a Steam game, never asks.
     /// </para>

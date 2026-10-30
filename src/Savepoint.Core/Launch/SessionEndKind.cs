@@ -48,4 +48,10 @@ public enum SessionEndKind
 
     /// <summary>The player said they were done; the game may still be running.</summary>
     ManuallyFinished,
+
+    /// <summary>
+    /// The program SavePoint started, with no process name configured, exited with code 0 within the relaunch window. A game that
+    /// needs its store but cannot reach it can quit this way, so the player is pointed at the store. The end time is the program's exit.
+    /// </summary>
+    ProgramQuitAtStart,
 }
