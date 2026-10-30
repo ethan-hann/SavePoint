@@ -43,18 +43,28 @@ app_single_threads=$(( test_threads < 4 ? test_threads : 4 ))
 # Four test processes at once need about 10 GB free; below that the App tests run as one process, as before the lanes (the
 # 7 GB Linux VM ran out of memory with four). SAVEPOINT_GATE_APP_LANES=1 forces one process and 3 forces the lanes (any number
 # above 1 does); SAVEPOINT_GATE_AVAILABLE_MEMORY_MB replaces the reading of free memory. On Linux the reading is the smaller of
-# MemAvailable and the container's cgroup limit; SAVEPOINT_GATE_MEMINFO_FILE and SAVEPOINT_GATE_CGROUP_DIR point it at other files
+# MemAvailable and what is left of the container's cgroup limit; SAVEPOINT_GATE_MEMINFO_FILE and SAVEPOINT_GATE_CGROUP_DIR point it at other files
 # (the tests use them). When the memory cannot be read at all, the single App process runs.
 lanes_memory_mb=10240
 
-# Prints the memory limit of the container in MB, or nothing when there is none (cgroup v2 says "max", v1 a number near 2^63).
-# SAVEPOINT_GATE_CGROUP_DIR replaces /sys/fs/cgroup.
+# Prints what is left of the container's memory limit in MB (the limit less what the container already uses), or nothing when there
+# is no limit (cgroup v2 says "max", v1 a number near 2^63). SAVEPOINT_GATE_CGROUP_DIR replaces /sys/fs/cgroup.
 cgroup_limit_mb() {
-  local dir="${SAVEPOINT_GATE_CGROUP_DIR:-/sys/fs/cgroup}" file bytes
-  for file in "$dir/memory.max" "$dir/memory/memory.limit_in_bytes"; do
-    [ -r "$file" ] || continue
-    bytes="$(tr -d '[:space:]' <"$file")"
+  local dir="${SAVEPOINT_GATE_CGROUP_DIR:-/sys/fs/cgroup}" limit_file usage_file bytes used
+  for limit_file in "$dir/memory.max" "$dir/memory/memory.limit_in_bytes"; do
+    [ -r "$limit_file" ] || continue
+    bytes="$(tr -d '[:space:]' <"$limit_file")"
     if [[ "$bytes" =~ ^[0-9]{1,15}$ ]]; then
+      case "$limit_file" in
+        */memory.max) usage_file="$dir/memory.current" ;;
+        *) usage_file="$dir/memory/memory.usage_in_bytes" ;;
+      esac
+      if [ -r "$usage_file" ]; then
+        used="$(tr -d '[:space:]' <"$usage_file")"
+        if [[ "$used" =~ ^[0-9]{1,15}$ ]]; then
+          bytes=$(( bytes > used ? bytes - used : 0 ))
+        fi
+      fi
       printf '%s\n' $(( bytes / 1048576 ))
       return 0
     fi
