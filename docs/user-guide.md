@@ -104,6 +104,8 @@ When a game installed in a Steam library (its folder is under `steamapps/common`
 
 If the program SavePoint started closes right away with an error, the running card says so and keeps watching for up to two minutes, because some games restart themselves through Steam. On Linux, games installed by Steam usually need Steam to start them, so start Steam first.
 
+If a game has no program name set and the program you chose closes within 30 seconds with no error, SavePoint says the program closed right away. Either Steam wasn't running, so start Steam first and then play again, or the program is a launcher that starts the game and closes, so set the game's program name in **Edit game** (the message offers it).
+
 ### When you finish
 
 SavePoint asks what to do with the session. Each choice is a card: pick one, and the one button at the bottom does what that card says. Escape closes the dialog, the same as Not now. If you pick a choice that keeps the session while the game is still running (or it restarted itself), SavePoint says so and offers **Choose again**. Not now always works.
