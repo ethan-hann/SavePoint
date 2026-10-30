@@ -186,6 +186,21 @@ public class ErrorCopyTests
         }
     }
 
+    [Theory]
+    [InlineData("windows", false)]
+    [InlineData("macos", false)]
+    [InlineData("linux", true)]
+    public void Steam_that_cannot_start_names_Flatpak_and_Snap_only_on_Linux(string os, bool namesThem)
+    {
+        var catalog = LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true);
+
+        var text = new UiFormatter(catalog, os: os).Message(ErrorInfo.From(new SteamCannotStartException("game-1")));
+
+        Assert.Equal(namesThem, text.Contains("Flatpak or Snap", StringComparison.Ordinal));
+        Assert.Contains("Start Steam yourself and sign in, then press Play again.", text, StringComparison.Ordinal);
+        Assert.StartsWith("SavePoint couldn't start Steam.", text, StringComparison.Ordinal);
+    }
+
     private static string? FormatProblem(LocalizationCatalog catalog, ErrorInfo info, string os)
     {
         try

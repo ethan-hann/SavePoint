@@ -261,6 +261,44 @@ public class GitHubMirrorTests
         Assert.Equal(3, stub.GitHubReleases.Single().Assets.Count);
     }
 
+    private static void Stable(MirrorStub stub, params string[] tags)
+    {
+        foreach (var tag in tags)
+        {
+            var assets = Package();
+            stub.AddForgejoRelease(tag, $"SavePoint {tag}", "Notes", prerelease: false, draft: false, [.. assets, File("SHA256SUMS.txt", MirrorStub.SumsFor(assets))]);
+            stub.GitHubTags.Add(tag);
+        }
+    }
+
+    [Theory]
+    [InlineData("v0.9.22", "true")]
+    [InlineData("v0.9.21", "false")]
+    public async Task A_created_GitHub_release_is_marked_latest_only_when_it_is_the_highest_published_version(string tag, string expected)
+    {
+        using var stub = new MirrorStub();
+        Stable(stub, "v0.9.21", "v0.9.22", "v0.9.9");
+
+        var run = await MirrorAsync(stub, tag);
+
+        Assert.True(run.ExitCode == 0, run.Output);
+        Assert.Equal(expected, Assert.Single(stub.GitHubReleases).MakeLatest);
+    }
+
+    [Fact]
+    public async Task An_edited_older_release_is_updated_on_GitHub_without_taking_the_latest_mark()
+    {
+        using var stub = new MirrorStub();
+        Stable(stub, "v0.9.21", "v0.9.22");
+        var older = stub.ForgejoReleases.Single(r => r.Tag == "v0.9.21");
+        stub.AddGitHubRelease("v0.9.21", "Old name", "Notes", prerelease: false, older.Assets.ToArray());
+
+        var run = await MirrorAsync(stub, "v0.9.21");
+
+        Assert.True(run.ExitCode == 0, run.Output);
+        Assert.Equal("false", Assert.Single(stub.GitHubReleases).MakeLatest);
+    }
+
     [Fact]
     public async Task The_all_option_mirrors_every_published_version_release_oldest_first_and_skips_drafts_and_other_tags()
     {
@@ -396,12 +434,12 @@ public class GitHubMirrorTests
     }
 
     [Fact]
-    public void Runs_for_one_tag_queue_instead_of_overlapping_and_the_job_uses_the_Linux_runner_with_a_pinned_PowerShell()
+    public void All_mirror_runs_share_one_queue_instead_of_overlapping_and_the_job_uses_the_Linux_runner_with_a_pinned_PowerShell()
     {
         var workflow = Workflow();
 
         Assert.Contains("runs-on: ubuntu-latest", workflow, StringComparison.Ordinal);
-        Assert.Matches(@"(?m)^concurrency:\s*\r?\n  group: github-mirror", workflow);
+        Assert.Matches(@"(?m)^concurrency:\s*\r?\n  group: github-mirror\s*\r?\n", workflow);
         Assert.Matches(@"cancel-in-progress: false", workflow);
         Assert.All(
             Regex.Matches(workflow, @"dotnet tool install[^\r\n]*PowerShell[^\r\n]*").Select(match => match.Value),

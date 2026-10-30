@@ -40,6 +40,10 @@ internal sealed class MirrorStub : IDisposable
         public string Body { get; set; } = "";
         public bool Prerelease { get; set; }
         public bool Draft { get; set; }
+
+        /// <summary>The make_latest value of the last create or update that carried one, or null when none did.</summary>
+        public string? MakeLatest { get; set; }
+
         public List<GitHubAsset> Assets { get; } = [];
     }
 
@@ -306,6 +310,7 @@ internal sealed class MirrorStub : IDisposable
                 Body = json.GetProperty("body").GetString()!,
                 Prerelease = json.GetProperty("prerelease").GetBoolean(),
                 Draft = json.GetProperty("draft").GetBoolean(),
+                MakeLatest = json.TryGetProperty("make_latest", out var latest) ? latest.GetString() : null,
             };
             GitHubReleases.Add(release);
             Reply(context, 201, GitHubJson(release));
@@ -317,6 +322,7 @@ internal sealed class MirrorStub : IDisposable
             release.Name = json.GetProperty("name").GetString()!;
             release.Body = json.GetProperty("body").GetString()!;
             release.Prerelease = json.GetProperty("prerelease").GetBoolean();
+            release.MakeLatest = json.TryGetProperty("make_latest", out var latest) ? latest.GetString() : null;
             Reply(context, 200, GitHubJson(release));
         }
         else if (method == "DELETE" && rest.StartsWith("/releases/assets/", StringComparison.Ordinal))

@@ -39,6 +39,13 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
+# Any failure ends the run with its message as one plain line on standard error; PowerShell's own error view adds colors, a file
+# prefix and line wraps that differ between systems and split the message in the CI log.
+trap {
+    [Console]::Error.WriteLine("$($_.Exception.Message)")
+    exit 1
+}
+
 $checksumName = 'SHA256SUMS.txt'
 $sourcesLinkPrefix = 'Source code of the bundled git'
 
@@ -313,6 +320,25 @@ function Sync-Assets {
     }
 }
 
+function ConvertTo-ReleaseVersion {
+    # "v0.9.21" as a version, or $null for a tag that is not one.
+    param([string]$TagName)
+    if ($TagName -notmatch '^v(\d+(?:\.\d+){0,3})') { return $null }
+    $parts = @($Matches[1] -split '\.')
+    while ($parts.Count -lt 2) { $parts += '0' }
+    [version]($parts -join '.')
+}
+
+function Get-LatestTag {
+    # The highest-numbered published release that is not a prerelease: the only one GitHub should show as the latest.
+    if (-not $script:latestTag) {
+        $newest = Get-ForgejoReleases | Where-Object { -not $_.draft -and -not $_.prerelease -and $null -ne (ConvertTo-ReleaseVersion $_.tag_name) } |
+            Sort-Object { ConvertTo-ReleaseVersion $_.tag_name } -Descending | Select-Object -First 1
+        $script:latestTag = if ($newest) { $newest.tag_name } else { '-' }
+    }
+    $script:latestTag
+}
+
 function Sync-Release {
     param($ForgejoRelease)
     $name = $ForgejoRelease.tag_name
@@ -323,8 +349,10 @@ function Sync-Release {
     $title = "$($ForgejoRelease.name)"
     $notes = "$($ForgejoRelease.body)"
     $prerelease = [bool]$ForgejoRelease.prerelease
+    # A release copied late must not become GitHub's latest over a newer one.
+    $makeLatest = if (-not $prerelease -and (Get-LatestTag) -eq $name) { 'true' } else { 'false' }
     if ($response.Status -eq 404) {
-        $release = Invoke-GitHubJson -Method POST -Path "/repos/$GitHubRepository/releases" -Expect @(201) -Body @{ tag_name = $name; name = $title; body = $notes; prerelease = $prerelease; draft = $false }
+        $release = Invoke-GitHubJson -Method POST -Path "/repos/$GitHubRepository/releases" -Expect @(201) -Body @{ tag_name = $name; name = $title; body = $notes; prerelease = $prerelease; draft = $false; make_latest = $makeLatest }
         Write-Host "    created the GitHub release"
     }
     else {
@@ -332,7 +360,7 @@ function Sync-Release {
         # GitHub may store the notes with other line endings than were sent.
         $same = $release.name -eq $title -and ("$($release.body)" -replace '\r\n', "`n").TrimEnd() -eq ($notes -replace '\r\n', "`n").TrimEnd() -and [bool]$release.prerelease -eq $prerelease -and -not $release.draft
         if (-not $same) {
-            $release = Invoke-GitHubJson -Method PATCH -Path "/repos/$GitHubRepository/releases/$($release.id)" -Body @{ name = $title; body = $notes; prerelease = $prerelease; draft = $false }
+            $release = Invoke-GitHubJson -Method PATCH -Path "/repos/$GitHubRepository/releases/$($release.id)" -Body @{ name = $title; body = $notes; prerelease = $prerelease; draft = $false; make_latest = $makeLatest }
             Write-Host "    brought the name, notes and prerelease flag in line"
         }
     }

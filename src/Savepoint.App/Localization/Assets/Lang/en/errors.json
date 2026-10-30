@@ -38,7 +38,7 @@
   "error.launch.sessionMoved": "The game's files changed outside this play session, so your new progress can't be kept safely here. Start the game again from SavePoint, from the snapshot you want to keep.",
   "error.launch.sessionStillRunning": "The game is still running. Close it, then try again.",
   "error.launch.spawnFailed": "SavePoint couldn't start the game. Check the launch settings in Edit game.",
-  "error.launch.steamCannotStart": "SavePoint couldn't start Steam. This can happen when Steam is installed as a Flatpak or Snap. Start Steam yourself and sign in, then press Play again. Nothing in your game folders has changed.",
+  "error.launch.steamCannotStart": "SavePoint couldn't start Steam.{os, select, linux { This can happen when Steam is installed as a Flatpak or Snap.} other {}} Start Steam yourself and sign in, then press Play again. Nothing in your game folders has changed.",
   "error.launch.steamDidNotStart": "Steam didn't finish starting. If it asks you to sign in, sign in, then press Play again. Nothing in your game folders has changed.",
   "error.launch.steamNotRunning": "This game needs Steam to be running before it can start. SavePoint can start Steam for you, then carry on. If this game doesn't need Steam, you can play without it. Nothing in your game folders has changed.",
   "error.launch.steamUpdatingBeforeSwitch": "Steam is updating this game, so SavePoint didn't start it, and it didn't switch any files. Nothing in your game folders was changed by SavePoint. When Steam has finished, play this profile again; if the update changed the game's files, SavePoint will ask what to do with them. Your snapshots are safe.",

@@ -6,6 +6,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Accessibility;
 using Savepoint.App.Features.Common.Dialogs;
 using Savepoint.App.Features.Common.Errors;
@@ -268,7 +269,7 @@ public class GamesScreenViewTests
     [AvaloniaFact]
     public async Task Right_clicking_a_row_opens_the_same_menu_as_more_actions()
     {
-        using var harness = await GamesViewHarness.StartAsync();
+        using var harness = await GamesViewHarness.StartAsync(dispatcher: new AvaloniaUiDispatcher());
         var more = MoreButtons(harness)[1];
         more.Flyout!.ShowAt(more);
         harness.Settle();
@@ -305,7 +306,7 @@ public class GamesScreenViewTests
     [AvaloniaFact]
     public async Task Right_clicking_the_empty_part_of_a_row_opens_its_menu()
     {
-        using var harness = await GamesViewHarness.StartAsync();
+        using var harness = await GamesViewHarness.StartAsync(dispatcher: new AvaloniaUiDispatcher());
         var at = EmptySpotIn(harness, Rows(harness)[1]);
 
         harness.Window.MouseMove(at);
@@ -321,7 +322,7 @@ public class GamesScreenViewTests
     [InlineData(Key.F10, KeyModifiers.Shift)]
     public async Task The_menu_key_and_shift_f10_open_the_menu_of_the_focused_row(Key key, KeyModifiers modifiers)
     {
-        using var harness = await GamesViewHarness.StartAsync();
+        using var harness = await GamesViewHarness.StartAsync(dispatcher: new AvaloniaUiDispatcher());
         var row = Rows(harness)[1];
         row.Focus(NavigationMethod.Tab);
         harness.Settle();
@@ -338,7 +339,7 @@ public class GamesScreenViewTests
     [InlineData(Key.F10, KeyModifiers.Shift)]
     public async Task A_menu_opened_from_the_keyboard_sits_at_the_row_not_at_the_mouse_pointer(Key key, KeyModifiers modifiers)
     {
-        using var harness = await GamesViewHarness.StartAsync();
+        using var harness = await GamesViewHarness.StartAsync(dispatcher: new AvaloniaUiDispatcher());
         var row = Rows(harness)[1];
         // The pointer rests far from the row, in the window's top-left corner.
         harness.Window.MouseMove(new Point(4, 4));
@@ -359,7 +360,7 @@ public class GamesScreenViewTests
     [AvaloniaFact]
     public async Task A_right_click_still_opens_the_menu_at_the_pointer_after_a_keyboard_open()
     {
-        using var harness = await GamesViewHarness.StartAsync();
+        using var harness = await GamesViewHarness.StartAsync(dispatcher: new AvaloniaUiDispatcher());
         var row = Rows(harness)[1];
         row.Focus(NavigationMethod.Tab);
         harness.Settle();
@@ -611,7 +612,7 @@ public class GamesScreenViewTests
     [AvaloniaFact]
     public async Task Enter_on_a_focused_row_starts_play_for_that_profile_once()
     {
-        using var harness = await GamesViewHarness.StartAsync();
+        using var harness = await GamesViewHarness.StartAsync(dispatcher: new AvaloniaUiDispatcher());
 
         Press(harness, Rows(harness)[2], Key.Enter);
 
@@ -622,7 +623,7 @@ public class GamesScreenViewTests
     [AvaloniaFact]
     public async Task Enter_on_a_row_that_cannot_play_starts_nothing()
     {
-        using var harness = await GamesViewHarness.StartAsync();
+        using var harness = await GamesViewHarness.StartAsync(dispatcher: new AvaloniaUiDispatcher());
         harness.Rig.Screen.Profiles[2].SetCanPlay(false);
 
         Press(harness, Rows(harness)[2], Key.Enter);
