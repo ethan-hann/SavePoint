@@ -249,6 +249,18 @@ public sealed class SkipCheckTests : IDisposable
     }
 
     [Fact]
+    public void A_test_named_never_skip_that_is_not_in_the_reports_fails_the_check_and_is_named()
+    {
+        var reports = ReportsFolder(Report(("N.C.Other", "Pass", null)));
+
+        var (code, _, error) = RunProgram("--reports", reports, "--never-skip", "N.C.Renamed");
+
+        Assert.Equal(1, code);
+        Assert.Contains("N.C.Renamed", error);
+        Assert.Contains("did not run", error);
+    }
+
+    [Fact]
     public void A_test_named_never_skip_fails_the_check_even_when_the_list_names_it()
     {
         var reports = ReportsFolder(Report(("N.C.Parses", "Skip", "r")));

@@ -43,7 +43,7 @@ $appSingleThreads = [Math]::Min([int]$testThreads, 4)
 # Four test processes at once need about 10 GB free; below that the App tests run as one process, as before the lanes (the
 # 7 GB Linux VM ran out of memory with four). SAVEPOINT_GATE_APP_LANES=1 forces one process and 3 forces the lanes (any number
 # above 1 does); SAVEPOINT_GATE_AVAILABLE_MEMORY_MB replaces the reading of free memory. On Linux the reading is the smaller of
-# MemAvailable and the container's cgroup limit; SAVEPOINT_GATE_MEMINFO_FILE and SAVEPOINT_GATE_CGROUP_DIR point it at other files
+# MemAvailable and what is left of the container's cgroup limit; SAVEPOINT_GATE_MEMINFO_FILE and SAVEPOINT_GATE_CGROUP_DIR point it at other files
 # (the tests use them). When the memory cannot be read at all, the single App process runs.
 $lanesMemoryMb = 10240
 # Where the test step writes its xunit reports, which the skip check reads. The gate always asks for them, so SAVEPOINT_TEST_ARGS must not.
@@ -72,14 +72,23 @@ function Get-NarrowingArguments {
     }
 }
 
-# The memory limit of the container in MB, or $null when there is none (cgroup v2 says "max", v1 a number near 2^63).
-# SAVEPOINT_GATE_CGROUP_DIR replaces /sys/fs/cgroup.
+# What is left of the container's memory limit in MB (the limit less what the container already uses), or $null when there is no
+# limit (cgroup v2 says "max", v1 a number near 2^63). SAVEPOINT_GATE_CGROUP_DIR replaces /sys/fs/cgroup.
 function Get-CgroupLimitMb {
     $dir = if ($env:SAVEPOINT_GATE_CGROUP_DIR) { $env:SAVEPOINT_GATE_CGROUP_DIR } else { '/sys/fs/cgroup' }
-    foreach ($file in @((Join-Path $dir 'memory.max'), (Join-Path $dir 'memory/memory.limit_in_bytes'))) {
-        if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { continue }
-        $text = (Get-Content -LiteralPath $file -Raw).Trim()
-        if ($text -match '^[0-9]{1,15}$') { return [long]([long]$text / 1MB) }
+    $pairs = @(
+        @((Join-Path $dir 'memory.max'), (Join-Path $dir 'memory.current')),
+        @((Join-Path $dir 'memory/memory.limit_in_bytes'), (Join-Path $dir 'memory/memory.usage_in_bytes')))
+    foreach ($pair in $pairs) {
+        if (-not (Test-Path -LiteralPath $pair[0] -PathType Leaf)) { continue }
+        $text = (Get-Content -LiteralPath $pair[0] -Raw).Trim()
+        if ($text -notmatch '^[0-9]{1,15}$') { continue }
+        $bytes = [long]$text
+        if (Test-Path -LiteralPath $pair[1] -PathType Leaf) {
+            $used = (Get-Content -LiteralPath $pair[1] -Raw).Trim()
+            if ($used -match '^[0-9]{1,15}$') { $bytes = [Math]::Max(0L, $bytes - [long]$used) }
+        }
+        return [long]($bytes / 1MB)
     }
     return $null
 }

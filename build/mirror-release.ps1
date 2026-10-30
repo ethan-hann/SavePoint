@@ -10,9 +10,10 @@ For the release of -Tag (or every published v* release when -Tag is "all", oldes
   - creates the release, or brings the name, notes and prerelease flag of the existing one in line with Forgejo;
   - sends every file of the Forgejo release under its own name, skipping a file GitHub already holds with the same hash, replacing one
     that differs, and removing one Forgejo no longer has;
-  - checks each file: its bytes against the Forgejo release's SHA256SUMS.txt before sending, and the digest GitHub reports for the upload
-    afterwards (the size when GitHub reports none). GitHub hashes what it received, so this catches a damaged upload without
-    downloading the file again.
+  - refuses a release with no SHA256SUMS.txt, or whose files the list does not all name;
+  - checks each file: its bytes against that list before sending, and the digest GitHub reports for the upload afterwards (the size
+    when GitHub reports none). A file already on GitHub counts as right only when its reported digest, or the hash of the bytes GitHub
+    serves when it reports none, equals the list.
 
 A draft is never mirrored. Running the script again changes nothing that is already right, so it doubles as the sync after a release is edited.
 
@@ -68,18 +69,26 @@ function Get-ForgejoOrigin {
 function Invoke-Http {
     # Returns @{ Status; Text }. The token is the first thing curl reads on standard input, as a header line with no line ending.
     param(
-        [ValidateSet('GitHub', 'Forgejo')][string]$Target,
+        [ValidateSet('GitHub', 'Forgejo', 'Signed')][string]$Target,
         [string]$Method = 'GET',
         [string]$Url,
         [string[]]$Extra = @(),
         [string]$OutFile,
+        [string]$MediaType = 'application/vnd.github+json',
         [switch]$Follow
     )
     if ($Target -eq 'GitHub') {
         Assert-GitHubUrl $Url
         if (-not $env:GH_MIRROR_TOKEN) { throw 'GH_MIRROR_TOKEN is not set.' }
         $authorization = "Authorization: Bearer $($env:GH_MIRROR_TOKEN)"
-        $accept = @('--header', 'Accept: application/vnd.github+json', '--header', 'X-GitHub-Api-Version: 2022-11-28')
+        $accept = @('--header', "Accept: $MediaType", '--header', 'X-GitHub-Api-Version: 2022-11-28')
+    }
+    elseif ($Target -eq 'Signed') {
+        # The address GitHub hands back for a file download carries its own signature, so no token goes with it.
+        $uri = $null
+        if (-not ([uri]::TryCreate($Url, [System.UriKind]::Absolute, [ref]$uri) -and ($uri.Scheme -eq 'https' -or (Test-Loopback $uri)))) { throw 'Refusing a download address that is not https.' }
+        $authorization = $null
+        $accept = @()
     }
     else {
         if (([uri]$Url).Authority -ne ([uri]$env:GITHUB_API_URL).Authority) { throw "Refusing to send the Forgejo token to $(([uri]$Url).Host)." }
@@ -91,7 +100,8 @@ function Invoke-Http {
     $body = if ($OutFile) { $OutFile } else { [System.IO.Path]::GetTempFileName() }
     try {
         $info = [System.Diagnostics.ProcessStartInfo]::new($(if ($IsWindows) { 'curl.exe' } else { 'curl' }))
-        $arguments = @('--silent', '--show-error', '--request', $Method, '--dump-header', $headers, '--output', $body, '--header', '@-', '--max-time', '3600') + $accept
+        $arguments = @('--silent', '--show-error', '--request', $Method, '--dump-header', $headers, '--output', $body, '--max-time', '3600') + $accept
+        if ($authorization) { $arguments += @('--header', '@-') }
         if ($Follow) { $arguments += '--location' }
         foreach ($argument in ($arguments + $Extra + $Url)) { $info.ArgumentList.Add($argument) }
         $info.UseShellExecute = $false
@@ -99,17 +109,21 @@ function Invoke-Http {
         $info.RedirectStandardError = $true
         $process = [System.Diagnostics.Process]::Start($info)
         $errors = $process.StandardError.ReadToEndAsync()
-        $line = [System.Text.UTF8Encoding]::new($false).GetBytes($authorization)
-        try { $process.StandardInput.BaseStream.Write($line, 0, $line.Length) } catch { }
+        if ($authorization) {
+            $line = [System.Text.UTF8Encoding]::new($false).GetBytes($authorization)
+            try { $process.StandardInput.BaseStream.Write($line, 0, $line.Length) } catch { }
+        }
         $process.StandardInput.Close()
         $process.WaitForExit()
         if ($process.ExitCode -ne 0) { throw "curl failed with exit code $($process.ExitCode) for $Method $Url`: $($errors.GetAwaiter().GetResult())" }
         $status = 0
+        $location = ''
         foreach ($headerLine in Get-Content -LiteralPath $headers) {
-            if ($headerLine -match '^HTTP/\S+\s+(\d{3})') { $status = [int]$Matches[1] }
+            if ($headerLine -match '^HTTP/\S+\s+(\d{3})') { $status = [int]$Matches[1]; $location = '' }
+            elseif ($headerLine -match '^location:\s*(\S+)') { $location = $Matches[1] }
         }
         $text = if ($OutFile) { '' } else { Get-Content -LiteralPath $body -Raw }
-        @{ Status = $status; Text = "$text" }
+        @{ Status = $status; Text = "$text"; Location = $location }
     }
     finally {
         Remove-Item -LiteralPath $headers -Force -ErrorAction SilentlyContinue
@@ -191,6 +205,23 @@ function Save-ForgejoAsset {
     if ((Get-Item -LiteralPath $Path).Length -ne $Asset.size) { throw "$($Asset.name) came down as $((Get-Item -LiteralPath $Path).Length) bytes, not the $($Asset.size) Forgejo lists." }
 }
 
+function Get-GitHubAssetHash {
+    # The digest GitHub reports for an asset, or, when it reports none, the hash of the bytes it serves.
+    param($Asset, [string]$Scratch)
+    if ("$($Asset.digest)" -match '^sha256:([0-9a-fA-F]{64})$') { return $Matches[1].ToLowerInvariant() }
+    $path = Join-Path $Scratch 'github-asset'
+    try {
+        $url = $GitHubApiUrl.TrimEnd('/') + "/repos/$GitHubRepository/releases/assets/$($Asset.id)"
+        $response = Invoke-Http -Target GitHub -Url $url -OutFile $path -MediaType 'application/octet-stream'
+        if ($response.Status -in 301, 302, 303, 307, 308 -and $response.Location) {
+            $response = Invoke-Http -Target Signed -Url $response.Location -OutFile $path
+        }
+        if ($response.Status -ne 200) { throw "Downloading $($Asset.name) from GitHub answered $($response.Status)." }
+        Get-FileSha256 $path
+    }
+    finally { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue }
+}
+
 function Read-ChecksumList {
     param([string]$Path)
     $sums = @{}
@@ -241,43 +272,37 @@ function Sync-Assets {
     $held = @{}
     foreach ($asset in @($GitHubRelease.assets)) { if ($asset) { $held[$asset.name] = $asset } }
 
-    # The list of hashes the release's own job wrote; each file is checked against it before it is sent.
-    $sums = @{}
+    # The list of hashes the release's own job wrote; every file is checked against it before it is sent, so a release without it, or with a file it omits, is refused.
     $listAsset = $assets | Where-Object { $_.name -eq $checksumName }
-    if ($listAsset) {
-        $listPath = Join-Path $Scratch 'sums'
-        Save-ForgejoAsset $listAsset $listPath
-        $sums = Read-ChecksumList $listPath
-    }
-    else { Write-Warning "The Forgejo release has no $checksumName; the files are checked only against what GitHub reports." }
+    if (-not $listAsset) { throw "The Forgejo release has no $checksumName, so its files cannot be checked. Nothing was sent." }
+    $listPath = Join-Path $Scratch 'sums'
+    Save-ForgejoAsset $listAsset $listPath
+    $sums = Read-ChecksumList $listPath
+    $sums[$checksumName] = Get-FileSha256 $listPath
+    $unlisted = @($assets | Where-Object { -not $sums.ContainsKey($_.name) } | ForEach-Object { $_.name })
+    if ($unlisted.Count -gt 0) { throw "$checksumName does not list $($unlisted -join ', '), so those files cannot be checked. Nothing was sent." }
 
     $index = 0
     foreach ($asset in $assets) {
         $index++
         $expected = $sums[$asset.name]
         $current = $held[$asset.name]
-        $sameSize = $current -and $current.size -eq $asset.size
-        # What GitHub holds is right when its size agrees and its digest agrees with the list (or it reports no digest to compare).
-        if ($sameSize -and ((-not $current.digest) -or ($expected -and $current.digest -eq "sha256:$expected"))) {
+        # What GitHub holds is right when its size and its hash (reported, or worked out from the file) agree with the list.
+        if ($current -and $current.size -eq $asset.size -and (Get-GitHubAssetHash $current $Scratch) -eq $expected) {
             Write-Host "    $($asset.name) is already on GitHub"
             continue
         }
         $path = Join-Path $Scratch "asset-$index"
         Save-ForgejoAsset $asset $path
         $hash = Get-FileSha256 $path
-        if ($expected -and $hash -ne $expected) {
+        if ($hash -ne $expected) {
             throw "Checksum mismatch for $($asset.name): Forgejo serves $hash but its $checksumName says $expected. Nothing was sent for it."
         }
-        if ($sameSize -and $current.digest -eq "sha256:$hash") {
-            Write-Host "    $($asset.name) is already on GitHub"
+        if ($current) {
+            Write-Host "    replacing the earlier $($asset.name)"
+            Remove-GitHubAsset $current
         }
-        else {
-            if ($current) {
-                Write-Host "    replacing the earlier $($asset.name)"
-                Remove-GitHubAsset $current
-            }
-            Send-GitHubAsset $GitHubRelease $path $asset.name $hash
-        }
+        Send-GitHubAsset $GitHubRelease $path $asset.name $hash
         Remove-Item -LiteralPath $path -Force
     }
 

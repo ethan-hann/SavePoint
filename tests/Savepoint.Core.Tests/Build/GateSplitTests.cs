@@ -398,7 +398,7 @@ public sealed class GateSplitTests : IDisposable
     }
 
     // Settings that make the gate read its memory from fake files, as a Linux machine or container would show them.
-    private Dictionary<string, string> FakeMemory(int availableKilobytes, string? cgroupV2 = null, string? cgroupV1 = null)
+    private Dictionary<string, string> FakeMemory(int availableKilobytes, string? cgroupV2 = null, string? cgroupV1 = null, string? cgroupUsage = null)
     {
         var meminfo = Path.Combine(_root, "meminfo");
         File.WriteAllText(meminfo, $"MemTotal:       99999999 kB\nMemFree:         1024 kB\nMemAvailable:   {availableKilobytes} kB\nBuffers:         1024 kB\n");
@@ -412,6 +412,13 @@ public sealed class GateSplitTests : IDisposable
         if (cgroupV1 is not null)
         {
             File.WriteAllText(Path.Combine(cgroup, "memory", "memory.limit_in_bytes"), cgroupV1 + "\n");
+        }
+
+        if (cgroupUsage is not null)
+        {
+            // Each version keeps its usage beside its limit; only the one with a limit is read.
+            File.WriteAllText(Path.Combine(cgroup, "memory.current"), cgroupUsage + "\n");
+            File.WriteAllText(Path.Combine(cgroup, "memory", "memory.usage_in_bytes"), cgroupUsage + "\n");
         }
 
         return new()
@@ -450,6 +457,32 @@ public sealed class GateSplitTests : IDisposable
     public async Task The_gate_counts_the_smaller_of_the_free_memory_and_the_container_limit(Script script, string? cgroupV2, string? cgroupV1, string expectedMode, string expectedMemory)
     {
         var gate = await RunGateAsync(script, [], settings: FakeMemory(availableKilobytes: 20 * 1024 * 1024, cgroupV2, cgroupV1));
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        if (expectedMode == "one")
+        {
+            AssertAppRanAsOneProcess(gate);
+        }
+        else
+        {
+            AssertAppRanInLanes(gate);
+        }
+
+        Assert.Contains(expectedMemory, gate.Output, StringComparison.Ordinal);
+    }
+
+    // 20 GB available in meminfo and a 16 GB limit in every case; what the container already uses decides.
+    [Theory]
+    [InlineData(Script.PowerShell, "17179869184", null, "8589934592", "one", "8192 MB")]
+    [InlineData(Script.Bash, "17179869184", null, "8589934592", "one", "8192 MB")]
+    [InlineData(Script.PowerShell, null, "17179869184", "8589934592", "one", "8192 MB")]
+    [InlineData(Script.Bash, null, "17179869184", "8589934592", "one", "8192 MB")]
+    [InlineData(Script.PowerShell, "17179869184", null, "1073741824", "lanes", "15360 MB")]
+    [InlineData(Script.Bash, "17179869184", null, "1073741824", "lanes", "15360 MB")]
+    public async Task The_gate_takes_what_the_container_already_uses_off_its_limit(Script script, string? cgroupV2, string? cgroupV1, string usage, string expectedMode, string expectedMemory)
+    {
+        var gate = await RunGateAsync(script, [], settings: FakeMemory(availableKilobytes: 20 * 1024 * 1024, cgroupV2, cgroupV1, usage));
 
         Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
         Assert.True(gate!.ExitCode == 0, gate.Output);
