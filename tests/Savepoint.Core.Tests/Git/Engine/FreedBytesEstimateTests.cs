@@ -196,6 +196,51 @@ public sealed class FreedBytesEstimateTests : IDisposable
 
     private int WalksSoFar() => _ws.Invocations.Count(invocation => invocation.Arguments[0] == "rev-list");
 
+    // A reclaim keeps what HEAD reaches even when it names no branch, so data only a detached HEAD and the deleted ref hold stays.
+    [Fact]
+    public async Task Data_only_a_detached_HEAD_still_reaches_is_not_counted()
+    {
+        var (repo, points) = await TwoPointsAsync();
+        await _ws.GitWriteAsync(repo, "update-ref", "--no-deref", "HEAD", points[1]);
+
+        var bytes = await _ws.Engine.EstimateFreedBytesAsync(repo, [new ClearedRef("refs/heads/doomed", points[1])], Ct);
+
+        Assert.InRange(bytes, 0, _slack);
+    }
+
+    [Fact]
+    public async Task An_ask_cancelled_while_the_walk_runs_stops_without_measuring()
+    {
+        var (repo, points) = await TwoPointsAsync();
+        using var cancel = new CancellationTokenSource();
+        _ws.OnInvoke = invocation =>
+        {
+            if (invocation.Arguments[0] == "rev-list")
+            {
+                cancel.Cancel();
+            }
+        };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => _ws.Engine.EstimateFreedBytesAsync(repo, [new ClearedRef("refs/heads/doomed", points[1])], cancel.Token));
+
+        Assert.DoesNotContain(_ws.Invocations, invocation => invocation.Arguments[0] == "cat-file");
+    }
+
+    // A repack moves no ref, yet changes how much room the same data takes.
+    [Fact]
+    public async Task A_repack_that_moves_no_ref_is_noticed_on_the_next_ask()
+    {
+        var (repo, points) = await TwoPointsAsync();
+        var doomed = new[] { new ClearedRef("refs/heads/doomed", points[1]) };
+        await _ws.Engine.EstimateFreedBytesAsync(repo, doomed, Ct);
+        var walks = WalksSoFar();
+
+        await _ws.Engine.RepackAsync(repo, OptimizationMode.Routine, Ct);
+        await _ws.Engine.EstimateFreedBytesAsync(repo, doomed, Ct);
+
+        Assert.True(WalksSoFar() > walks);
+    }
+
     // profile-1 holds the first snapshot; "doomed" also holds a second, which adds a big file nothing else has.
     // The index follows the kept snapshot, as it does after a real switch, unless the test wants it left on the doomed one.
     private async Task<(RepoRef Repo, string[] Points)> TwoPointsAsync(bool indexFollowsKept = true)
