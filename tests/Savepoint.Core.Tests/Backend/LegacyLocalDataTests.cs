@@ -102,6 +102,7 @@ public class LegacyLocalDataTests
         var armed = false;
         string? settingsFile = null;
         World? self = null;
+        FileStream? hold = null;
         using var world = await World.SeededAsync(root =>
         {
             if (!armed)
@@ -110,8 +111,18 @@ public class LegacyLocalDataTests
             }
 
             armed = false;
-            var hold = new FileStream(settingsFile!, FileMode.Open, FileAccess.Read, FileShare.None);
-            _ = ReleaseOnceTheWriteGaveUpAsync(self!.Log, hold);
+            hold = new FileStream(settingsFile!, FileMode.Open, FileAccess.Read, FileShare.None);
+
+            // Freed on the product's own thread the moment its first re-read has failed, so the next re-read finds the file free
+            // however slow the machine is; the failed re-read is what this case is about.
+            var held = hold;
+            self!.Log.OnEntry = message =>
+            {
+                if (message.Contains("could not be read back (attempt 1)", StringComparison.Ordinal))
+                {
+                    held.Dispose();
+                }
+            };
             throw new IOException("the settings file is held right after the write");
         });
         self = world;
@@ -122,8 +133,10 @@ public class LegacyLocalDataTests
         armed = true;
 
         var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
+        hold?.Dispose();
 
         Assert.True(status.Ok, status.Error?.Detail);
+        Assert.NotEmpty(world.Log.Containing("could not be read back (attempt 1)"));
         Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history is not in the new default: " + world.Warnings());
         Assert.False(Directory.Exists(world.OldStorage));
         Assert.Equal(world.NewStorage, await world.SavedRootAsync());
@@ -556,25 +569,6 @@ public class LegacyLocalDataTests
         await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
 
         Assert.True(File.Exists(Path.Combine(world.OldStorage, "stray", "note.txt")));
-    }
-
-    // Frees the hold once the settings write has given up its own read-back (it logs that it could not change the settings), so the
-    // startup check's later re-read is the first read to find the file free, however slow the machine is. The deadline only frees the
-    // file when that line never comes.
-    private static async Task ReleaseOnceTheWriteGaveUpAsync(RecordingDiagnosticLog log, FileStream hold)
-    {
-        try
-        {
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
-            while (DateTime.UtcNow < deadline && log.Containing("the settings could not be changed to").Count == 0)
-            {
-                await Task.Delay(10).ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            await hold.DisposeAsync().ConfigureAwait(false);
-        }
     }
 
     private static void CopyTree(string from, string to)
