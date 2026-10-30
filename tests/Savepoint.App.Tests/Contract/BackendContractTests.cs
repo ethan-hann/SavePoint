@@ -90,6 +90,85 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
         }
     }
 
+    // A story that stopped after adding the game, or ran its profile and settings calls against an empty library, would still match,
+    // so the steps that prove the library was filled, changed, and emptied again are named here.
+    [Fact]
+    public void The_shared_story_adds_a_game_keeps_its_profiles_and_settings_and_deletes_it_again()
+    {
+        foreach (var story in new[] { runs.Fake.Shared, runs.Real.Shared })
+        {
+            Assert.Contains("library starts empty: 0 games", story);
+            Assert.Contains("add game: added Alpha", story);
+            Assert.Contains("games listed: Alpha", story);
+            Assert.Contains("folder status: Install exists=True confirmed=True; External exists=True confirmed=True", story);
+            Assert.Contains("cloud saves: Unknown from None", story);
+            Assert.Contains("cloud saves from the form, cancelled: error error.operation.cancelled", story);
+            Assert.Contains("create profile: capture started", story);
+            Assert.Contains("profiles listed: Vanilla notes=no mods branch=profile/profile#1", story);
+            Assert.Contains("duplicate profile: Vanilla copy notes=no mods", story);
+            Assert.Contains("update profile: Copy, renamed notes=edited version=1.2", story);
+            Assert.Contains("row stats: profile#1 running=False version=; profile#2 running=False version=1.2", story);
+            Assert.Contains("delete copy: deleted", story);
+            Assert.Contains("profiles after delete: Vanilla", story);
+            Assert.Contains("settings saved: Dark confirm=False root unchanged=True", story);
+            Assert.Contains("settings read back: Dark confirm=False", story);
+            Assert.Contains("delete game: deleted", story);
+            Assert.Contains("library ends empty: 0 games", story);
+        }
+    }
+
+    // The refusals for a game, profile, or snapshot that is not there, and the empty answers for nothing removed, are what the screens
+    // show for a stale id, so a story that skipped them in both backends would still match.
+    [Fact]
+    public void The_shared_story_refuses_what_is_not_there_and_counts_nothing_removed()
+    {
+        foreach (var story in new[] { runs.Fake.Shared, runs.Real.Shared })
+        {
+            Assert.Contains("cloud saves of an unknown game: error error.game.notFound", story);
+            Assert.Contains("unknown game for history: error error.game.notFound", story);
+            Assert.Contains("unknown profile: error error.profile.notFound", story);
+            Assert.Contains("unknown profile on delete: error error.profile.notFound", story);
+            Assert.Contains("recently removed of an unknown game: error error.game.notFound", story);
+            Assert.Contains("recently removed when nothing was removed: 0 snapshots", story);
+            Assert.Contains("bring back a snapshot that is not there: error error.removed.notFound", story);
+            Assert.Contains("bring back under a blank name: error error.validation.invalidPayload", story);
+            Assert.Contains("free up space preview of a game with nothing removed: 0 snapshots", story);
+            Assert.Contains("free up space preview of an unknown game: error error.game.notFound", story);
+            Assert.Contains("free up space size of a game with nothing removed: 0 bytes", story);
+            Assert.Contains("free up space size of an unknown game: error error.game.notFound", story);
+            Assert.Contains("free up space size of every game with nothing removed: 0 bytes", story);
+            Assert.Contains("switch of an unknown game: error error.game.notFound", story);
+        }
+    }
+
+    // A switch job that never ran in both backends would still match, so the steps that prove it blocks the launch calls are named here.
+    [Fact]
+    public void The_shared_story_blocks_the_launch_calls_while_a_switch_job_runs_and_allows_them_after()
+    {
+        foreach (var story in new[] { runs.Fake.Shared, runs.Real.Shared })
+        {
+            Assert.Contains("start while a switch job runs: error error.gameService.switching", story);
+            Assert.Contains("switch while a switch job runs: error error.gameService.switching", story);
+            Assert.Contains("discard while a switch job runs: error error.gameService.switching", story);
+            Assert.Contains("the switch job ends: Switch Succeeded", story);
+            Assert.Contains("switch after the switch job ended: job started", story);
+            Assert.Contains("the second switch job ends: Succeeded", story);
+        }
+    }
+
+    // A story that saved only one profile would still match, so the steps that prove two profiles share the history are named here.
+    [Fact]
+    public void The_shared_story_saves_a_second_profile_and_keeps_the_first_ones_history_apart()
+    {
+        foreach (var story in new[] { runs.Fake.Shared, runs.Real.Shared })
+        {
+            Assert.Contains(story, line => line.StartsWith("history after the second profile was saved: 2 points: With a mod", StringComparison.Ordinal));
+            Assert.Contains(story, line => line.StartsWith("row stats after the second profile was saved: ", StringComparison.Ordinal) && line.Contains("snapshot now=NotLoaded", StringComparison.Ordinal));
+            Assert.Contains(story, line => line.StartsWith("history of the first profile only: 1 points: Fresh install", StringComparison.Ordinal));
+            Assert.Contains("delete preview of the active profile: points=1 blocked=error.gameService.profileActive", story);
+        }
+    }
+
     // A story whose launch failed to start in both backends would still match, so the steps that prove it ran are named here.
     [Fact]
     public void The_shared_story_plays_a_whole_launch()

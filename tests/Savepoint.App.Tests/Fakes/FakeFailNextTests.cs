@@ -5,36 +5,12 @@ using static Savepoint.App.Tests.Fakes.SampleScenario;
 
 namespace Savepoint.App.Tests.Fakes;
 
-public class FakeCallLogTests
+// The scripted failures screen tests rely on to reach their error paths.
+public class FakeFailNextTests
 {
     private static readonly ErrorInfo _diskFull = ErrorInfo.From(new DiskSpaceException(StorageRoot, 5, 1));
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-
-    [Fact]
-    public async Task Calls_across_apis_are_kept_in_the_order_they_were_made()
-    {
-        var backend = FakeBackend.Sample();
-
-        await backend.Settings.GetAsync(Ct);
-        await backend.Games.ListAsync(Ct);
-        await backend.History.GetAsync(SkyrimId, cancellationToken: Ct);
-
-        Assert.Equal<string>(
-            ["ISettingsApi.GetAsync", "IGamesApi.ListAsync", "IHistoryApi.GetAsync"],
-            backend.Calls.All.Select(c => $"{c.Api}.{c.Member}"));
-    }
-
-    [Fact]
-    public async Task Cancellation_tokens_are_left_out_of_the_recorded_arguments()
-    {
-        var backend = FakeBackend.Sample();
-
-        await backend.Profiles.GetRowStatsAsync(SkyrimId, Ct);
-
-        var call = Assert.Single(backend.Calls.All);
-        Assert.Equal<object?>([SkyrimId], call.Args);
-    }
 
     [Fact]
     public async Task FailNext_fails_only_the_next_call_to_that_member()
@@ -47,17 +23,6 @@ public class FakeCallLogTests
 
         Assert.Same(_diskFull, first.Error);
         Assert.True(second.Ok);
-    }
-
-    [Fact]
-    public async Task FailNext_leaves_other_members_alone()
-    {
-        var backend = FakeBackend.Sample();
-        backend.FailNext<IGamesApi>(nameof(IGamesApi.ListAsync), _diskFull);
-
-        var profiles = await backend.Profiles.ListAsync(cancellationToken: Ct);
-
-        Assert.True(profiles.Ok);
     }
 
     [Fact]

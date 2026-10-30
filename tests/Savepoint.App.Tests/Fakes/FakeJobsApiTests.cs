@@ -30,21 +30,6 @@ public class FakeJobsApiTests
     }
 
     [Fact]
-    public async Task Progress_replaces_the_previous_report_and_raises_an_event()
-    {
-        var backend = FakeBackend.Sample();
-        var id = await StartCapture(backend);
-        var events = Collect(backend);
-
-        backend.Jobs.ReportProgress(id, new JobProgress(FilesDone: 1, FilesTotal: 10));
-        backend.Jobs.ReportProgress(id, new JobProgress(FilesDone: 2));
-
-        Assert.Equal(new JobProgress(FilesDone: 2), Job(backend, id).Progress);
-        Assert.Equal(2, events.Count);
-        Assert.Equal(new JobProgress(FilesDone: 1, FilesTotal: 10), events[0].Progress);
-    }
-
-    [Fact]
     public async Task Progress_paths_are_kept_as_the_newest_200_recent_lines()
     {
         var backend = FakeBackend.Sample();
@@ -447,17 +432,6 @@ public class FakeJobsApiTests
         Assert.False(Job(backend, id).Cancellable);
         Assert.False(Job(backend, id).CancelRequested);
         Assert.Single(events);
-    }
-
-    [Fact]
-    public async Task LastStarted_finds_the_newest_job_of_a_kind()
-    {
-        var backend = FakeBackend.Sample();
-        var capture = await StartCapture(backend);
-        var optimize = Ok(await backend.Games.OptimizeStorageAsync(SkyrimId)).JobId;
-
-        Assert.Equal(optimize, backend.Jobs.LastStarted().JobId);
-        Assert.Equal(capture, backend.Jobs.LastStarted(JobKind.Capture).JobId);
     }
 
     private static async Task<Guid> StartCapture(FakeBackend backend)

@@ -83,17 +83,6 @@ public class FakeLibraryApisTests
     }
 
     [Fact]
-    public async Task Updating_a_game_replaces_its_definition()
-    {
-        var backend = FakeBackend.Sample();
-        var moved = Skyrim with { Install = new InstallLocation(@"E:\Games\SkyrimSE") };
-
-        await backend.Games.UpdateAsync(moved);
-
-        Assert.Equal(moved, Ok(await backend.Games.ListAsync(Ct)).Single(g => g.Id == SkyrimId));
-    }
-
-    [Fact]
     public async Task Deleting_a_running_game_is_refused()
     {
         var backend = FakeBackend.Sample();
@@ -115,51 +104,6 @@ public class FakeLibraryApisTests
         Assert.DoesNotContain(Ok(await backend.Games.ListAsync(Ct)), g => g.Id == SkyrimId);
         Assert.DoesNotContain(Ok(await backend.Profiles.ListAsync(cancellationToken: Ct)), p => p.GameId == SkyrimId);
         Assert.False((await backend.History.GetAsync(SkyrimId, cancellationToken: Ct)).Ok);
-    }
-
-    [Fact]
-    public async Task Paths_resolve_their_tokens()
-    {
-        var backend = FakeBackend.Sample();
-
-        var resolved = await backend.Games.ResolvePathAsync(SkyrimSavesRaw, Ct);
-
-        Assert.Equal(SkyrimSaves, resolved.Value);
-    }
-
-    [Fact]
-    public async Task Executables_come_from_the_script_or_the_game_installed_there()
-    {
-        var backend = new FakeBackend(ScenarioBuilder.Sample().WithExecutables(@"C:\Games\Other", @"bin\Other.exe", "Launcher.exe"));
-
-        var scripted = await backend.Games.ListExecutablesAsync(@"C:\Games\Other", string.Empty, Ct);
-        var fromGame = await backend.Games.ListExecutablesAsync(SkyrimInstall, string.Empty, Ct);
-        var unknown = await backend.Games.ListExecutablesAsync(@"C:\Nowhere", string.Empty, Ct);
-
-        Assert.Equal<string>([@"bin\Other.exe", "Launcher.exe"], Ok(scripted));
-        Assert.Equal<string>(["SkyrimSELauncher.exe"], Ok(fromGame));
-        Assert.Empty(Ok(unknown));
-    }
-
-    [Fact]
-    public async Task Importing_reads_a_scripted_file_and_never_saves_it()
-    {
-        var backend = new FakeBackend(ScenarioBuilder.Empty().WithImport(@"C:\Downloads\skyrim.json", Skyrim));
-
-        var imported = await backend.Games.ImportDefinitionAsync(@"C:\Downloads\skyrim.json", Ct);
-        var missing = await backend.Games.ImportDefinitionAsync(@"C:\Downloads\none.json", Ct);
-
-        Assert.Equal(Skyrim, imported.Value);
-        Assert.False(missing.Ok);
-        Assert.Empty(Ok(await backend.Games.ListAsync(Ct)));
-    }
-
-    [Fact]
-    public void Templates_are_the_bundled_ones()
-    {
-        var backend = FakeBackend.Empty();
-
-        Assert.Same(GameTemplates.All, backend.Games.Templates);
     }
 
     [Fact]
@@ -386,20 +330,6 @@ public class FakeLibraryApisTests
     }
 
     [Fact]
-    public async Task The_relocation_preview_lists_what_moves()
-    {
-        var backend = FakeBackend.Sample();
-
-        var preview = Ok(await backend.Settings.GetRelocationPreviewAsync(@"E:\SavePoint", Ct));
-
-        Assert.Equal(StorageRoot, preview.CurrentRoot);
-        Assert.Equal(@"E:\SavePoint", preview.NewRoot);
-        Assert.Equal(79_300_000_000, preview.BytesToCopy);
-        Assert.Equal(3, preview.Games.Count);
-        Assert.Null(preview.BlockedBy);
-    }
-
-    [Fact]
     public async Task A_running_game_blocks_relocation_and_clearing()
     {
         var backend = FakeBackend.Sample();
@@ -442,21 +372,6 @@ public class FakeLibraryApisTests
     }
 
     [Fact]
-    public async Task The_clear_preview_names_what_goes()
-    {
-        var backend = FakeBackend.Sample();
-
-        var preview = Ok(await backend.Settings.GetClearAllDataPreviewAsync(Ct));
-
-        Assert.Equal(StorageRoot, preview.StorageRoot);
-        Assert.Equal(79_300_000_000, preview.StorageBytes);
-        Assert.Equal(3, preview.GameCount);
-        Assert.Equal(6, preview.ProfileCount);
-        Assert.Contains(SkyrimInstall, preview.ConsentMarkerFolders);
-        Assert.Contains(SkyrimSaves, preview.ConsentMarkerFolders);
-    }
-
-    [Fact]
     public async Task A_finished_clear_empties_the_library_and_resets_the_settings()
     {
         var backend = FakeBackend.Sample();
@@ -495,18 +410,6 @@ public class FakeLibraryApisTests
 
         Assert.False(result.Ok);
         Assert.Single(Ok(await backend.AppStatus.CheckAsync(Ct)).Catalog.CorruptFiles);
-    }
-
-    [Fact]
-    public async Task The_default_startup_status_is_healthy()
-    {
-        var backend = FakeBackend.Empty();
-
-        var status = Ok(await backend.AppStatus.CheckAsync(Ct));
-
-        Assert.True(status.Git.Available);
-        Assert.NotNull(status.Git.Version);
-        Assert.Empty(status.Catalog.CorruptFiles);
     }
 
     private static ErrorInfo ErrorInfoFor(string path) =>

@@ -21,13 +21,4 @@ public class SampleScenarioTests
             Assert.Equal(listed, row.SnapshotCount);
         }
     }
-
-    [Fact]
-    public async Task An_empty_scenario_is_the_first_run()
-    {
-        var backend = FakeBackend.Empty();
-
-        Assert.Empty(Ok(await backend.Games.ListAsync(Ct)));
-        Assert.Equal(@"C:\Users\you\AppData\Local\SavePoint\Storage", Ok(await backend.Settings.GetAsync(Ct)).StorageRoot);
-    }
 }

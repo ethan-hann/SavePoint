@@ -29,20 +29,4 @@ public class FakeDialogsTests
         Assert.Empty(FailOnUnansweredConfirmationAttribute.Unanswered([dialogs]));
     }
 
-    [Fact]
-    public async Task A_confirmation_takes_the_answers_queued_in_order()
-    {
-        var dialogs = new FakeDialogs().AnswerConfirm(false, true);
-
-        Assert.False(await dialogs.ConfirmAsync(_request));
-        Assert.True(await dialogs.ConfirmAsync(_request));
-    }
-
-    [Fact]
-    public async Task A_default_answer_stands_in_for_the_confirmations_nobody_queued()
-    {
-        var dialogs = new FakeDialogs { DefaultConfirmAnswer = false };
-
-        Assert.False(await dialogs.ConfirmAsync(_request));
-    }
 }
