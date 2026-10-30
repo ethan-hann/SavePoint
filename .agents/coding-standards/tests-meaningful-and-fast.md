@@ -373,7 +373,7 @@ public async Task Every_dialogs_buttons_and_their_focus_rings_clear_its_edge(str
 
 The audit found these. Do not copy them. Each entry must have an issue in the `Code Cleanup` milestone. When the code is fixed, close the issue and delete the entry.
 
-- **Assert what the player or caller sees:** the `EstimatesStoppedAtRunStart` flag that `FakeGamesApi` and `FakeSettingsApi` set for themselves (#259).
+None open.
 
 ## Additional Resources
 

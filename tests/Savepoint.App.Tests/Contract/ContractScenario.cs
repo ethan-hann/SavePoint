@@ -30,6 +30,7 @@ internal static class ContractScenario
         await RunCancelledReadsAsync(backend, shared);
         await RunProgramSuggestionsAsync(backend, shared, cancellationToken);
         await RunAfterSavesAsync(backend, shared, cancellationToken);
+        await RunFreeUpSpaceAsync(backend, shared, events, cancellationToken);
         var gaps = new Story();
         await RunGapsAsync(backend, gaps, shared, cancellationToken);
         await events.SettledAsync(cancellationToken);
@@ -335,6 +336,55 @@ internal static class ContractScenario
         await DescribeSavesAsync(backend, game, story, "after the second profile was saved", cancellationToken);
 
         story.Add("history of the first profile only", Show(await backend.History.GetAsync(game.Id, vanilla, cancellationToken), history => DescribePoints(history, story)));
+    }
+
+    // The size question and then the run, as the screens ask them: the size is read from a preview's token, the run is handed the same
+    // token, and the size can be asked again once the run is over.
+    private static async Task RunFreeUpSpaceAsync(ContractHarness backend, Story story, ContractEvents events, CancellationToken cancellationToken)
+    {
+        var game = backend.NewGame("Iota");
+        await backend.Games.AddAsync(game);
+        await FinishCaptureAsync(backend, new Story(), await backend.Profiles.CreateAsync(game.Id, "Vanilla", null, "Fresh install"), cancellationToken);
+
+        var preview = await backend.Games.GetFreeUpSpacePreviewAsync(game.Id, cancellationToken);
+        if (!preview.Ok)
+        {
+            story.Add("free up space preview before the run", Show(preview, _ => "unexpected success"));
+            return;
+        }
+
+        story.Add("size a game's free up space would free", Show(await backend.Games.EstimateFreeUpSpaceAsync(game.Id, preview.Value.Token, cancellationToken), size => $"{size} bytes"));
+        var started = await backend.Games.OptimizeStorageAsync(game.Id, preview.Value.Token);
+        story.Add("free up space run of a game", Show(started, _ => "job started"));
+        if (started.Ok)
+        {
+            events.Requested(started.Value.JobId);
+            story.Add("free up space run of a game ended", DescribeRun(await backend.FinishAsync(started.Value.JobId, cancellationToken)));
+        }
+
+        story.Add("size a game's free up space would free after the run", Show(await backend.Games.EstimateFreeUpSpaceAsync(game.Id, preview.Value.Token, cancellationToken), size => $"{size} bytes"));
+
+        var all = await backend.Settings.GetFreeUpSpacePreviewAsync(cancellationToken);
+        if (!all.Ok)
+        {
+            story.Add("free up space preview of every game before the run", Show(all, _ => "unexpected success"));
+            return;
+        }
+
+        story.Add("size every game's free up space would free", Show(await backend.Settings.EstimateFreeUpSpaceAsync(all.Value.Token, cancellationToken), size => $"{size} bytes"));
+        var startedAll = await backend.Settings.OptimizeAllStorageAsync(all.Value.Token);
+        story.Add("free up space run of every game", Show(startedAll, _ => "job started"));
+        if (startedAll.Ok)
+        {
+            events.Requested(startedAll.Value.JobId);
+            story.Add("free up space run of every game ended", DescribeRun(await backend.FinishAsync(startedAll.Value.JobId, cancellationToken)));
+        }
+    }
+
+    private static string DescribeRun(JobSnapshot job)
+    {
+        var games = (job.Result as OptimizeResult)?.Games ?? [];
+        return $"{job.Kind} {job.Status} games={games.Count} folders={string.Join(", ", games.SelectMany(g => g.Folders).Select(f => $"{f.Role}:{(f.Ok ? "ok" : f.Error!.MessageId)}").Distinct().Order(StringComparer.Ordinal))}";
     }
 
     private static async Task DescribeSavesAsync(ContractHarness backend, GameDefinition game, Story story, string when, CancellationToken cancellationToken)

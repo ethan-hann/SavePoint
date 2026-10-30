@@ -185,6 +185,21 @@ public class BackendContractTests(ContractRuns runs) : IClassFixture<ContractRun
         }
     }
 
+    // A story that never ran Free up space in both backends would still match, so the steps from the size question to the finished run are named here.
+    [Fact]
+    public void The_shared_story_asks_the_size_to_free_up_then_runs_Free_up_space_for_a_game_and_for_every_game()
+    {
+        foreach (var story in new[] { runs.Fake.Shared, runs.Real.Shared })
+        {
+            Assert.Contains("size a game's free up space would free: 0 bytes", story);
+            Assert.Contains("free up space run of a game: job started", story);
+            Assert.Contains("free up space run of a game ended: Compact Succeeded games=1 folders=External:ok, Install:ok", story);
+            Assert.Contains("size a game's free up space would free after the run: 0 bytes", story);
+            Assert.Contains("free up space run of every game: job started", story);
+            Assert.Contains(story, line => line.StartsWith("free up space run of every game ended: Compact Succeeded games=", StringComparison.Ordinal));
+        }
+    }
+
     // The steps that prove the stopped switch and the save after play really ran in both backends, since a story that stopped early would still match.
     [Fact]
     public void The_shared_story_stops_a_switch_finishes_it_and_saves_the_play_after_it()

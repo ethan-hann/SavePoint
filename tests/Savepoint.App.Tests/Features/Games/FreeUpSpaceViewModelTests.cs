@@ -208,8 +208,10 @@ public class FreeUpSpaceViewModelTests
 
         await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
 
+        Assert.Equal("This also deletes 2 recently removed snapshots for good. You can't bring them back.", Assert.Single(rig.Dialogs.Confirmations).Message);
+        Assert.True(rig.FreeUp.IsRunning);
         Assert.NotEmpty(rig.Backend.Games.EstimateTokens);
-        Assert.True(rig.Backend.Games.EstimatesStoppedAtRunStart);
+        Assert.All(rig.Backend.Games.EstimateTokens, token => Assert.True(token.IsCancellationRequested));
     }
 
     // ---- Leaving the game while the question is being prepared
