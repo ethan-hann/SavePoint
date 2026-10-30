@@ -465,7 +465,8 @@ public sealed partial class GitEngine
         reporter?.SetAlreadyDone(stagedBefore);
 
         // Asked afresh each time: adding a file that replaces a folder drops the folder's recorded files from the index.
-        async Task<HashSet<string>> TrackedAsync() =>
+        // A repository that has no index file yet records nothing, so git has nothing to say.
+        async Task<HashSet<string>> TrackedAsync() => !File.Exists(Path.Combine(repo.GitDir, "index")) ? [] :
             [.. (await RunAsync(Invocation(repo, readOnly: true, "ls-files", "-z", "--cached"), ct).ConfigureAwait(false)).SplitStandardOutputOnNul()];
 
         // A recorded file that is gone (or is now a folder) is dropped from the index by name. Handing it to add as a path would match
@@ -627,9 +628,10 @@ public sealed partial class GitEngine
     // still differs from the index).
     private async Task<int> CountStagedBeforeAsync(RepoRef repo, WorkTreeListing listing, CancellationToken ct)
     {
-        var head = await RunAsync(Invocation(repo, readOnly: true, "rev-parse", "--verify", "-q", "HEAD") with { AllowedExitCodes = [0, 1] }, ct).ConfigureAwait(false);
+        var head = GitDirFiles.ReadHead(repo.GitDir);
+        var tip = head.IsDetached ? head.DetachedCommit : await ResolveBranchAsync(repo, head.Branch!, ct).ConfigureAwait(false);
         var diff = await RunAsync(
-            Invocation(repo, readOnly: true, "diff-index", "--cached", "--name-only", "-z", "--no-renames", head.ExitCode == 0 ? "HEAD" : GitDirFiles.EmptyTree, "--"),
+            Invocation(repo, readOnly: true, "diff-index", "--cached", "--name-only", "-z", "--no-renames", tip is not null ? "HEAD" : GitDirFiles.EmptyTree, "--"),
             ct).ConfigureAwait(false);
         var staged = diff.SplitStandardOutputOnNul();
         if (staged.Count == 0)
@@ -763,6 +765,12 @@ public sealed partial class GitEngine
         if (GitDirFiles.ReadLooseRef(repo.GitDir, GitDirFiles.BranchPrefix + branch) is { } loose)
         {
             return loose;
+        }
+
+        // SavePoint never packs refs, so with no packed-refs file a branch without a loose file does not exist; asking git would only say so.
+        if (!File.Exists(Path.Combine(repo.GitDir, "packed-refs")) && !File.Exists(Path.Combine(repo.GitDir, GitDirFiles.BranchPrefix.Replace('/', Path.DirectorySeparatorChar) + branch)))
+        {
+            return null;
         }
 
         var result = await RunAsync(

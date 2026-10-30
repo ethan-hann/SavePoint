@@ -153,7 +153,9 @@ public sealed partial class GitEngine
     // and of git only when the index file cannot be shown to hold none (the file is read straight, which is cheaper than a git process).
     private async Task ClearSkipWorktreeAsync(RepoRef repo, CancellationToken ct)
     {
-        if (!IndexMarkScan.MayHoldMarks(Path.Combine(repo.GitDir, "index")))
+        // No index file means no entry to carry a mark.
+        var index = Path.Combine(repo.GitDir, "index");
+        if (!File.Exists(index) || !IndexMarkScan.MayHoldMarks(index))
         {
             return;
         }
