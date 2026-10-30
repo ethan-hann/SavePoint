@@ -465,7 +465,8 @@ public sealed class LeftOutReadOnceTests : IDisposable
         Assert.True(calls.FindLastIndex(IsMarkListing) > calls.FindLastIndex(EngineWorkspace.IsVerifyDiff));
     }
 
-    private static bool IsMarkListing(GitInvocation call) => call.Arguments[0] == "ls-files" && call.Arguments.Contains("-t");
+    // A save's listing also carries tags, but it asks for new files too; the marks are asked for alone.
+    private static bool IsMarkListing(GitInvocation call) => call.Arguments[0] == "ls-files" && call.Arguments.Contains("-t") && !call.Arguments.Contains("-o");
 
     // The one read a left-out file gets is the alignment's: it finds out whether the bytes on disk are the target's, and if they are, the
     // entry keeps the file's stamp so that no later comparison has to read the file again.
