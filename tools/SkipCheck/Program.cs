@@ -9,8 +9,8 @@ namespace Savepoint.Tools.SkipCheck
     {
         /// <summary>
         /// Usage: <c>--reports &lt;folder&gt; [--expected &lt;list file&gt;] [--never-skip &lt;test name&gt;]... [--write]</c>. Reads every xunit report
-        /// under the folder and compares the skipped tests with the list. A test named by <c>--never-skip</c> fails the check when it skipped,
-        /// even if the list names it; without a list that is the only check, for a system that has none. Returns 0 when every skip was
+        /// under the folder and compares the skipped tests with the list. A test named by <c>--never-skip</c> fails the check when it skipped
+        /// (even if the list names it) or is not in the reports at all; without a list that is the only check, for a system that has none. Returns 0 when every skip was
         /// expected, 1 when one was not, 2 when the input is unusable (no report, no tests in it, no list and nothing named by
         /// <c>--never-skip</c>). With <c>--write</c> it rewrites the list from the run instead and returns 0.
         /// </summary>
@@ -76,6 +76,15 @@ namespace Savepoint.Tools.SkipCheck
                 error.WriteLine($"skip check FAILED: {name} skipped here ({report.Skipped[name]}), and it must run on every machine that runs the gate");
             }
 
+            // A renamed or filtered-out test must not pass as if it had run.
+            var absent = neverSkip.Where(name => !report.Skipped.ContainsKey(name) && !report.Ran.Contains(name)).Order(StringComparer.Ordinal).ToList();
+            foreach (var name in absent)
+            {
+                error.WriteLine($"skip check FAILED: {name} did not run: it is not in the reports, and it must run on every machine that runs the gate");
+            }
+
+            skippedAgainstRule.AddRange(absent);
+
             if (listPath is null)
             {
                 if (skippedAgainstRule.Count > 0)
@@ -83,7 +92,7 @@ namespace Savepoint.Tools.SkipCheck
                     return 1;
                 }
 
-                output.WriteLine($"skip check passed: no skip list for this system; {neverSkip.Count} tests that must never skip all ran or were not in the run");
+                output.WriteLine($"skip check passed: no skip list for this system; {neverSkip.Count} tests that must never skip all ran");
                 return 0;
             }
 
