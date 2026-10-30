@@ -261,6 +261,91 @@ public class GitHubMirrorTests
         Assert.Equal(3, stub.GitHubReleases.Single().Assets.Count);
     }
 
+    // An early release split a large file into .partN assets and listed the hash of the whole file.
+    private static MirrorStub.ForgejoRelease SplitRelease(MirrorStub stub, byte[] whole, params MirrorStub.Asset[] parts)
+    {
+        var sums = File("SHA256SUMS.txt", MirrorStub.SumsFor(Package()) + $"{MirrorStub.Sha(whole)}  big.bin\n");
+        stub.GitHubTags.Add("v0.9.2");
+        return stub.AddForgejoRelease("v0.9.2", "SavePoint v0.9.2", "Notes", prerelease: true, draft: false, [.. Package(), .. parts, sums]);
+    }
+
+    private static MirrorStub.Asset[] Parts(params string[] contents) =>
+        contents.Select((content, i) => File($"big.bin.part{i + 1}", content)).ToArray();
+
+    private static byte[] Join(IEnumerable<MirrorStub.Asset> parts) => parts.SelectMany(part => part.Bytes).ToArray();
+
+    [Fact]
+    public async Task Split_parts_whose_join_matches_the_listed_whole_file_are_sent_as_they_are()
+    {
+        using var stub = new MirrorStub();
+        var parts = Parts("first half, ", "second half");
+        var release = SplitRelease(stub, Join(parts), parts);
+
+        var run = await MirrorAsync(stub, "v0.9.2");
+
+        Assert.True(run.ExitCode == 0, run.Output);
+        var mirrored = Assert.Single(stub.GitHubReleases);
+        Assert.Equal(release.Assets.Select(a => a.Name).Order(), mirrored.Assets.Select(a => a.Name).Order());
+        Assert.Equal(Encoding.UTF8.GetBytes("second half"), mirrored.Assets.Single(a => a.Name == "big.bin.part2").Bytes);
+    }
+
+    [Fact]
+    public async Task Split_parts_that_do_not_join_to_the_listed_hash_fail_the_release_and_nothing_is_sent()
+    {
+        using var stub = new MirrorStub();
+        var good = Parts("first half, ", "second half");
+        SplitRelease(stub, Join(good), File("big.bin.part1", "first half, "), File("big.bin.part2", "second hale"));
+
+        var run = await MirrorAsync(stub, "v0.9.2");
+
+        Assert.NotEqual(0, run.ExitCode);
+        Assert.Contains("parts of big.bin", run.Output, StringComparison.Ordinal);
+        Assert.Contains("do not join", run.Output, StringComparison.Ordinal);
+        Assert.All(stub.GitHubReleases, mirrored => Assert.Empty(mirrored.Assets));
+    }
+
+    [Fact]
+    public async Task A_missing_middle_part_fails_the_release_and_names_the_gap()
+    {
+        using var stub = new MirrorStub();
+        var all = Parts("one ", "two ", "three");
+        SplitRelease(stub, Join(all), all[0], all[2]);
+
+        var run = await MirrorAsync(stub, "v0.9.2");
+
+        Assert.NotEqual(0, run.ExitCode);
+        Assert.Contains("parts of big.bin", run.Output, StringComparison.Ordinal);
+        Assert.Contains("big.bin.part2", run.Output, StringComparison.Ordinal);
+        Assert.All(stub.GitHubReleases, mirrored => Assert.Empty(mirrored.Assets));
+    }
+
+    [Fact]
+    public async Task Parts_are_joined_in_numeric_order_so_part10_follows_part9()
+    {
+        using var stub = new MirrorStub();
+        var parts = Parts(Enumerable.Range(1, 11).Select(n => $"[{n}]").ToArray());
+        SplitRelease(stub, Join(parts), parts);
+
+        var run = await MirrorAsync(stub, "v0.9.2");
+
+        Assert.True(run.ExitCode == 0, run.Output);
+        Assert.Equal(11, Assert.Single(stub.GitHubReleases).Assets.Count(a => a.Name.StartsWith("big.bin.part", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task A_part_that_is_neither_listed_nor_part_of_a_listed_file_still_fails()
+    {
+        using var stub = new MirrorStub();
+        var parts = Parts("a", "b");
+        SplitRelease(stub, Join(parts), [.. parts, File("other.bin.part1", "x")]);
+
+        var run = await MirrorAsync(stub, "v0.9.2");
+
+        Assert.NotEqual(0, run.ExitCode);
+        Assert.Contains("other.bin.part1", run.Output, StringComparison.Ordinal);
+        Assert.All(stub.GitHubReleases, mirrored => Assert.Empty(mirrored.Assets));
+    }
+
     private static void Stable(MirrorStub stub, params string[] tags)
     {
         foreach (var tag in tags)
@@ -409,6 +494,29 @@ public class GitHubMirrorTests
         Assert.Contains("workflow_dispatch", on, StringComparison.Ordinal);
         Assert.Matches(@"(?ms)workflow_dispatch:.*inputs:.*tag:", on);
         Assert.DoesNotContain("push", on, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Every_manual_run_input_of_every_workflow_names_its_type_because_Forgejo_has_no_default()
+    {
+        var files = Directory.GetFiles(Path.Combine(RepoRoot, ".forgejo", "workflows"), "*.yml");
+        var untyped = new List<string>();
+        var inputs = 0;
+        foreach (var file in files)
+        {
+            var block = Regex.Match(System.IO.File.ReadAllText(file), @"(?ms)^  workflow_dispatch:\r?\n    inputs:\r?\n(.*?)(?=^\S|^  \S|^    \S|\z)").Groups[1].Value;
+            foreach (var input in Regex.Split(block, @"(?m)^(?=      \S)").Where(part => part.Trim().Length > 0))
+            {
+                inputs++;
+                if (!Regex.IsMatch(input, @"(?m)^        type:\s*\S"))
+                {
+                    untyped.Add($"{Path.GetFileName(file)}: {input.Split('\n')[0].Trim()}");
+                }
+            }
+        }
+
+        Assert.True(inputs > 0, "No workflow_dispatch input was found, so the check read nothing.");
+        Assert.True(untyped.Count == 0, "These inputs have no type: " + string.Join("; ", untyped));
     }
 
     [Fact]

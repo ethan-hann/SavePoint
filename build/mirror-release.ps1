@@ -229,6 +229,69 @@ function Get-GitHubAssetHash {
     finally { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue }
 }
 
+function Get-StreamedSha256 {
+    # The hash of the files joined in the order given, read in chunks so no file is held whole.
+    param([string[]]$Paths)
+    $hasher = [System.Security.Cryptography.IncrementalHash]::CreateHash([System.Security.Cryptography.HashAlgorithmName]::SHA256)
+    try {
+        $buffer = New-Object byte[] 1048576
+        foreach ($path in $Paths) {
+            $stream = [System.IO.File]::OpenRead($path)
+            try {
+                while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) { $hasher.AppendData($buffer, 0, $read) }
+            }
+            finally { $stream.Dispose() }
+        }
+        [Convert]::ToHexString($hasher.GetHashAndReset()).ToLowerInvariant()
+    }
+    finally { $hasher.Dispose() }
+}
+
+function Get-SplitGroups {
+    # Assets named <name>.partN whose <name> the list names, as @{ <name> = @(assets in numeric order) }.
+    param($Assets, $Sums)
+    $groups = @{}
+    foreach ($asset in $Assets) {
+        if ($Sums.ContainsKey($asset.name) -or $asset.name -notmatch '^(.+)\.part([1-9][0-9]*)$') { continue }
+        $whole = $Matches[1]
+        if (-not $Sums.ContainsKey($whole)) { continue }
+        if (-not $groups.ContainsKey($whole)) { $groups[$whole] = @() }
+        $groups[$whole] += $asset
+    }
+    foreach ($whole in @($groups.Keys)) {
+        $groups[$whole] = @($groups[$whole] | Sort-Object { [int]($_.name -replace '^.*\.part', '') })
+    }
+    $groups
+}
+
+function Get-SplitPartHashes {
+    # Checks each split group before anything is sent: no part missing, and the parts joined hash to the list's entry for the whole file.
+    # Returns the hash of each part by name.
+    param($Groups, $Sums, [string]$Scratch)
+    $partHashes = @{}
+    foreach ($whole in ($Groups.Keys | Sort-Object)) {
+        $parts = @($Groups[$whole])
+        for ($n = 1; $n -le $parts.Count; $n++) {
+            if ($parts[$n - 1].name -ne "$whole.part$n") {
+                throw "The parts of $whole have no $whole.part$n, so the file cannot be checked against $checksumName. Nothing was sent."
+            }
+        }
+        $paths = @()
+        foreach ($part in $parts) {
+            $path = Join-Path $Scratch "split-$($part.name)"
+            Save-ForgejoAsset $part $path
+            $paths += $path
+            $partHashes[$part.name] = Get-FileSha256 $path
+        }
+        $joined = Get-StreamedSha256 $paths
+        $paths | ForEach-Object { Remove-Item -LiteralPath $_ -Force }
+        if ($joined -ne $Sums[$whole]) {
+            throw "The parts of $whole ($($parts.Count) files) do not join to the hash $checksumName lists for it: they make $joined, it says $($Sums[$whole]). Nothing was sent."
+        }
+    }
+    $partHashes
+}
+
 function Read-ChecksumList {
     param([string]$Path)
     $sums = @{}
@@ -286,13 +349,17 @@ function Sync-Assets {
     Save-ForgejoAsset $listAsset $listPath
     $sums = Read-ChecksumList $listPath
     $sums[$checksumName] = Get-FileSha256 $listPath
-    $unlisted = @($assets | Where-Object { -not $sums.ContainsKey($_.name) } | ForEach-Object { $_.name })
+    # A large file an early release split into .partN pieces is listed under its whole name; its pieces are checked as a group.
+    $groups = Get-SplitGroups $assets $sums
+    $inGroup = @($groups.Values | ForEach-Object { $_ } | ForEach-Object { $_.name })
+    $unlisted = @($assets | Where-Object { -not $sums.ContainsKey($_.name) -and $inGroup -notcontains $_.name } | ForEach-Object { $_.name })
     if ($unlisted.Count -gt 0) { throw "$checksumName does not list $($unlisted -join ', '), so those files cannot be checked. Nothing was sent." }
+    $partHashes = Get-SplitPartHashes $groups $sums $Scratch
 
     $index = 0
     foreach ($asset in $assets) {
         $index++
-        $expected = $sums[$asset.name]
+        $expected = if ($sums.ContainsKey($asset.name)) { $sums[$asset.name] } else { $partHashes[$asset.name] }
         $current = $held[$asset.name]
         # What GitHub holds is right when its size and its hash (reported, or worked out from the file) agree with the list.
         if ($current -and $current.size -eq $asset.size -and (Get-GitHubAssetHash $current $Scratch) -eq $expected) {
