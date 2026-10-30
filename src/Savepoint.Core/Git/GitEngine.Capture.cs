@@ -447,7 +447,7 @@ public sealed partial class GitEngine
         // An empty list would not mean "nothing": add -A with no paths takes the whole folder, excluded files included.
         if (listing.Files.Count == 0)
         {
-            await BeforeWritingAsync(request, 0, ct).ConfigureAwait(false);
+            await BeforeWritingAsync(request, 0, _ => Task.FromResult(0L), ct).ConfigureAwait(false);
             if (reporter is not null && stagedBefore > 0)
             {
                 reporter.SetTotal(stagedBefore);
@@ -477,7 +477,9 @@ public sealed partial class GitEngine
         // Packs are written without compression, so the store grows by about the files' own size; refuse before git writes any of it.
         // The floor stays on top, for the repack that follows.
         var sizes = additions.Count == 0 ? [] : await SizesOfAsync(repo, additions, ct).ConfigureAwait(false);
-        var newBytes = sizes.Sum();
+        var rawBytes = sizes.Sum();
+        var newBytes = rawBytes;
+        long? reduced = null;
         try
         {
             EnsureStorageSpace(repo, newBytes);
@@ -485,8 +487,9 @@ public sealed partial class GitEngine
         catch (DiskSpaceException)
         {
             // Only a snapshot that does not fit by its raw size is worth reading files for: content the store holds takes no room.
-            newBytes = await BytesNotAlreadyStoredAsync(repo, additions, sizes, ct).ConfigureAwait(false);
-            if (newBytes == sizes.Sum())
+            reduced = await BytesNotAlreadyStoredAsync(repo, additions, sizes, ct).ConfigureAwait(false);
+            newBytes = reduced.Value;
+            if (newBytes == rawBytes)
             {
                 throw;
             }
@@ -494,10 +497,15 @@ public sealed partial class GitEngine
             EnsureStorageSpace(repo, newBytes);
         }
 
-        await BeforeWritingAsync(request, newBytes, ct).ConfigureAwait(false);
+        // A folder saved beside others may still be refused for the total, and then the files are read once, here, for the figure it reports again.
+        async Task<long> ReducedAsync(CancellationToken token) =>
+            reduced ??= await BytesNotAlreadyStoredAsync(repo, additions, sizes, token).ConfigureAwait(false);
+
+        await BeforeWritingAsync(request, newBytes, ReducedAsync, ct).ConfigureAwait(false);
         if (reporter is not null)
         {
-            reporter.SetByteTotal(sizes.Sum());
+            // The reduced figure, once a check has read the files for it; otherwise every file at full size, since finding it takes reads.
+            reporter.SetByteTotal(reduced ?? rawBytes);
             reporter.Start();
 
             // git holds a file's name back until its whole add ends, so a watched capture adds in groups to hear the names as it goes.
@@ -586,8 +594,8 @@ public sealed partial class GitEngine
     }
 
     // A save of several folders judges them together here, once each one has found what it would add and has room for it alone.
-    private static Task BeforeWritingAsync(CaptureRequest request, long newBytes, CancellationToken ct) =>
-        request.BeforeWriting is { } before ? before(newBytes, ct) : Task.CompletedTask;
+    private static Task BeforeWritingAsync(CaptureRequest request, long newBytes, Func<CancellationToken, Task<long>> reduce, CancellationToken ct) =>
+        request.BeforeWriting is { } before ? before(newBytes, reduce, ct) : Task.CompletedTask;
 
     // The plan sorts files by the size git streams into a pack; the repository file says that size is the default. A different size (only a
     // test makes one) is told to git the same way the engine's other forced settings are, so the two agree.

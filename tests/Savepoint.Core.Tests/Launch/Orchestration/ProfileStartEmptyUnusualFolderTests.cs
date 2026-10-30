@@ -153,11 +153,29 @@ public class ProfileStartEmptyUnusualFolderTests
             ConsentMarker.Write(rig.SavesPath, "another-game", RepoRole.External, DateTimeOffset.UtcNow);
         }
 
-        // The preview as a whole fails on a marker like this before it asks the check, so only the refusal is seen.
+        var preview = await SavesPreviewAsync(rig);
         var refused = await rig.Profiles.CreateAsync(rig.Game.Id, "Bare", null, "Bare", [RepoRole.External]);
 
+        Assert.False(preview.FilesCounted);
+        Assert.False(preview.HeldInSnapshot);
+        Assert.Equal(StartEmptyBlock.Other, preview.StartEmptyBlocked);
         Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnchecked, RefusalOf(refused));
         Assert.Equal(["Vanilla"], (await rig.Profiles.ListAsync(rig.Game.Id, Ct)).Value!.Select(profile => profile.Name));
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task A_saves_folder_with_a_damaged_marker_leaves_the_game_folder_in_the_preview_with_its_files_counted()
+    {
+        using var rig = await LaunchRig.CreateAsync();
+        await rig.ProfileAsync("Vanilla");
+        File.WriteAllText(Path.Combine(rig.SavesPath, ConsentMarker.FileName), "{ this is not a marker");
+
+        var preview = (await rig.Workspace.Games.GetCapturePreviewAsync(rig.Game.Id, Ct)).Value!;
+
+        var install = preview.Folders.Single(folder => folder.Role == RepoRole.Install);
+        Assert.True(install.FilesCounted);
+        Assert.True(install.FileCount > 0);
+        Assert.Equal(2, preview.Folders.Count);
     }
 
     [Fact(Timeout = 240_000)]
@@ -167,8 +185,12 @@ public class ProfileStartEmptyUnusualFolderTests
         await rig.ProfileAsync("Vanilla");
         File.Delete(Path.Combine(rig.SavesPath, ConsentMarker.FileName));
 
+        var preview = await SavesPreviewAsync(rig);
         var refused = await rig.Profiles.CreateAsync(rig.Game.Id, "Bare", null, "Bare", [RepoRole.External]);
 
+        Assert.False(preview.FilesCounted);
+        Assert.False(preview.HeldInSnapshot);
+        Assert.Equal(StartEmptyBlock.NotConfirmed, preview.StartEmptyBlocked);
         Assert.Equal(ValidationMessageIds.ProfileStartEmptyUnconfirmed, RefusalOf(refused));
         Assert.Equal(["Vanilla"], (await rig.Profiles.ListAsync(rig.Game.Id, Ct)).Value!.Select(profile => profile.Name));
     }

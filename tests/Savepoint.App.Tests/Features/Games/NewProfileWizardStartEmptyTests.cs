@@ -26,6 +26,11 @@ public class NewProfileWizardStartEmptyTests
                 .. game.External is null ? Array.Empty<FolderCapturePreview>() : [new FolderCapturePreview(RepoRole.External, ModsSamples.SavesResolved, 1, 0, 2_000, held, block)],
             ],
             0);
+        return await StartWithAsync(game, preview);
+    }
+
+    private static async Task<(NewProfileWizardViewModel Wizard, FakeBackend Backend)> StartWithAsync(GameDefinition game, CapturePreview preview)
+    {
         var backend = new FakeBackend(ScenarioBuilder.Empty().WithSettings(SampleScenario.Settings).WithGame(game, 1).WithCapturePreview(preview));
         var text = new UiFormatter(LocalizationCatalog.LoadEmbedded("en", throwOnMissingKey: true), backend.Clock, "windows", TimeZoneInfo.Utc);
         var wizard = new NewProfileWizardViewModel(game, backend.Games, backend.Profiles, backend.Jobs, text, new ImmediateUiDispatcher(), backend.Clock);
@@ -177,6 +182,31 @@ public class NewProfileWizardStartEmptyTests
         var (wizard, _) = await StartAsync(held: false, block: StartEmptyBlock.Other);
 
         Assert.Equal("SavePoint can't check these files right now. Load one of this game's profiles and close any program using them, then try again.", wizard.StartWithoutSavesHint);
+    }
+
+    [Theory]
+    [InlineData(StartEmptyBlock.NotConfirmed, "SavePoint hasn't confirmed this folder yet. Open Edit game and choose Save changes to confirm it, then try again.")]
+    [InlineData(StartEmptyBlock.Other, "SavePoint can't check these files right now. Load one of this game's profiles and close any program using them, then try again.")]
+    public async Task A_folder_whose_marker_problem_kept_its_files_unread_gives_its_own_reason_and_the_other_folder_is_still_previewed(StartEmptyBlock block, string reason)
+    {
+        var game = ModsSamples.SevenDays;
+        var (wizard, _) = await StartWithAsync(
+            game,
+            new CapturePreview(
+                game.Id,
+                [
+                    new FolderCapturePreview(RepoRole.Install, ModsSamples.InstallPath, 900, 0, 9_400_000_000),
+                    new FolderCapturePreview(RepoRole.Mods, ModsSamples.ModsResolved, 0, 0, 0, false, block, FilesCounted: false),
+                    new FolderCapturePreview(RepoRole.External, ModsSamples.SavesResolved, 1, 0, 2_000, true),
+                ],
+                0));
+
+        Assert.True(wizard.ModsBoxIsOff);
+        Assert.Equal(reason, wizard.StartWithoutModsHint);
+        Assert.Equal("Start with no mods. " + reason, wizard.StartWithoutModsReasonName);
+        Assert.False(wizard.SavesBoxIsOff);
+        Assert.Equal(ModsSamples.ModsResolved + _dot + "SavePoint can't count these files right now", wizard.Preview.Rows[1].Subtitle);
+        Assert.Equal(ModsSamples.SavesResolved + _dot + "1 file", wizard.Preview.Rows[2].Subtitle);
     }
 
     [Fact]

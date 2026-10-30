@@ -52,7 +52,7 @@ public sealed class CaptureSpaceTests : IDisposable
         var objectsBefore = ObjectFiles(repo);
         var request = new CaptureRequest(branch, "A point", Guid.NewGuid().ToString())
         {
-            BeforeWriting = (bytes, _) =>
+            BeforeWriting = (bytes, _, _) =>
             {
                 reported = bytes;
                 Assert.Equal(objectsBefore, ObjectFiles(repo));
@@ -162,7 +162,7 @@ public sealed class CaptureSpaceTests : IDisposable
         long? reported = null;
         var request = new CaptureRequest("profile-1", "Third", Guid.NewGuid().ToString())
         {
-            BeforeWriting = (bytes, _) =>
+            BeforeWriting = (bytes, _, _) =>
             {
                 reported = bytes;
                 return Task.CompletedTask;
@@ -191,6 +191,51 @@ public sealed class CaptureSpaceTests : IDisposable
         var before = Volatile.Read(ref reads);
         await counting.CaptureAsync(repo);
         return Volatile.Read(ref reads) - before;
+    }
+
+    [Fact]
+    public async Task A_folder_that_fit_on_its_raw_size_can_still_be_asked_for_the_figure_without_content_the_store_holds()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        await _ws.CaptureAsync(repo, "profile-1", "First");
+        _ws.Write(repo, "big.bin", Ramp(310_000, 2));
+        await _ws.CaptureAsync(repo, "profile-1", "Second");
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        _ws.Write(repo, "fresh.bin", Ramp(20_000, 3));
+        long? first = null;
+        long? reduced = null;
+        var request = new CaptureRequest("profile-1", "Third", Guid.NewGuid().ToString())
+        {
+            BeforeWriting = async (bytes, reduce, token) =>
+            {
+                first = bytes;
+                reduced = await reduce(token);
+            },
+        };
+
+        await _ws.Engine.CaptureAsync(repo, request, null, Ct);
+
+        Assert.Equal(320_000, first);
+        Assert.Equal(20_000, reduced);
+    }
+
+    [Fact]
+    public async Task The_byte_total_of_a_watched_capture_leaves_out_content_the_store_holds_once_the_check_has_found_it()
+    {
+        var repo = await _ws.InitializedRepoAsync();
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        await _ws.CaptureAsync(repo, "profile-1", "First");
+        _ws.Write(repo, "big.bin", Ramp(310_000, 2));
+        await _ws.CaptureAsync(repo, "profile-1", "Second");
+        _ws.Write(repo, "big.bin", Ramp(300_000, 1));
+        _ws.Write(repo, "fresh.bin", Ramp(20_000, 3));
+        _ws.Space.Free = _floor + 100_000;
+        var progress = new ProgressLog();
+
+        await _ws.CaptureAsync(repo, "profile-1", progress: progress);
+
+        Assert.Equal(20_000, progress.Reports[0].BytesTotal);
     }
 
     [Fact]
@@ -277,7 +322,7 @@ public sealed class CaptureSpaceTests : IDisposable
         var objectsBefore = ObjectFiles(repo);
         var request = new CaptureRequest("profile-1", "A point", Guid.NewGuid().ToString())
         {
-            BeforeWriting = (_, _) => throw new DiskSpaceException(repo.GitDir, 10, 5),
+            BeforeWriting = (_, _, _) => throw new DiskSpaceException(repo.GitDir, 10, 5),
         };
 
         await Assert.ThrowsAsync<DiskSpaceException>(() => _ws.Engine.CaptureAsync(repo, request, null, Ct));

@@ -17,4 +17,9 @@ namespace Savepoint.Core.Api;
 /// Why <paramref name="HeldInSnapshot"/> is false, so the wizard can tell the player the one step that helps. <see cref="StartEmptyBlock.None"/> when
 /// the folder is held, for the install folder, and for a preview that does not say.
 /// </param>
-public sealed record FolderCapturePreview(RepoRole Role, string Path, int FileCount, int ModFileCount, long Bytes, bool HeldInSnapshot = false, StartEmptyBlock StartEmptyBlocked = StartEmptyBlock.None);
+/// <param name="FilesCounted">
+/// False when the folder's files were not read because its consent marker is missing, belongs to another game or is damaged: the counts
+/// are then 0, <paramref name="StartEmptyBlocked"/> says <see cref="StartEmptyBlock.NotConfirmed"/> for a missing marker and
+/// <see cref="StartEmptyBlock.Other"/> otherwise (also for the install folder, which never starts empty), and the other folders are previewed as usual.
+/// </param>
+public sealed record FolderCapturePreview(RepoRole Role, string Path, int FileCount, int ModFileCount, long Bytes, bool HeldInSnapshot = false, StartEmptyBlock StartEmptyBlocked = StartEmptyBlock.None, bool FilesCounted = true);
