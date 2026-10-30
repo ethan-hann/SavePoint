@@ -24,7 +24,7 @@ using Savepoint.Core.Catalog;
 namespace Savepoint.App.Tests.Features.EndToEnd;
 
 // The whole app as AppComposition builds it (real shell, Games, History and Settings screens, launch flow and editor) over the fake backend.
-// Only the edges are replaced: the clock moves when the test moves it and events run on the calling thread. Without a view, dialogs answer
+// Only the edges are replaced: the clock moves when the test moves it and, unless a test passes a dispatcher, events run on the calling thread. Without a view, dialogs answer
 // from a script; with one, the window shows the real views and the real dialog host and a test drives the keyboard.
 internal sealed class ComposedApp : IDisposable
 {
@@ -76,13 +76,14 @@ internal sealed class ComposedApp : IDisposable
 
     public static string RenderFolder(string area) => Path.Combine(ThemeTestSupport.RepoRoot(), "render-output", area);
 
-    public static async Task<ComposedApp> StartAsync(FakeBackend? backend = null, Func<ISettingsApi, ISettingsApi>? settings = null)
+    // The instant dispatcher unless a test passes another; the real one queues idle work and posts from other threads, as the app does.
+    public static async Task<ComposedApp> StartAsync(FakeBackend? backend = null, Func<ISettingsApi, ISettingsApi>? settings = null, IUiDispatcher? dispatcher = null)
     {
         backend ??= FakeBackend.Sample();
         var (services, clock, text) = Parts(backend, settings);
         var dialogs = new FakeDialogs();
         var theme = new RecordingThemeApplier();
-        var main = AppComposition.Create(services, text, theme, () => null, new ImmediateUiDispatcher(), clock, dialogs, SettingsHost(noticesShipped: true));
+        var main = AppComposition.Create(services, text, theme, () => null, dispatcher ?? new ImmediateUiDispatcher(), clock, dialogs, SettingsHost(noticesShipped: true));
         await main.InitializeAsync();
         return Visited(new ComposedApp(backend, dialogs, clock, text, theme, main, null, null));
     }
@@ -95,12 +96,13 @@ internal sealed class ComposedApp : IDisposable
         double width = 1040,
         double height = 660,
         bool visitScreens = true,
-        bool noticesShipped = true)
+        bool noticesShipped = true,
+        IUiDispatcher? dispatcher = null)
     {
         backend ??= new FakeBackend(ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Theme = theme, Layout = layout }));
         var (services, clock, text) = Parts(backend, null);
         var application = (App)Application.Current!;
-        var main = AppComposition.Create(services, text, new ThemeServiceApplier(application.Theme), () => null, new ImmediateUiDispatcher(), clock, settingsEnvironment: SettingsHost(noticesShipped));
+        var main = AppComposition.Create(services, text, new ThemeServiceApplier(application.Theme), () => null, dispatcher ?? new ImmediateUiDispatcher(), clock, settingsEnvironment: SettingsHost(noticesShipped));
         var view = new MainView { DataContext = main };
         var host = new ThemeHost(view, theme, width: width, height: height);
         await main.InitializeAsync();

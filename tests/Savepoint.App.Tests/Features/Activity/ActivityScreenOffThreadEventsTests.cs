@@ -29,6 +29,7 @@ public class ActivityScreenOffThreadEventsTests
         using var harness = await ScreenHarness.StartAsync("activity", Factories(backend), NavDestination.Activity, backend, dispatcher: new AvaloniaUiDispatcher());
         var screen = (ActivityScreenViewModel)harness.Shell.CurrentScreen!;
         Assert.True(await UiWait.UntilAsync(() => screen.Rows.Count == 1));
+        var writes = new UiThreadWrites().Watch(screen).WatchList(screen.Rows);
         screen.SelectedRow = screen.Rows.Single(row => row.JobId == first);
 
         for (var i = 0; i < 5; i++)
@@ -56,6 +57,7 @@ public class ActivityScreenOffThreadEventsTests
         Assert.True(await UiWait.UntilAsync(() => screen.Rows.Count == 5));
         Assert.Same(chosen, screen.SelectedRow);
         Assert.DoesNotContain(screen.Rows, row => row.JobId == first);
+        Assert.Empty(writes.Offenders);
     }
 
     private static Func<FeatureContext, IReadOnlyList<IScreenFactory>> Factories(FakeBackend backend) =>

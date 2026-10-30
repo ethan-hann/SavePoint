@@ -8,7 +8,7 @@ paths:
 
 - **Status:** accepted
 - **Date Created:** 2026-10-26 17:50
-- **Last Updated:** 2026-10-26 18:10
+- **Last Updated:** 2026-10-30 12:06
 - **Applies To:**
   - Any view model, view, or screen factory in `src/Savepoint.App/`.
   - Any App code that reacts to an Api event or reads the time.
@@ -35,7 +35,7 @@ C# and Avalonia XAML (`.axaml`) in `src/Savepoint.App/`.
 2. **Are you adding a property or a command to a view model?**
    - If yes, apply "Generate properties and commands". For a command that one object builds and hands to another, see "Exception - handed-off commands".
    - If no, continue.
-3. **Does the view model handle an Api event, or need the time?**
+3. **Does the view model handle an Api event, need the time, or change a list from a selection setter?**
    - If yes, apply "Reach the UI thread through `IUiDispatcher`, and the time through the clock".
    - If no, this standard does not apply.
 
@@ -175,15 +175,23 @@ using Savepoint.Core.Services.Storage;
 
 Api events fire on background threads. A view model's handler wraps its body in `IUiDispatcher.Post`. A view model reads the time from the `TimeProvider` its dependencies give it, which is `FeatureContext.Clock`.
 
+Never change a control's items from inside that control's selection setter. The list is still committing the choice and reads its rows again when it finishes, so a row removed or added at that moment crashes it (#246). Do the change with `IUiDispatcher.PostWhenIdle`, which runs it once the list is idle.
+
 **Correct usage:**
 
 ```csharp
 private void OnJobChanged(object? sender, JobSnapshot job) => _dispatcher.Post(() => Handle(job));
+
+// In a selection setter: the row leaves once the list is idle.
+_deps.Dispatcher.PostWhenIdle(() => Rows.Remove(left));
 ```
 
 **What to avoid:**
 
 ```csharp
+// Removes a row while the list is committing the selection that called this setter.
+set { _selected = value; Rows.Remove(left); }
+
 // Captures the thread's context directly, so a test cannot run the handler at once.
 new UiProgress(SynchronizationContext.Current, step => ShowProgress(run, step))
 ```
@@ -192,6 +200,7 @@ new UiProgress(SynchronizationContext.Current, step => ShowProgress(run, step))
 
 - `src/Savepoint.App/Features/Common/IUiDispatcher.cs`, `IUiDispatcher.Post`: `AvaloniaUiDispatcher` in the app, `ImmediateUiDispatcher` in tests.
 - `src/Savepoint.App/Features/Games/FreeUpSpaceViewModel.cs`, `FreeUpSpaceViewModel.OnJobChanged`: an event handler that posts.
+- `src/Savepoint.App/Features/Activity/ActivityScreenViewModel.cs`, `ActivityScreenViewModel.SelectedRow`: drops the old row with `PostWhenIdle`.
 
 ## Additional Resources
 

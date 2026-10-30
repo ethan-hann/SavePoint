@@ -8,6 +8,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.VisualTree;
+using Savepoint.App.Features.Common;
 using Savepoint.App.Features.Common.Art;
 using Savepoint.App.Features.Common.Toasts;
 using Savepoint.App.Features.Help;
@@ -78,7 +79,7 @@ public class ShellViewTests
     [AvaloniaFact]
     public async Task Choosing_in_the_lists_drives_the_view_model()
     {
-        using var harness = await ShellViewHarness.StartAsync();
+        using var harness = await ShellViewHarness.StartAsync(dispatcher: new AvaloniaUiDispatcher());
 
         harness.Find<ListBox>("RailGames").SelectedIndex = 1;
         harness.Find<ListBox>("NavList").SelectedIndex = 3;
@@ -105,7 +106,7 @@ public class ShellViewTests
     [InlineData(1)]
     public async Task Clicking_a_game_in_the_rail_opens_it_from_settings_even_when_it_is_already_selected(int index)
     {
-        using var harness = await ShellViewHarness.StartAsync();
+        using var harness = await ShellViewHarness.StartAsync(dispatcher: new AvaloniaUiDispatcher());
         harness.Shell.Navigate(NavDestination.Settings);
         harness.Settle();
 
@@ -118,7 +119,7 @@ public class ShellViewTests
     [AvaloniaFact]
     public async Task Clicking_a_game_in_the_rail_closes_the_help_page()
     {
-        using var harness = await ShellViewHarness.StartAsync();
+        using var harness = await ShellViewHarness.StartAsync(dispatcher: new AvaloniaUiDispatcher());
         harness.Shell.ShowHelp();
         harness.Settle();
 
@@ -241,7 +242,7 @@ public class ShellViewTests
     [AvaloniaFact]
     public async Task Clicking_a_card_on_the_shelf_selects_that_game()
     {
-        using var harness = await ShellViewHarness.LibraryLayoutAsync();
+        using var harness = await ShellViewHarness.LibraryLayoutAsync(dispatcher: new AvaloniaUiDispatcher());
 
         ClickCenter(harness, ItemOf(harness, "ShelfGames", 1));
 

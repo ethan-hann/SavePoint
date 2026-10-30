@@ -63,10 +63,10 @@ internal sealed class ShellViewHarness : IDisposable
         return harness;
     }
 
-    public static async Task<ShellViewHarness> LibraryLayoutAsync(ThemePreference theme = ThemePreference.Dark, double width = 1040, double height = 660)
+    public static async Task<ShellViewHarness> LibraryLayoutAsync(ThemePreference theme = ThemePreference.Dark, double width = 1040, double height = 660, IUiDispatcher? dispatcher = null)
     {
         var scenario = ScenarioBuilder.Sample().WithSettings(SampleScenario.Settings with { Layout = ShellLayout.Library, Theme = theme });
-        return await StartAsync(new FakeBackend(scenario), theme, width, height);
+        return await StartAsync(new FakeBackend(scenario), theme, width, height, dispatcher: dispatcher);
     }
 
     public void Settle() => Dispatcher.UIThread.RunJobs();

@@ -75,8 +75,13 @@ public sealed class FakeBackend
     }
 
     // Returns once every event raised so far has reached its subscribers; rethrows what a subscriber threw on the delivery thread.
-    public async Task WhenEventsDeliveredAsync()
+    // A subscriber that never returns fails the wait at the deadline (30 seconds unless given) instead of hanging the run.
+    // Two overloads, not a default argument, so the plain wait still binds to a Func<Task>.
+    public Task WhenEventsDeliveredAsync() => WhenEventsDeliveredAsync(TimeSpan.FromSeconds(30));
+
+    public async Task WhenEventsDeliveredAsync(TimeSpan timeout)
     {
+        var deadline = DateTime.UtcNow + timeout;
         while (true)
         {
             Task? drain;
@@ -90,7 +95,13 @@ public sealed class FakeBackend
                 break;
             }
 
-            await drain.ConfigureAwait(false);
+            var left = deadline - DateTime.UtcNow;
+            if (left <= TimeSpan.Zero)
+            {
+                throw new TimeoutException("Events raised by the fake backend were not all delivered before the deadline.");
+            }
+
+            await drain.WaitAsync(left).ConfigureAwait(false);
         }
 
         List<Exception> thrown;
