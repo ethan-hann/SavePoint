@@ -54,7 +54,7 @@ On Linux, also try the AppImage: download `SavePoint.AppImage` from the latest r
 ## 5. Linux VM only
 
 - [ ] **A launcher game:** with Steam installed, a game started through Steam (or a Proton game) is followed until it quits.
-- [ ] **A game on an NTFS or exFAT drive** (a second virtual disk formatted that way): taking and switching snapshots works, and a case-only clash is refused.
+- [ ] **A game on an NTFS or exFAT drive** (a second virtual disk formatted that way): taking and switching snapshots works, and a case-only clash is refused. Do the same with an exFAT drive and a FAT32 one: a discard or switch must not stop with "folder changed", and the log notes that the folder reports no identity (D57.6).
 - [ ] **Wayland and X11:** if the VM offers both at login, start SavePoint once under each.
 - [ ] **A mods folder outside the game folder:** if 7 Days to Die runs on the VM, add it from its template, install a mod the way the game expects, and check the game loads it from the mods folder the template filled in (D61.5).
 - [ ] **Apps menu:** Settings > Apps menu adds SavePoint with its icon to the GNOME apps menu, shows the entry as out of date after the AppImage is moved (Update fixes it), and Remove takes the entry and icons away again.
