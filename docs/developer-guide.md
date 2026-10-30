@@ -147,6 +147,9 @@ Each download is checked against its pinned SHA-256 before anything is published
 4. A last job writes `SHA256SUMS.txt` (one line per file and per piece, plus the joined file) and adds the "Source code of the bundled git" link.
 5. To finish a run by hand, run `pwsh build/release-assets.ps1 -Action Checksums -Tag v<Version>` with `RELEASE_TOKEN`, `GITHUB_REPOSITORY` and `GITHUB_SERVER_URL` set.
 6. Read the draft, add the notes, and publish it by hand. The workflow never publishes.
+7. Publishing runs `.forgejo/workflows/github-mirror.yml`, which copies the release (name, notes, prerelease flag and every file) to the GitHub mirror with `build/mirror-release.ps1` (D71). To sync a release you edited later, or one the event missed, run that workflow by hand from the Actions page with the tag, or `all`.
+
+**Once, by the owner:** create a fine-grained GitHub token limited to `ethan-hann/SavePoint` with Contents read and write, add it as the Forgejo repository secret `GH_MIRROR_TOKEN`, then run the GitHub mirror workflow with the tag `all` to copy the existing releases.
 
 Only the upload steps get a token: the repository secret `RELEASE_TOKEN` when it is set, else the workflow's own token. If the first run's upload is refused, add `RELEASE_TOKEN` (an access token with write access to the repository).
 
@@ -188,7 +191,7 @@ The server's one-time setup (the git-pages container, its wildcard config, the p
 | `docs/` | This guide, `user-guide.md`, `testing-on-mac-and-linux.md`, `architecture.md`, `decisions.md`, `ui-guide.md`, `dogfood-checklist.md` (the manual checks), and `toc.yml` (their order on the documentation site). |
 | `docfx.json`, `docfx/` | The documentation site (see Documentation site): its sources, home page and stylesheet. |
 | `.agents/`, `.han/`, `.claude/rules/` | Instructions for people and agents changing the code, kept out of `docs/` and the documentation site: coding standards, the Han skills' settings, and the index files that point Claude Code at the standards. `AGENTS.md` describes them. |
-| `.forgejo/workflows/` | CI. `gate.yml` runs `build/gate.sh` on Linux (in a container) and `build/gate.ps1` on the self-hosted Windows runner (label `windows`) for every pull request, and can be started by hand. Pushes to `main` do not run it: `main` takes fast-forward merges only, so what lands is the commit its pull request already passed. A change to documentation or agent instructions only (`docs/`, `docfx.json`, `docfx/`, root Markdown files other than `THIRD-PARTY-NOTICES.md`, `.agents/`, `.claude/rules/`, and `.han/`) passes without them. `release.yml` builds the packages on a `v*` tag (see Releases). `docs.yml` builds the documentation site and publishes it from `main` (see Documentation site). |
+| `.forgejo/workflows/` | CI. `gate.yml` runs `build/gate.sh` on Linux (in a container) and `build/gate.ps1` on the self-hosted Windows runner (label `windows`) for every pull request, and can be started by hand. Pushes to `main` do not run it: `main` takes fast-forward merges only, so what lands is the commit its pull request already passed. A change to documentation or agent instructions only (`docs/`, `docfx.json`, `docfx/`, root Markdown files other than `THIRD-PARTY-NOTICES.md`, `.agents/`, `.claude/rules/`, and `.han/`) passes without them. `release.yml` builds the packages on a `v*` tag, and `github-mirror.yml` copies a published release to GitHub (see Releases). `docs.yml` builds the documentation site and publishes it from `main` (see Documentation site). |
 
 ## Where to start reading
 
