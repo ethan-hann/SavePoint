@@ -18,9 +18,9 @@ on:
         required: true
         default: 'all'
 
-# One run at a time per tag, so a published and an edited event for the same release do not overlap.
+# One run at a time for the whole workflow, so a backfill and a single-release run, or a published and an edited event, never overlap.
 concurrency:
-  group: github-mirror-${{ github.event.release.tag_name || inputs.tag }}
+  group: github-mirror
   cancel-in-progress: false
 
 jobs:
