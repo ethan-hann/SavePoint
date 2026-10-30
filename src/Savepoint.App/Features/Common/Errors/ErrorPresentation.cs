@@ -71,6 +71,7 @@ public static class ErrorPresentation
         ["error.launch.sessionMoved"] = new(Icons.History, ErrorTone.Warning, "errorCard.title.progressNotKept"),
         ["error.launch.sessionStillRunning"] = new(Icons.SportsEsports, ErrorTone.Neutral, "errorCard.title.gameRunning"),
         ["error.launch.spawnFailed"] = new(Icons.Error, ErrorTone.Error, "errorCard.title.gameDidNotStart"),
+        ["error.launch.steamCannotStart"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.steamNotReady"),
         ["error.launch.steamDidNotStart"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.steamNotReady"),
         ["error.launch.steamUpdatingBeforeSwitch"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.steamUpdatingGame"),
         ["error.launch.steamUpdatingGame"] = new(Icons.Warning, ErrorTone.Warning, "errorCard.title.steamUpdatingGame"),

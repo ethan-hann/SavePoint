@@ -294,6 +294,20 @@ public class LaunchSteamTests
     }
 
     [Fact(Timeout = 240_000)]
+    public async Task The_waiting_step_says_how_many_seconds_the_wait_lasts()
+    {
+        var steam = new FakeSteamClient { ReadyAfterLooks = 2 };
+        var (rig, vanilla, _) = await SteamRigAsync(steam, new SteamWaitOptions { Timeout = TimeSpan.FromSeconds(45), PollInterval = TimeSpan.FromMilliseconds(20) });
+        using var _ = rig;
+
+        var started = await rig.Launch.StartAsync(rig.Game.Id, Tip(vanilla), startSteam: true);
+        var job = await rig.WaitForJobAsync(started.Value!.JobId);
+
+        var waiting = Assert.Single(job.RecentLines.OfType<JobLine.Step>(), step => step.MessageId == JobSteps.LaunchWaitingForSteam);
+        Assert.Equal(45, Convert.ToInt32(waiting.Args["seconds"], System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [Fact(Timeout = 240_000)]
     public async Task A_game_that_quits_without_its_store_plays_once_the_launch_has_started_the_store_first()
     {
         // The stand-in game quits at once unless the variable is set, as a Steamworks game quits when its Steam library cannot start;
@@ -397,7 +411,7 @@ public class LaunchSteamTests
         var job = await rig.WaitForJobAsync(started.Value!.JobId);
 
         Assert.Equal(JobStatus.Failed, job.Status);
-        Assert.Equal("error.launch.steamDidNotStart", job.Error?.MessageId);
+        Assert.Equal("error.launch.steamCannotStart", job.Error?.MessageId);
         Assert.False(Switched(rig));
     }
 

@@ -75,12 +75,12 @@ public sealed partial class GameEditorViewModel
     private void InitializeGuidance()
     {
         IsMoreSettingsOpen = IsEditing && HasMoreSettingsSet();
-        AntiCheatHelp = new ContextualHelpViewModel(_text.Message("gameEditor.antiCheat.question"), _text.Message("gameEditor.antiCheat"));
         var more = _text.Message("help.moreInPage");
+        AntiCheatHelp = new ContextualHelpViewModel(_text.Message("gameEditor.antiCheat.question"), _text.Message("gameEditor.antiCheat"), more, () => OpenHelpPage(AntiCheatHelp, HowItWorksSection.OnlineGames));
         RulesHelp = new ContextualHelpViewModel(_text.Message("gameEditor.rules.question"), _text.Message("gameEditor.rules.answer"), more, () => OpenHelpPage(RulesHelp, HowItWorksSection.FilesToLeaveOut));
         ProcessHelp = new ContextualHelpViewModel(_text.Message("gameEditor.processName.question"), _text.Message("gameEditor.processName.helper"), more, () => OpenHelpPage(ProcessHelp, HowItWorksSection.HowTheGameStarts));
         ModFoldersHelp = new ContextualHelpViewModel(_text.Message("gameEditor.modPathHints.question"), _text.Message("gameEditor.modPathHints.helper"), more, () => OpenHelpPage(ModFoldersHelp, HowItWorksSection.ModsFolders));
-        SteamAppIdHelp = new ContextualHelpViewModel(_text.Message("gameEditor.artwork.appId.question"), _text.Message("gameEditor.artwork.appId.helper"));
+        SteamAppIdHelp = new ContextualHelpViewModel(_text.Message("gameEditor.artwork.appId.question"), _text.Message("gameEditor.artwork.appId.helper"), more, () => OpenHelpPage(SteamAppIdHelp, HowItWorksSection.SteamAppId));
         ModsHelp = new ContextualHelpViewModel(_text.Message("gameEditor.mods.question"), _text.Message("gameEditor.mods.answer"), more, () => OpenHelpPage(ModsHelp, HowItWorksSection.ModsFolders));
         CloudSavesHelp = new ContextualHelpViewModel(_text.Message("gameEditor.cloudSaves.unknown.question"), _text.Message("gameEditor.cloudSaves.unknown"), more, () => OpenHelpPage(CloudSavesHelp, HowItWorksSection.CloudSaves));
     }

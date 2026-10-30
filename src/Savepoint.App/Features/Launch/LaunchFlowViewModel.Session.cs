@@ -200,7 +200,8 @@ public sealed partial class LaunchFlowViewModel
             return;
         }
 
-        var steps = job.RecentLines.OfType<JobLine.Step>().Select(step => step.MessageId).ToList();
+        var stepLines = job.RecentLines.OfType<JobLine.Step>().ToList();
+        var steps = stepLines.Select(step => step.MessageId).ToList();
         if (!steps.Contains(JobSteps.LaunchWaitingForSteam))
         {
             return;
@@ -232,12 +233,17 @@ public sealed partial class LaunchFlowViewModel
 
         CloseProgress(flow);
         var text = _deps.Text;
+
+        // The service says how long it waits; the default is the same constant the wait uses.
+        var seconds = stepLines.First(step => step.MessageId == JobSteps.LaunchWaitingForSteam).Args.TryGetValue("seconds", out var value) && value is not null
+            ? Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture)
+            : (int)SteamWaitOptions.DefaultTimeout.TotalSeconds;
         var card = ErrorCardViewModel.Custom(
             text,
             Icons.SportsEsports,
             ErrorTone.Neutral,
             text.Message("launch.steam.waitingTitle"),
-            text.Message("launch.steam.waitingBody", ("gameName", GameName(flow.GameId))),
+            text.Message("launch.steam.waitingBody", ("gameName", GameName(flow.GameId)), ("seconds", seconds)),
             actions: [new ErrorCardAction(text.Message("launch.steam.stopWaiting"), new AsyncRelayCommand(async () => await CancelJobAsync(job.JobId)), IsPrimary: false)]);
         flow.SteamWait = card;
         SetInline(flow, card);
@@ -278,6 +284,9 @@ public sealed partial class LaunchFlowViewModel
                     break;
                 case SessionEndKind.ProgramFailedAtStart:
                     _deps.Toasts.Show(new ToastMessage(_deps.Text.Message("launch.postPlay.failedAtStart.toast", ("gameName", name), ("code", PostPlayDialogViewModel.ExitCodeText(exited))), ToastKind.Info));
+                    break;
+                case SessionEndKind.ProgramQuitAtStart:
+                    _deps.Toasts.Show(new ToastMessage(_deps.Text.Message("launch.postPlay.quitAtStart.toast", ("gameName", name)), ToastKind.Info));
                     break;
             }
 

@@ -7,11 +7,11 @@ public class HowItWorksViewModelTests
 {
     private static HowItWorksViewModel Page(Action? close = null) => new(HelpText.Formatter(), close ?? (() => { }));
 
-    // The thirteen topics the page has; a test that reads one of them says so first, so a missing topic is a plain failure.
+    // The sixteen topics the page has; a test that reads one of them says so first, so a missing topic is a plain failure.
     private static IReadOnlyList<HowItWorksTopic> Topics()
     {
         var topics = Page().Topics;
-        Assert.Equal(14, topics.Count);
+        Assert.Equal(16, topics.Count);
         return topics;
     }
 
@@ -46,6 +46,8 @@ public class HowItWorksViewModelTests
                 "How the game starts",
                 "Files to leave out",
                 "Cloud saves",
+                "Online games and anti-cheat",
+                "The Steam app ID",
                 "What can't be undone",
             ],
             Page().Topics.Select(topic => topic.Title));
@@ -68,6 +70,8 @@ public class HowItWorksViewModelTests
                 HelpPicture.Removed,
                 HelpPicture.Activity,
                 HelpPicture.Space,
+                HelpPicture.None,
+                HelpPicture.None,
                 HelpPicture.None,
                 HelpPicture.None,
                 HelpPicture.None,
@@ -142,7 +146,34 @@ public class HowItWorksViewModelTests
         Assert.Contains("A rule tells SavePoint to skip the files that match it", files.Body, StringComparison.Ordinal);
         Assert.Contains("* stands for any name", files.Body, StringComparison.Ordinal);
         Assert.Contains("** stands for any folder", files.Body, StringComparison.Ordinal);
+        Assert.Contains("patterns, not regular expressions", files.Body, StringComparison.Ordinal);
+        Assert.Contains("? stands for one character and [abc] for one of those characters", files.Body, StringComparison.Ordinal);
+        Assert.Contains("starts with /", files.Body, StringComparison.Ordinal);
+        Assert.Contains("ends with /", files.Body, StringComparison.Ordinal);
+        Assert.Contains("starts with !", files.Body, StringComparison.Ordinal);
+        Assert.Contains("last rule that matches wins", files.Body, StringComparison.Ordinal);
         Assert.Equal(["Don't add a rule that matches your saves, or profiles stop switching them."], files.Notes);
+    }
+
+    [Fact]
+    public void The_online_games_topic_says_not_to_use_SavePoint_with_anti_cheat_games_because_changed_files_can_get_an_account_flagged()
+    {
+        var online = TopicFor(HowItWorksSection.OnlineGames);
+
+        Assert.Equal("Online games and anti-cheat", online.Title);
+        Assert.StartsWith("Don't use SavePoint with online games that have anti-cheat.", online.Body, StringComparison.Ordinal);
+        Assert.Contains("Changed game files can get your account flagged.", online.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_Steam_app_ID_topic_says_where_to_find_it_what_it_is_for_and_that_it_does_not_change_how_the_game_starts()
+    {
+        var appId = TopicFor(HowItWorksSection.SteamAppId);
+
+        Assert.Equal("The Steam app ID", appId.Title);
+        Assert.Contains("the number after /app/ in the game's Steam store address", appId.Body, StringComparison.Ordinal);
+        Assert.Contains("find the game's cover", appId.Body, StringComparison.Ordinal);
+        Assert.Contains("It doesn't change how the game starts.", appId.Body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -164,7 +195,7 @@ public class HowItWorksViewModelTests
         var starts = Assert.Single(new HowItWorksViewModel(HelpText.Formatter("linux"), () => { }).Topics, topic => topic.Section == HowItWorksSection.HowTheGameStarts);
 
         Assert.Contains("\"Run the program\" starts the game's own program.", starts.Body, StringComparison.Ordinal);
-        Assert.Contains("Games installed by Steam on Linux usually need Steam running, so start Steam first, then run the program. Through Steam can update the game first and replace the version you switched to.", starts.Body, StringComparison.Ordinal);
+        Assert.Contains("Games installed by Steam on Linux usually need Steam running. When you play, SavePoint checks for Steam and offers to start it. Starting the game through Steam can update it first and replace the version you switched to.", starts.Body, StringComparison.Ordinal);
         Assert.DoesNotContain("safer choice", starts.Body, StringComparison.Ordinal);
         Assert.DoesNotContain("avoids that", starts.Body, StringComparison.Ordinal);
     }
@@ -181,10 +212,10 @@ public class HowItWorksViewModelTests
     }
 
     [Fact]
-    public void Only_the_four_linked_topics_have_a_section_name()
+    public void Only_the_six_linked_topics_have_a_section_name()
     {
         Assert.Equal(
-            [HowItWorksSection.ModsFolders, HowItWorksSection.HowTheGameStarts, HowItWorksSection.FilesToLeaveOut, HowItWorksSection.CloudSaves],
+            [HowItWorksSection.ModsFolders, HowItWorksSection.HowTheGameStarts, HowItWorksSection.FilesToLeaveOut, HowItWorksSection.CloudSaves, HowItWorksSection.OnlineGames, HowItWorksSection.SteamAppId],
             Page().Topics.Where(topic => topic.Section is not null).Select(topic => topic.Section!.Value));
     }
 

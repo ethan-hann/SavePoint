@@ -181,12 +181,12 @@ public class LaunchSteamFlowTests : IDisposable
         await _f.PlayModdedAsync();
         var session = _f.Session();
 
-        _f.Backend.Jobs.ReportStep(session.LaunchJobId, JobSteps.LaunchWaitingForSteam, ("game", "Skyrim Special Edition"));
+        _f.Backend.Jobs.ReportStep(session.LaunchJobId, JobSteps.LaunchWaitingForSteam, ("game", "Skyrim Special Edition"), ("seconds", 90));
 
         var card = _f.Inline<ErrorCardViewModel>();
         Assert.Equal("Waiting for Steam to start…", card.Title);
         Assert.Equal(
-            "SavePoint started Steam for Skyrim Special Edition. When Steam has signed in, the game starts. Nothing in your game folders has changed yet.",
+            "SavePoint started Steam for Skyrim Special Edition. When Steam has signed in, the game starts. It waits up to 90 seconds. Nothing in your game folders has changed yet.",
             card.Body);
         Assert.Equal(["Stop waiting"], card.Actions.Select(action => action.Label));
         Assert.True(_f.Flow.IsActive(FlowRig.Skyrim));

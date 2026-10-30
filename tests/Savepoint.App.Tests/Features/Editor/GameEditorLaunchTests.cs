@@ -52,7 +52,7 @@ public class GameEditorLaunchTests
 
         Assert.Equal(shown, editor.ShowSteamStartNote);
         Assert.Equal(
-            shown ? "Games installed by Steam on Linux usually need Steam running. Start Steam first, then run the program. Through Steam can update the game first and replace the version you switched to." : string.Empty,
+            shown ? "Games installed by Steam on Linux usually need Steam running. When you play, SavePoint checks for Steam and offers to start it. Starting the game through Steam can update it first and replace the version you switched to." : string.Empty,
             editor.SteamStartNote);
     }
 

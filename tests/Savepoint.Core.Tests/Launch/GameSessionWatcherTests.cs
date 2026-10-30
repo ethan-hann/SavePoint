@@ -40,6 +40,32 @@ public class GameSessionWatcherTests
     }
 
     [Fact]
+    public async Task A_program_without_a_process_name_that_quits_cleanly_right_away_ends_as_quit_at_start()
+    {
+        using var rig = await WatcherRig.ProgramAsync();
+        await rig.AdvanceAsync(Seconds(2));
+
+        rig.Child!.Exit(0);
+        var outcome = await rig.OutcomeAsync();
+
+        Assert.Equal(SessionEndKind.ProgramQuitAtStart, outcome.Kind);
+        Assert.Equal(0, outcome.ChildExitCode);
+        Assert.Equal(Seconds(2), outcome.PlayDuration);
+    }
+
+    [Fact]
+    public async Task A_program_without_a_process_name_that_quits_cleanly_after_the_relaunch_window_ends_as_child_exited()
+    {
+        using var rig = await WatcherRig.ProgramAsync();
+        await rig.AdvanceAsync(GameSessionOptions.DefaultRelaunchWindow + Seconds(1));
+
+        rig.Child!.Exit(0);
+        var outcome = await rig.OutcomeAsync();
+
+        Assert.Equal(SessionEndKind.ChildExited, outcome.Kind);
+    }
+
+    [Fact]
     public async Task A_program_without_a_process_name_never_reads_the_process_list()
     {
         using var rig = await WatcherRig.ProgramAsync();
