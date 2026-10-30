@@ -107,13 +107,11 @@ internal sealed partial class SettingsApi : ISettingsApi
                 return await _services.Storage.ReadAsync(
                     async storage =>
                     {
-                        long total = 0;
-                        foreach (var game in games.Where(game => token.Records.Any(record => record.GameId == game.Id)))
-                        {
-                            total += await RemovedSnapshots.EstimateAsync(storage, GameFolders.ReposForGitDirOnly(_services, storage, game), token, cancellationToken).ConfigureAwait(false);
-                        }
-
-                        return total;
+                        // The games are separate repositories, so they are measured side by side.
+                        var sizes = await Task.WhenAll(games
+                            .Where(game => token.Records.Any(record => record.GameId == game.Id))
+                            .Select(game => RemovedSnapshots.EstimateAsync(storage, GameFolders.ReposForGitDirOnly(_services, storage, game), token, cancellationToken))).ConfigureAwait(false);
+                        return sizes.Sum();
                     },
                     cancellationToken).ConfigureAwait(false);
             },
