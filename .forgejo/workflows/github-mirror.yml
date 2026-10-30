@@ -1,0 +1,54 @@
+# Copies a published release, with its notes and files, to the GitHub mirror (build/mirror-release.ps1). The push mirror already sends
+# every commit and tag; it sends no releases.
+#
+# It runs when a release is published or edited, and by hand with a tag (or "all", to copy every published release). The script
+# changes nothing that is already right, so a manual run is also the way to sync a release the event missed, or one edited later.
+#
+# The GitHub token is the repository secret GH_MIRROR_TOKEN: a fine-grained token for the mirror alone with Contents read and write.
+# The script sends it only to api.github.com and uploads.github.com.
+name: GitHub mirror
+
+on:
+  release:
+    types: [published, edited]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'The release tag to copy, such as v0.9.21, or all'
+        required: true
+        default: 'all'
+
+# One run at a time per tag, so a published and an edited event for the same release do not overlap.
+concurrency:
+  group: github-mirror-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    # A draft has nothing to copy yet.
+    if: github.event_name != 'release' || github.event.release.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # The script always comes from the default branch, so a release of an old tag is copied by the current script.
+      - uses: https://data.forgejo.org/actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Install PowerShell
+        run: |
+          if ! command -v pwsh >/dev/null 2>&1; then
+            bash build/install-dotnet.sh /opt/dotnet
+            /opt/dotnet/dotnet tool install --tool-path /opt/pwsh PowerShell --version 7.6.8
+            echo "/opt/pwsh" >> "$GITHUB_PATH"
+            # The pwsh tool's launcher starts dotnet from PATH.
+            echo "/opt/dotnet" >> "$GITHUB_PATH"
+            echo "DOTNET_ROOT=/opt/dotnet" >> "$GITHUB_ENV"
+          fi
+
+      - name: Copy the release to GitHub
+        env:
+          MIRROR_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          GH_MIRROR_TOKEN: ${{ secrets.GH_MIRROR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pwsh -NoProfile -File build/mirror-release.ps1
