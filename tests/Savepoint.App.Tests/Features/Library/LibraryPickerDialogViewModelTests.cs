@@ -19,6 +19,27 @@ public class LibraryPickerDialogViewModelTests
 
     private static IReadOnlyList<string> Visible(LibraryPickerDialogViewModel picker) => [.. picker.VisibleRows.Select(row => row.Name)];
 
+    // Anything watching IsLoading acts on the state it finds when the flag drops.
+    [Fact]
+    public async Task Loading_ends_only_once_the_list_holds_the_games_found()
+    {
+        var backend = FakeBackend.Empty();
+        backend.State.Library = LibraryTestData.Scan(LibraryTestData.Game("Alpha", id: "1"), LibraryTestData.Game("Beta", id: "2"));
+        var picker = new LibraryPickerDialogViewModel(backend.Games, LibraryTestData.Text);
+        (int Shown, bool ShowList)? whenLoadingEnded = null;
+        picker.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(LibraryPickerDialogViewModel.IsLoading) && !picker.IsLoading)
+            {
+                whenLoadingEnded ??= (picker.VisibleRows.Count, picker.ShowList);
+            }
+        };
+
+        await picker.LoadAsync();
+
+        Assert.Equal((2, true), whenLoadingEnded);
+    }
+
     [Fact]
     public async Task The_pointer_to_the_game_list_closes_the_checklist_without_choosing_games()
     {

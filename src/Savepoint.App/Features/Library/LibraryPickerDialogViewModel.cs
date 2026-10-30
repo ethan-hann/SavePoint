@@ -176,12 +176,15 @@ public sealed partial class LibraryPickerDialogViewModel : DialogViewModel<IRead
         }
 
         _loaded = true;
-        IsLoading = false;
         Refresh();
         OnPropertyChanged(nameof(HasError));
         OnPropertyChanged(nameof(ErrorText));
         OnPropertyChanged(nameof(StoreNotes));
         OnPropertyChanged(nameof(HasStoreNotes));
+
+        // Last, so whoever sees loading end finds the list already built.
+        IsLoading = false;
+        OnPropertyChanged(nameof(ShowList));
     }
 
     partial void OnSearchTextChanged(string value) => Refresh();
