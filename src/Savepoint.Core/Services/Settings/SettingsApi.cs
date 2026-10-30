@@ -107,10 +107,11 @@ internal sealed partial class SettingsApi : ISettingsApi
                 return await _services.Storage.ReadAsync(
                     async storage =>
                     {
-                        // The games are separate repositories, so they are measured side by side.
+                        // The games are separate repositories, so they are measured side by side, up to the listing's bound across all of them.
+                        using var walks = RemovedSnapshots.NewEstimateGate();
                         var sizes = await Task.WhenAll(games
                             .Where(game => token.Records.Any(record => record.GameId == game.Id))
-                            .Select(game => _services.Estimates.RunAsync(game.Id, cancellationToken, stop => RemovedSnapshots.EstimateAsync(storage, GameFolders.ReposForGitDirOnly(_services, storage, game), token, stop)))).ConfigureAwait(false);
+                            .Select(game => _services.Estimates.RunAsync(game.Id, cancellationToken, stop => RemovedSnapshots.EstimateAsync(storage, GameFolders.ReposForGitDirOnly(_services, storage, game), token, stop, walks)))).ConfigureAwait(false);
                         return sizes.Sum();
                     },
                     cancellationToken).ConfigureAwait(false);
