@@ -3,7 +3,7 @@
   "search.games.count": "{shownText} of {total, plural, one {{totalText} game} other {{totalText} games}}",
   "search.games.label": "Search games",
   "search.games.noMatch": "No games match.",
-  "search.games.unavailableEmpty": "You haven't added any games yet, so there is nothing to search.",
+  "search.games.unavailableEmpty": "You haven't added any games yet, so there's nothing to search.",
   "search.games.unavailableNarrow": "The games list is too narrow for a search box. Make the window wider to search it.",
   "search.history.count": "{shownText} of {total, plural, one {{totalText} snapshot} other {{totalText} snapshots}}",
   "search.history.countWithRemoved": "{shownText} of {total, plural, one {{totalText} snapshot} other {{totalText} snapshots}}, plus {removedShownText} of {removedTotalText} in Recently removed",
