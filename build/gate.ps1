@@ -3,6 +3,7 @@
 #
 # The tests run as four processes at once: the Core tests, and the App tests in the lanes of build/app-test-lanes.txt (the UI tests of
 # one process share one UI thread, so they run one at a time). Their test methods must add up to the full listing's, so no test is dropped.
+# When less than 10 GB of memory is free (or SAVEPOINT_GATE_APP_LANES=1), the App tests run as one process instead, and the gate says so.
 #
 # SAVEPOINT_TEST_ARGS takes only a report (--report-*). Anything else, such as a filter or a retry of failed tests (the retry
 # extension is no longer part of the test projects), is refused unless -AllowNarrowedTests says it is on purpose, because a run
@@ -41,7 +42,9 @@ $appSingleThreads = [Math]::Min([int]$testThreads, 4)
 
 # Four test processes at once need about 10 GB free; below that the App tests run as one process, as before the lanes (the
 # 7 GB Linux VM ran out of memory with four). SAVEPOINT_GATE_APP_LANES=1 forces one process and 3 forces the lanes (any number
-# above 1 does); SAVEPOINT_GATE_AVAILABLE_MEMORY_MB replaces the reading of free memory.
+# above 1 does); SAVEPOINT_GATE_AVAILABLE_MEMORY_MB replaces the reading of free memory. On Linux the reading is the smaller of
+# MemAvailable and the container's cgroup limit; SAVEPOINT_GATE_MEMINFO_FILE and SAVEPOINT_GATE_CGROUP_DIR point it at other files
+# (the tests use them). When the memory cannot be read at all, the single App process runs.
 $lanesMemoryMb = 10240
 # Where the test step writes its xunit reports, which the skip check reads. The gate always asks for them, so SAVEPOINT_TEST_ARGS must not.
 $resultsDir = Join-Path (Get-Location) 'artifacts/test-results'
@@ -69,19 +72,38 @@ function Get-NarrowingArguments {
     }
 }
 
+# The memory limit of the container in MB, or $null when there is none (cgroup v2 says "max", v1 a number near 2^63).
+# SAVEPOINT_GATE_CGROUP_DIR replaces /sys/fs/cgroup.
+function Get-CgroupLimitMb {
+    $dir = if ($env:SAVEPOINT_GATE_CGROUP_DIR) { $env:SAVEPOINT_GATE_CGROUP_DIR } else { '/sys/fs/cgroup' }
+    foreach ($file in @((Join-Path $dir 'memory.max'), (Join-Path $dir 'memory/memory.limit_in_bytes'))) {
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { continue }
+        $text = (Get-Content -LiteralPath $file -Raw).Trim()
+        if ($text -match '^[0-9]{1,15}$') { return [long]([long]$text / 1MB) }
+    }
+    return $null
+}
+
 # The memory, in MB, that programs can use without the machine swapping or killing something; $null when it cannot be read.
 function Get-AvailableMemoryMb {
     if ($env:SAVEPOINT_GATE_AVAILABLE_MEMORY_MB) { return [long]$env:SAVEPOINT_GATE_AVAILABLE_MEMORY_MB }
     try {
-        if ($IsWindows) {
+        if ($IsWindows -and -not $env:SAVEPOINT_GATE_MEMINFO_FILE) {
             # The performance counter counts the cache that is given back on demand; the OS's "free" figure does not.
             $available = (Get-CimInstance -ClassName Win32_PerfFormattedData_PerfOS_Memory -ErrorAction Stop).AvailableMBytes
             if ($available) { return [long]$available }
             return [long]((Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop).FreePhysicalMemory / 1024)
         }
-        if (Test-Path -LiteralPath '/proc/meminfo') {
-            $line = Get-Content -LiteralPath '/proc/meminfo' | Where-Object { $_ -match '^MemAvailable:' } | Select-Object -First 1
-            if ($line -match '(\d+)') { return [long]([long]$Matches[1] / 1024) }
+        $meminfo = if ($env:SAVEPOINT_GATE_MEMINFO_FILE) { $env:SAVEPOINT_GATE_MEMINFO_FILE } else { '/proc/meminfo' }
+        if (Test-Path -LiteralPath $meminfo) {
+            $line = Get-Content -LiteralPath $meminfo | Where-Object { $_ -match '^MemAvailable:' } | Select-Object -First 1
+            if ($line -match '(\d+)') {
+                $available = [long]([long]$Matches[1] / 1024)
+                # Inside a container /proc/meminfo shows the host's memory, so the container's own limit caps it.
+                $limit = Get-CgroupLimitMb
+                if ($null -ne $limit -and $limit -lt $available) { return $limit }
+                return $available
+            }
         }
     }
     catch {
@@ -100,7 +122,8 @@ function Get-AppMode {
         exit 1
     }
     $memory = Get-AvailableMemoryMb
-    if ($null -eq $memory) { return [pscustomobject]@{ Mode = 'lanes'; Reason = 'free memory could not be read' } }
+    # Unknown memory takes the layout that needs less of it.
+    if ($null -eq $memory) { return [pscustomobject]@{ Mode = 'one'; Reason = 'free memory could not be read; SAVEPOINT_GATE_APP_LANES=3 runs the lanes anyway' } }
     if ($memory -lt $lanesMemoryMb) {
         return [pscustomobject]@{ Mode = 'one'; Reason = "$memory MB free is below $lanesMemoryMb MB; SAVEPOINT_GATE_APP_LANES=3 runs the lanes anyway" }
     }

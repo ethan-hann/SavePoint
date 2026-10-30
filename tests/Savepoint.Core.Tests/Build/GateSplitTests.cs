@@ -397,6 +397,92 @@ public sealed class GateSplitTests : IDisposable
         Assert.Contains("SAVEPOINT_GATE_APP_LANES", gate.Output, StringComparison.Ordinal);
     }
 
+    // Settings that make the gate read its memory from fake files, as a Linux machine or container would show them.
+    private Dictionary<string, string> FakeMemory(int availableKilobytes, string? cgroupV2 = null, string? cgroupV1 = null)
+    {
+        var meminfo = Path.Combine(_root, "meminfo");
+        File.WriteAllText(meminfo, $"MemTotal:       99999999 kB\nMemFree:         1024 kB\nMemAvailable:   {availableKilobytes} kB\nBuffers:         1024 kB\n");
+        var cgroup = Path.Combine(_root, "cgroup");
+        Directory.CreateDirectory(Path.Combine(cgroup, "memory"));
+        if (cgroupV2 is not null)
+        {
+            File.WriteAllText(Path.Combine(cgroup, "memory.max"), cgroupV2 + "\n");
+        }
+
+        if (cgroupV1 is not null)
+        {
+            File.WriteAllText(Path.Combine(cgroup, "memory", "memory.limit_in_bytes"), cgroupV1 + "\n");
+        }
+
+        return new()
+        {
+            ["SAVEPOINT_GATE_AVAILABLE_MEMORY_MB"] = string.Empty,
+            ["SAVEPOINT_GATE_MEMINFO_FILE"] = meminfo,
+            ["SAVEPOINT_GATE_CGROUP_DIR"] = cgroup,
+        };
+    }
+
+    [Theory]
+    [InlineData(Script.PowerShell)]
+    [InlineData(Script.Bash)]
+    public async Task When_free_memory_cannot_be_read_the_gate_runs_the_app_tests_as_one_process_and_says_so(Script script)
+    {
+        var settings = FakeMemory(availableKilobytes: 1);
+        File.Delete(settings["SAVEPOINT_GATE_MEMINFO_FILE"]);
+        var gate = await RunGateAsync(script, [], settings: settings);
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        AssertAppRanAsOneProcess(gate);
+        Assert.Contains("could not be read", gate.Output, StringComparison.Ordinal);
+    }
+
+    // 20 GB available in meminfo in every case; the limit of the container decides.
+    [Theory]
+    [InlineData(Script.PowerShell, "4294967296", null, "one", "4096 MB")]
+    [InlineData(Script.Bash, "4294967296", null, "one", "4096 MB")]
+    [InlineData(Script.PowerShell, null, "4294967296", "one", "4096 MB")]
+    [InlineData(Script.Bash, null, "4294967296", "one", "4096 MB")]
+    [InlineData(Script.PowerShell, "max", "9223372036854771712", "lanes", "20480 MB")]
+    [InlineData(Script.Bash, "max", "9223372036854771712", "lanes", "20480 MB")]
+    [InlineData(Script.PowerShell, "68719476736", null, "lanes", "20480 MB")]
+    [InlineData(Script.Bash, "68719476736", null, "lanes", "20480 MB")]
+    public async Task The_gate_counts_the_smaller_of_the_free_memory_and_the_container_limit(Script script, string? cgroupV2, string? cgroupV1, string expectedMode, string expectedMemory)
+    {
+        var gate = await RunGateAsync(script, [], settings: FakeMemory(availableKilobytes: 20 * 1024 * 1024, cgroupV2, cgroupV1));
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        if (expectedMode == "one")
+        {
+            AssertAppRanAsOneProcess(gate);
+        }
+        else
+        {
+            AssertAppRanInLanes(gate);
+        }
+
+        Assert.Contains(expectedMemory, gate.Output, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(Script.PowerShell, "8", "4")]
+    [InlineData(Script.Bash, "8", "4")]
+    [InlineData(Script.PowerShell, "3", "3")]
+    [InlineData(Script.Bash, "3", "3")]
+    public async Task The_one_app_process_gets_up_to_four_threads_and_never_more_than_core(Script script, string testThreads, string expectedAppThreads)
+    {
+        var settings = Memory(2048);
+        settings["SAVEPOINT_GATE_TEST_THREADS"] = testThreads;
+        var gate = await RunGateAsync(script, [], settings: settings);
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        var processes = TestProcesses(gate);
+        Assert.Equal([testThreads], Values(processes.Single(process => process.Name == "core"), "--max-threads"));
+        Assert.Equal([expectedAppThreads], Values(processes.Single(process => process.Name == "app"), "--max-threads"));
+    }
+
     [Theory]
     [InlineData(Script.PowerShell)]
     [InlineData(Script.Bash)]
