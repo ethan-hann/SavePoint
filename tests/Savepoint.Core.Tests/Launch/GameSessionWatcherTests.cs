@@ -40,9 +40,9 @@ public class GameSessionWatcherTests
     }
 
     [Fact]
-    public async Task A_program_without_a_process_name_that_quits_cleanly_right_away_ends_as_quit_at_start()
+    public async Task A_Steam_program_without_a_process_name_that_quits_cleanly_right_away_ends_as_quit_at_start()
     {
-        using var rig = await WatcherRig.ProgramAsync();
+        using var rig = await WatcherRig.ProgramAsync(steamGame: true);
         await rig.AdvanceAsync(Seconds(2));
 
         rig.Child!.Exit(0);
@@ -51,6 +51,18 @@ public class GameSessionWatcherTests
         Assert.Equal(SessionEndKind.ProgramQuitAtStart, outcome.Kind);
         Assert.Equal(0, outcome.ChildExitCode);
         Assert.Equal(Seconds(2), outcome.PlayDuration);
+    }
+
+    [Fact]
+    public async Task A_program_that_is_not_a_Steam_game_and_quits_cleanly_right_away_ends_as_child_exited()
+    {
+        using var rig = await WatcherRig.ProgramAsync();
+        await rig.AdvanceAsync(Seconds(2));
+
+        rig.Child!.Exit(0);
+        var outcome = await rig.OutcomeAsync();
+
+        Assert.Equal(SessionEndKind.ChildExited, outcome.Kind);
     }
 
     [Fact]

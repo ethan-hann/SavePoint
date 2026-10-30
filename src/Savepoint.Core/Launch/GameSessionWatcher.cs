@@ -40,6 +40,7 @@ public sealed class GameSessionWatcher : IDisposable
     private readonly IProcessInspector _processes;
     private readonly Func<RunningProcess, bool>? _launcherBusy;
     private IReadOnlyList<(int Pid, DateTimeOffset? Start)> _followedLive = [];
+    private readonly bool _steamGame;
     private bool _disposed;
     private bool _childReleased;
     private volatile bool _nameSeen;
@@ -62,6 +63,11 @@ public sealed class GameSessionWatcher : IDisposable
     /// When the session began, taken from <paramref name="clock"/> before the program was started so that nothing the program starts
     /// can be dated before it; the time of this call when null.
     /// </param>
+    /// <param name="steamGame">
+    /// True for a game that needs the Steam client to run. With no process name, such a program that exits with code 0 within
+    /// <see cref="GameSessionOptions.RelaunchWindow"/> ends as <see cref="SessionEndKind.ProgramQuitAtStart"/>; any other game ends as
+    /// <see cref="SessionEndKind.ChildExited"/>.
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException">The polling interval is not positive, or the grace or the relaunch window is negative.</exception>
     public GameSessionWatcher(
         IGameProcess? child,
@@ -72,9 +78,11 @@ public sealed class GameSessionWatcher : IDisposable
         TimeProvider clock,
         string? gameFolder = null,
         Func<RunningProcess, bool>? launcherBusy = null,
-        DateTimeOffset? startedAt = null)
+        DateTimeOffset? startedAt = null,
+        bool steamGame = false)
     {
         options.EnsureValid();
+        _steamGame = steamGame;
         _launcherBusy = launcherBusy;
         _child = child;
         _processName = string.IsNullOrWhiteSpace(processName) ? null : processName.Trim();
@@ -200,8 +208,8 @@ public sealed class GameSessionWatcher : IDisposable
             {
                 await _child.WaitForExitAsync(stop);
 
-                // A clean exit this soon cannot be play; a game that needs its store quits like this when the store is closed.
-                var quitAtStart = ChildExitCode() == 0 && _clock.GetUtcNow() - StartedAt < _options.RelaunchWindow;
+                // A Steam game that needs its client quits cleanly this soon when the client is closed; any other program may be a short run.
+                var quitAtStart = _steamGame && ChildExitCode() == 0 && _clock.GetUtcNow() - StartedAt < _options.RelaunchWindow;
                 Settle(quitAtStart ? SessionEndKind.ProgramQuitAtStart : SessionEndKind.ChildExited);
             }
         }

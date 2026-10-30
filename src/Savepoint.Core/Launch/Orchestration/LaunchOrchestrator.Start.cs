@@ -160,7 +160,8 @@ public sealed partial class LaunchOrchestrator
         }
 
         context.AddStep(JobSteps.LaunchStarting, ("game", prepared.Game.Name));
-        var watcher = await _starter.StartAsync(prepared.Game.Launch, prepared.InstallPath, context.CancellationToken).ConfigureAwait(false);
+        var steamStart = SteamGames.NeedsClient(prepared.Game, prepared.InstallPath, _services.Platform.Os, _services.Platform.PathComparison);
+        var watcher = await _starter.StartAsync(prepared.Game.Launch, prepared.InstallPath, context.CancellationToken, steamStart).ConfigureAwait(false);
 
         // The game is running, so it is tracked before anything else is attempted: nothing after this may lose it.
         // Subscribed before the state is set and read inside the change, so a quick exit is never missed in between.

@@ -56,7 +56,19 @@ public class LaunchSessionEndKindTests
     }
 
     [Fact(Timeout = 120_000)]
-    public async Task A_program_that_quits_cleanly_at_once_is_recorded_as_a_quit_at_start()
+    public async Task A_Steam_game_that_quits_cleanly_at_once_is_recorded_as_a_quit_at_start()
+    {
+        var (made, vanilla, _) = await LaunchRig.WithTwoProfilesAsync(gameArguments: ["--exit-after", "300"], steam: new FakeSteamClient(ready: true), steamLibrary: true);
+        using var rig = made;
+
+        await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
+        var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
+
+        Assert.Equal(SessionEndKind.ProgramQuitAtStart, exited.EndKind);
+    }
+
+    [Fact(Timeout = 120_000)]
+    public async Task A_game_outside_a_Steam_library_that_quits_cleanly_at_once_is_recorded_as_having_run()
     {
         using var rig = await LaunchRig.CreateAsync(gameArguments: ["--exit-after", "300"]);
         var vanilla = await rig.ProfileAsync("Vanilla");
@@ -64,6 +76,6 @@ public class LaunchSessionEndKindTests
         await rig.StartAsync(new LaunchTarget.ProfileTip(vanilla.Id));
         var exited = Assert.IsType<SessionState.Exited>((await rig.WaitForAsync<SessionState.Exited>()).State);
 
-        Assert.Equal(SessionEndKind.ProgramQuitAtStart, exited.EndKind);
+        Assert.Equal(SessionEndKind.ChildExited, exited.EndKind);
     }
 }

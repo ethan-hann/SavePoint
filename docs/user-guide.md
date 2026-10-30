@@ -104,7 +104,7 @@ When a game installed in a Steam library (its folder is under `steamapps/common`
 
 If the program SavePoint started closes right away with an error, the running card says so and keeps watching for up to two minutes, because some games restart themselves through Steam. On Linux, games installed by Steam usually need Steam to start them, so start Steam first.
 
-If a game has no program name set and the program you chose closes within 30 seconds with no error, SavePoint says the program closed right away. Either Steam wasn't running, so start Steam first and then play again, or the program is a launcher that starts the game and closes, so set the game's program name in **Edit game** (the message offers it).
+If a game installed by Steam has no program name set and the program you chose closes within 30 seconds with no error, SavePoint says the program closed right away. Either Steam wasn't running, so start Steam first and then play again, or the program is a launcher that starts the game and closes, so set the game's program name in **Edit game** (the message offers it). A game that isn't installed by Steam never gets this message.
 
 ### When you finish
 

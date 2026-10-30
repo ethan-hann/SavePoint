@@ -124,7 +124,7 @@ public class LegacyLocalDataTests
         var status = await world.Workspace.AppStatus.CheckAsync(world.Workspace.Token);
 
         Assert.True(status.Ok, status.Error?.Detail);
-        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the storage was moved back");
+        Assert.True(StorageContent.HoldsHistory(Path.Combine(world.NewStorage, game.Id)), "the history is not in the new default: " + world.Warnings());
         Assert.False(Directory.Exists(world.OldStorage));
         Assert.Equal(world.NewStorage, await world.SavedRootAsync());
         Assert.Equal(before, await world.PointCountAsync(game));
