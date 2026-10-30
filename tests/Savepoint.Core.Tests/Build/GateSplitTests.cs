@@ -444,6 +444,32 @@ public sealed class GateSplitTests : IDisposable
         Assert.Contains("could not be read", gate.Output, StringComparison.Ordinal);
     }
 
+    // Every other memory test feeds the gate a file or a number; this one lets each script read this machine, the way a real gate does.
+    [Theory]
+    [InlineData(Script.PowerShell)]
+    [InlineData(Script.Bash)]
+    public async Task The_gate_reads_a_plausible_amount_of_free_memory_from_the_machine_it_runs_on(Script script)
+    {
+        Assert.SkipWhen(script == Script.Bash && OperatingSystem.IsWindows(), "gate.sh runs on Linux and macOS only.");
+        Assert.SkipWhen(script == Script.PowerShell && OperatingSystem.IsMacOS(), "gate.ps1 reads memory on Windows and Linux only.");
+        var settings = new Dictionary<string, string>
+        {
+            ["SAVEPOINT_GATE_AVAILABLE_MEMORY_MB"] = string.Empty,
+            ["SAVEPOINT_GATE_MEMINFO_FILE"] = string.Empty,
+            ["SAVEPOINT_GATE_CGROUP_DIR"] = string.Empty,
+        };
+
+        var gate = await RunGateAsync(script, [], settings: settings);
+
+        Assert.SkipWhen(gate is null, "pwsh, bash or git is not installed here.");
+        Assert.True(gate!.ExitCode == 0, gate.Output);
+        var reading = System.Text.RegularExpressions.Regex.Match(gate.Output, @"App tests in (lanes|one process) \((\d+) MB free");
+        Assert.True(reading.Success, $"The gate did not report a reading of free memory: {gate.Output}");
+        var megabytes = long.Parse(reading.Groups[2].Value, CultureInfo.InvariantCulture);
+        Assert.InRange(megabytes, 1, 8L * 1024 * 1024);
+        Assert.Equal(megabytes >= _lanesMemoryMegabytes ? "lanes" : "one process", reading.Groups[1].Value);
+    }
+
     // 20 GB available in meminfo in every case; the limit of the container decides.
     [Theory]
     [InlineData(Script.PowerShell, "4294967296", null, "one", "4096 MB")]
