@@ -11,17 +11,6 @@ public class FakeRecentlyRemovedTests
     private static FakeBackend Seeded() => new(RemovedSnapshotSamples.Scenario());
 
     [Fact]
-    public async Task A_game_with_none_removed_lists_none()
-    {
-        var backend = FakeBackend.Sample();
-
-        var removed = FakeAssert.Ok(await backend.History.GetRecentlyRemovedAsync(SampleScenario.SkyrimId, Ct));
-
-        Assert.Equal(SampleScenario.SkyrimId, removed.GameId);
-        Assert.Empty(removed.Snapshots);
-    }
-
-    [Fact]
     public async Task A_game_lists_its_removed_snapshots_most_recently_removed_first_and_leaves_other_games_out()
     {
         var backend = Seeded();

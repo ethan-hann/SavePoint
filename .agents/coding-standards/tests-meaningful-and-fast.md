@@ -376,7 +376,6 @@ The audit found these. Do not copy them. Each entry must have an issue in the `C
 - **Make every case able to fail:** render checks that only check a file and still run in the gate: the render cases in `ActivityScreenViewTests`, `StyleGalleryRenderTests`, and the render calls in `GamesProfileSearchViewTests`, `HistorySearchViewTests`, `ShellGameSearchViewTests`, `PinnedFooterTests`, `HelpAccessTests`, and `RenderSettleTests` (#257).
 - **Assert what the player or caller sees:** the `EstimatesStoppedAtRunStart` flag that `FakeGamesApi` and `FakeSettingsApi` set for themselves (#259).
 - **Make every theory row reach its assertion:** large golden theories that a loop can replace: `DynamicColorToneGoldenTests`, `HctTests`, `TonalPaletteTests`, `ContrastTests`, and the per-role rows of `Md3PaletteGoldenTests` (#258).
-- **Test a test tool only for its own logic:** `FakeCallLogTests`, and the fake tests that only check a fake stores or echoes its input (#261).
 
 ## Additional Resources
 

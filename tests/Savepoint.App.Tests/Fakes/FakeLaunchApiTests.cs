@@ -82,17 +82,6 @@ public class FakeLaunchApiTests
     }
 
     [Fact]
-    public async Task Running_defaults_to_the_clock()
-    {
-        var backend = FakeBackend.Sample();
-        await backend.Launch.StartAsync(SkyrimId, _moddedTip);
-
-        backend.Launch.ReportRunning(SkyrimId);
-
-        Assert.Equal(backend.Clock.Now, Assert.IsType<SessionState.Running>(Session(backend).State).StartedAt);
-    }
-
-    [Fact]
     public async Task Row_stats_mark_the_profile_that_is_running()
     {
         var backend = FakeBackend.Sample();
@@ -331,18 +320,6 @@ public class FakeLaunchApiTests
             sessions.Select(s => s.State.GetType()));
         Assert.Equal(sessions.Select(s => s.Revision).Order(), sessions.Select(s => s.Revision));
         Assert.Equal(sessions.Count, sessions.Select(s => s.Revision).Distinct().Count());
-    }
-
-    [Fact]
-    public async Task Preview_returns_the_scripted_preview_and_fails_for_one_never_scripted()
-    {
-        var backend = FakeBackend.Sample();
-
-        var scripted = await backend.Launch.GetPreviewAsync(SkyrimId, new LaunchTarget.ProfileTip(SurvivalId), Ct);
-        var unscripted = await backend.Launch.GetPreviewAsync(SkyrimId, new LaunchTarget.Save(SurvivalId, FirstNight), Ct);
-
-        Assert.Equal(SurvivalId, Ok(scripted).ProfileId);
-        Assert.False(unscripted.Ok);
     }
 
     [Fact]
