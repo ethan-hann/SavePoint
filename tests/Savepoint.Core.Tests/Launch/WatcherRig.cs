@@ -62,11 +62,11 @@ internal sealed class WatcherRig : IDisposable
 
     private readonly bool _polls;
 
-    private WatcherRig(ScriptedProcess? child, string? name, OsKind os, GameSessionOptions? options = null, string? gameFolder = null, Func<RunningProcess, bool>? launcherBusy = null)
+    private WatcherRig(ScriptedProcess? child, string? name, OsKind os, GameSessionOptions? options = null, string? gameFolder = null, Func<RunningProcess, bool>? launcherBusy = null, bool steamGame = false)
     {
         Child = child;
         _polls = name is not null;
-        Watcher = new GameSessionWatcher(child, name, Processes, os, options ?? new GameSessionOptions { PollInterval = Interval, Grace = Grace }, Clock, gameFolder, launcherBusy);
+        Watcher = new GameSessionWatcher(child, name, Processes, os, options ?? new GameSessionOptions { PollInterval = Interval, Grace = Grace }, Clock, gameFolder, launcherBusy, steamGame: steamGame);
     }
 
     public ManualTimeProvider Clock { get; } = new();
@@ -80,9 +80,9 @@ internal sealed class WatcherRig : IDisposable
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     // A program SavePoint started, with an optional process name to follow once it is gone.
-    public static async Task<WatcherRig> ProgramAsync(string? name = null, OsKind os = OsKind.Windows, string? gameFolder = null, GameSessionOptions? options = null, Func<RunningProcess, bool>? launcherBusy = null)
+    public static async Task<WatcherRig> ProgramAsync(string? name = null, OsKind os = OsKind.Windows, string? gameFolder = null, GameSessionOptions? options = null, Func<RunningProcess, bool>? launcherBusy = null, bool steamGame = false)
     {
-        var rig = new WatcherRig(new ScriptedProcess(), name, os, options, gameFolder, launcherBusy);
+        var rig = new WatcherRig(new ScriptedProcess(), name, os, options, gameFolder, launcherBusy, steamGame);
         await rig.ParkedAsync();
         return rig;
     }

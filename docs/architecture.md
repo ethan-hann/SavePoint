@@ -285,7 +285,7 @@ Folder work reports one `FolderOutcome(Role, Error?)` per folder it touched. All
 - `Completed(completion, result?, error?)`
 - `Failed(error)`
 
-`endKind` is `ChildExited`, `NamedProcessEnded`, `ManuallyFinished`, `NamedProcessNeverAppeared`, `NamedProcessNeverMatched`, `ProcessListUnreadable`, `ProgramFailedAtStart` (D13.10) or `ProgramQuitAtStart`. `ProgramFailedAtStart` carries the code in `programExitCode`. `ProgramQuitAtStart` is a program with no process name that exits with code 0 within the relaunch window; the post-play dialog gives it the Steam hint (D67.6).
+`endKind` is `ChildExited`, `NamedProcessEnded`, `ManuallyFinished`, `NamedProcessNeverAppeared`, `NamedProcessNeverMatched`, `ProcessListUnreadable`, `ProgramFailedAtStart` (D13.10) or `ProgramQuitAtStart`. `ProgramFailedAtStart` carries the code in `programExitCode`. `ProgramQuitAtStart` is a Steam game's program with no process name that exits with code 0 within the relaunch window; the post-play dialog gives it the Steam hint (D67.6).
 
 `PostPlayOptions` lists the choices the session allows, the default, the point `UpdateExisting` would replace, and how many newer points leave the profile on `MoveForward` (D14). `ReplaceRule` checks D14's rule at exit and again inside the save.
 

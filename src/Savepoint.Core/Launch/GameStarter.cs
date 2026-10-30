@@ -58,12 +58,13 @@ public sealed class GameStarter
     /// <param name="launch">The game's launch settings.</param>
     /// <param name="installFolder">The game's install folder as an absolute path; a program's path is resolved against it and it is the working directory.</param>
     /// <param name="cancellationToken">Stops waiting for an OS link opener; a program that already started keeps running.</param>
+    /// <param name="steamGame">True when the game needs the Steam client to run; see <see cref="GameSessionWatcher"/>.</param>
     /// <returns>The watcher for the session; the caller owns it and disposes it when the session record goes away.</returns>
     /// <exception cref="ArgumentException">A program is to be started and <paramref name="installFolder"/> is not an absolute path.</exception>
     /// <exception cref="LaunchSpawnException">The settings are unusable, or the OS refused to start the game.</exception>
     /// <exception cref="PathMissingException">The program or app bundle is not in the install folder.</exception>
     /// <exception cref="LaunchWindowsProgramException">The program is a Windows .exe and this OS cannot start one directly.</exception>
-    public async Task<GameSessionWatcher> StartAsync(LaunchConfig launch, string installFolder, CancellationToken cancellationToken = default)
+    public async Task<GameSessionWatcher> StartAsync(LaunchConfig launch, string installFolder, CancellationToken cancellationToken = default, bool steamGame = false)
     {
         var processName = ProcessNameOf(launch);
         if (launch.Method == LaunchMethod.Uri)
@@ -82,7 +83,7 @@ public sealed class GameStarter
         // Taken before the start: the program and what it starts can begin before the launcher returns, and none may be dated before the session.
         var startedAt = _clock.GetUtcNow();
         var child = _launcher.StartExecutable(path, launch.Args, installFolder);
-        return new GameSessionWatcher(child, processName, _processes, _os, _options, _clock, installFolder, startedAt: startedAt);
+        return new GameSessionWatcher(child, processName, _processes, _os, _options, _clock, installFolder, startedAt: startedAt, steamGame: steamGame);
     }
 
     // Steam on Linux keeps a helper process per game from the start of its launch to the game's end; no other store or OS is known to.
