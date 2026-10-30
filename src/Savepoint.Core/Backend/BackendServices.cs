@@ -119,6 +119,9 @@ public sealed class BackendServices
     // The one place a profile's folders are saved as a capture event, so its memory of half-finished saves has one owner.
     internal CaptureRunner Capture { get; }
 
+    // The size estimates in progress, which deleting their game stops (D66.4).
+    internal RunningEstimates Estimates { get; } = new();
+
     /// <summary>Remembers detected exe versions by the content id of the executable (D13.15).</summary>
     public ExeVersionCache ExeVersions { get; } = new();
 

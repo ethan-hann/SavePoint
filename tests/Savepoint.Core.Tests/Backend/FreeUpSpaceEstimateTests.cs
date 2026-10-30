@@ -143,6 +143,39 @@ public class FreeUpSpaceEstimateTests
         Assert.True(overlap.FirstWalkSawAnother);
     }
 
+    // The estimate holds the game's packs open while it walks; deleting the game ends that walk first so the delete never meets a held file.
+    [Fact(Timeout = 240_000)]
+    public async Task Deleting_a_game_stops_an_estimate_in_the_middle_of_its_walk()
+    {
+        var walking = new ManualResetEventSlim();
+        var release = new ManualResetEventSlim();
+        var armed = false;
+        var hooks = new GitHooks
+        {
+            OnGit = invocation =>
+            {
+                if (armed && invocation.Arguments[0] == "rev-list")
+                {
+                    walking.Set();
+                    release.Wait(TimeSpan.FromSeconds(30));
+                }
+            },
+        };
+        using var world = await RemovedWorld.AfterContinueAsync(hooks);
+        var preview = (await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, Ct)).Value!;
+        armed = true;
+        var estimating = Task.Run(() => world.Workspace.Games.EstimateFreeUpSpaceAsync(world.Game.Id, preview.Token, Ct), Ct);
+        Assert.True(walking.Wait(TimeSpan.FromSeconds(30), Ct));
+
+        var deleting = world.Workspace.Games.DeleteAsync(world.Game.Id);
+        release.Set();
+        var deleted = await deleting;
+        var estimate = await estimating;
+
+        Assert.True(deleted.Ok, deleted.Error?.Detail);
+        Assert.Equal("error.operation.cancelled", estimate.Error?.MessageId);
+    }
+
     [Fact(Timeout = 240_000)]
     public async Task A_token_no_preview_issued_is_refused()
     {

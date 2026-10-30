@@ -47,7 +47,7 @@ internal sealed partial class GamesApi
 
                 var game = await RequireGameAsync(gameId, cancellationToken).ConfigureAwait(false);
                 return await _services.Storage.ReadAsync(
-                    storage => RemovedSnapshots.EstimateAsync(storage, GameFolders.ReposForGitDirOnly(_services, storage, game), token, cancellationToken),
+                    storage => _services.Estimates.RunAsync(game.Id, cancellationToken, stop => RemovedSnapshots.EstimateAsync(storage, GameFolders.ReposForGitDirOnly(_services, storage, game), token, stop)),
                     cancellationToken).ConfigureAwait(false);
             },
             cancellationToken);
@@ -63,6 +63,9 @@ internal sealed partial class GamesApi
                 {
                     throw SwitchInProgressException.Refusal(_services.Sessions, game.Id, game.Name);
                 }
+
+                // A size estimate reads the game's packs without its lock, so it ends before they are deleted.
+                using var estimatesStopped = await _services.Estimates.StopAsync(game.Id).ConfigureAwait(false);
 
                 // The engine takes the markers out of the game's folders with the repositories; a folder that cannot be found is skipped.
                 var bytes = await DirectorySize.GetBytesAsync(storage.GameDirectory(game.Id), CancellationToken.None).ConfigureAwait(false);
