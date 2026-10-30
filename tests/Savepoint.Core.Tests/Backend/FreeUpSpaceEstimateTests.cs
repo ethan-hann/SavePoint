@@ -143,6 +143,68 @@ public class FreeUpSpaceEstimateTests
         Assert.True(overlap.FirstWalkSawAnother);
     }
 
+    // A big library must not start a full history walk per folder of every game at once.
+    [Fact(Timeout = 240_000)]
+    public async Task Walks_across_more_games_than_the_bound_never_run_more_than_the_bound_at_once()
+    {
+        const int bound = 6;
+        var running = 0;
+        var peak = 0;
+        var counting = false;
+        var hooks = new GitHooks
+        {
+            OnGit = invocation =>
+            {
+                if (!counting || invocation.Arguments[0] != "rev-list")
+                {
+                    return;
+                }
+
+                var now = Interlocked.Increment(ref running);
+                InterlockedMax(ref peak, now);
+                Thread.Sleep(300);
+                Interlocked.Decrement(ref running);
+            },
+        };
+        using var first = await RemovedWorld.CreateAsync(options => options with { Engine = new GitEngineOptions { InvocationObserver = hooks.Observe } });
+        var worlds = new List<RemovedWorld> { first };
+        try
+        {
+            for (var i = 0; i < bound + 2; i++)
+            {
+                worlds.Add(await RemovedWorld.CreateAsync(shared: first.Workspace, name: $"Game{i}"));
+            }
+
+            foreach (var world in worlds)
+            {
+                await RemoveABigFileAsync(world);
+            }
+
+            var preview = (await first.Workspace.Settings.GetFreeUpSpacePreviewAsync(Ct)).Value!;
+            counting = true;
+
+            var estimate = await first.Workspace.Settings.EstimateFreeUpSpaceAsync(preview.Token, Ct);
+
+            Assert.True(estimate.Ok, estimate.Error?.Detail);
+            Assert.InRange(peak, 2, bound);
+        }
+        finally
+        {
+            foreach (var world in worlds.Skip(1))
+            {
+                world.Dispose();
+            }
+        }
+    }
+
+    private static void InterlockedMax(ref int target, int value)
+    {
+        int seen;
+        while (value > (seen = Volatile.Read(ref target)) && Interlocked.CompareExchange(ref target, value, seen) != seen)
+        {
+        }
+    }
+
     // The estimate holds the game's packs open while it walks; deleting the game ends that walk first so the delete never meets a held file.
     [Fact(Timeout = 240_000)]
     public async Task Deleting_a_game_stops_an_estimate_in_the_middle_of_its_walk()
@@ -150,11 +212,13 @@ public class FreeUpSpaceEstimateTests
         var walking = new ManualResetEventSlim();
         var release = new ManualResetEventSlim();
         var armed = false;
+        var blocked = 0;
         var hooks = new GitHooks
         {
             OnGit = invocation =>
             {
-                if (armed && invocation.Arguments[0] == "rev-list")
+                // Only the first walk waits; the asks that probe for the stop below run through.
+                if (armed && invocation.Arguments[0] == "rev-list" && Interlocked.Exchange(ref blocked, 1) == 0)
                 {
                     walking.Set();
                     release.Wait(TimeSpan.FromSeconds(30));
@@ -168,6 +232,20 @@ public class FreeUpSpaceEstimateTests
         Assert.True(walking.Wait(TimeSpan.FromSeconds(30), Ct));
 
         var deleting = world.Workspace.Games.DeleteAsync(world.Game.Id);
+
+        // A new ask for the game ends as cancelled once the delete has stopped its estimates, which also cancels the waiting walk.
+        var stopped = false;
+        for (var attempt = 0; attempt < 600 && !stopped; attempt++)
+        {
+            var probe = await world.Workspace.Games.EstimateFreeUpSpaceAsync(world.Game.Id, preview.Token, Ct);
+            stopped = probe.Error?.MessageId == "error.operation.cancelled";
+            if (!stopped)
+            {
+                await Task.Delay(50, Ct);
+            }
+        }
+
+        Assert.True(stopped);
         release.Set();
         var deleted = await deleting;
         var estimate = await estimating;

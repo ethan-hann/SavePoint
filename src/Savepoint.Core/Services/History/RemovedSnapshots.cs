@@ -83,13 +83,20 @@ internal sealed class RemovedSnapshots
         return new FreeUpSpacePreview(state.Groups.Count, new FreeUpSpaceToken(records));
     }
 
+    /// <summary>A gate that lets as many folders be measured at once as the listing reads at once; share it across the games of one estimate.</summary>
+    public static SemaphoreSlim NewEstimateGate() => new(_parallelism);
+
     /// <summary>
     /// About how many bytes deleting the token's records for the game would free: the stored size of what only they reach, summed over the
     /// game's folders, side by side. Records of other games, and of folders the game no longer has, count nothing. The records a run that was
     /// cut off still owns count as dropped too, since the next run finishes them first. Needs only the git directories.
+    /// <paramref name="walks"/> bounds how many folders are measured at once; pass one gate to every call of an all-games estimate so the
+    /// bound holds across games, or leave it null for a bound of this game's own.
     /// </summary>
-    public static async Task<long> EstimateAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, FreeUpSpaceToken token, CancellationToken cancellationToken)
+    public static async Task<long> EstimateAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, FreeUpSpaceToken token, CancellationToken cancellationToken, SemaphoreSlim? walks = null)
     {
+        using var own = walks is null ? new SemaphoreSlim(_parallelism) : null;
+        walks ??= own!;
         // A run that was cut off finishes before the next one starts, so what its note names is freed too and must not count as kept.
         var pending = repos.Count == 0 ? null : FreeUpIntent.Read(storage.GameDirectory(repos[0].GameId));
 
@@ -110,7 +117,15 @@ internal sealed class RemovedSnapshots
                 refs.AddRange(owned);
             }
 
-            return await storage.Engine.EstimateFreedBytesAsync(repo, refs, cancellationToken).ConfigureAwait(false);
+            await walks.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await storage.Engine.EstimateFreedBytesAsync(repo, refs, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                walks.Release();
+            }
         })).ConfigureAwait(false);
         return sizes.Sum();
     }
