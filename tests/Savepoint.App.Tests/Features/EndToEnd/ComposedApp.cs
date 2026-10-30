@@ -126,7 +126,7 @@ internal sealed class ComposedApp : IDisposable
     }
 
     // Transitions (the nav pills fade over 150 ms) follow the render clock, which only runs when ticked: let it run past the longest one.
-    private void SettleAnimations()
+    public void SettleAnimations()
     {
         if (View is null)
         {

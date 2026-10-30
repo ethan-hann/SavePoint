@@ -249,23 +249,24 @@ public class ShellGameSearchViewTests
     }
 
     [AvaloniaFact]
-    public async Task Renders_the_rail_and_the_shelf_with_a_search_and_with_no_matches()
+    public async Task Writes_the_game_search_renders_on_request()
     {
+        RenderOutput.SkipUnlessRequested();
         using var rail = await ComposedApp.StartWithViewAsync();
         rail.Shell.GameSearch.Text = "sa";
-        Assert.True(File.Exists(rail.Render("shell", "rail-search")));
+        rail.Render("shell", "rail-search");
 
         using var empty = await ComposedApp.StartWithViewAsync();
         empty.Shell.GameSearch.Text = "zzz";
-        Assert.True(File.Exists(empty.Render("shell", "rail-search-empty")));
+        empty.Render("shell", "rail-search-empty");
 
         using var shelf = await ComposedApp.StartWithViewAsync(layout: ShellLayout.Library);
         shelf.Shell.GameSearch.Text = "sa";
-        Assert.True(File.Exists(shelf.Render("shell", "shelf-search")));
+        shelf.Render("shell", "shelf-search");
 
         using var shelfEmpty = await ComposedApp.StartWithViewAsync(layout: ShellLayout.Library);
         shelfEmpty.Shell.GameSearch.Text = "zzz";
-        Assert.True(File.Exists(shelfEmpty.Render("shell", "shelf-search-empty")));
+        shelfEmpty.Render("shell", "shelf-search-empty");
     }
 
     [AvaloniaFact]

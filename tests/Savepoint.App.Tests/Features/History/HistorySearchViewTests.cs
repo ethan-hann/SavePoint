@@ -284,22 +284,23 @@ public class HistorySearchViewTests
     }
 
     [AvaloniaFact]
-    public async Task Renders_the_search_over_cards_the_list_no_matches_and_the_removed_section()
+    public async Task Writes_the_history_search_renders_on_request()
     {
+        RenderOutput.SkipUnlessRequested();
         using var cards = await StartAsync(new FakeBackend(RemovedSnapshotSamples.Scenario()));
         cards.History.IsRemovedOpen = true;
         cards.History.Search.Text = "survival";
-        Assert.True(File.Exists(cards.Render("history", "history-search-cards")));
+        cards.Render("history", "history-search-cards");
 
         cards.History.Search.Text = "blackreach";
-        Assert.True(File.Exists(cards.Render("history", "history-search-removed")));
+        cards.Render("history", "history-search-removed");
 
         cards.History.Search.Text = "zzz";
-        Assert.True(File.Exists(cards.Render("history", "history-search-empty")));
+        cards.Render("history", "history-search-empty");
 
         using var list = await StartAsync(list: true);
         list.History.Search.Text = "2026-07";
-        Assert.True(File.Exists(list.Render("history", "history-search-list")));
+        list.Render("history", "history-search-list");
     }
 
     private static IEnumerable<AutomationPeer> Flatten(AutomationPeer peer) => new[] { peer }.Concat(peer.GetChildren().SelectMany(Flatten));

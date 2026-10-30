@@ -4,53 +4,43 @@ namespace Savepoint.App.Tests.Theme.Material;
 
 public class HctTests
 {
-    public static TheoryData<string, double, double, double, string> ArgbSamples()
+    [Fact]
+    public void FromInt_reads_hue_chroma_and_tone_like_the_reference()
     {
-        var data = new TheoryData<string, double, double, double, string>();
+        var mismatches = new GoldenMismatches();
         foreach (var sample in GoldenData.Current.HctFromArgb)
         {
-            data.Add(sample.Argb, sample.Hue, sample.Chroma, sample.Tone, sample.BackArgb);
+            mismatches.Row();
+            var row = $"FromInt({sample.Argb})";
+            var hct = Hct.FromInt(GoldenData.ParseArgb(sample.Argb));
+
+            mismatches.Exact(row, "argb", sample.Argb, GoldenData.Hex(hct.ToInt()));
+            mismatches.Close(row, "hue", sample.Hue, hct.Hue);
+            mismatches.Close(row, "chroma", sample.Chroma, hct.Chroma);
+            mismatches.Close(row, "tone", sample.Tone, hct.Tone);
+            mismatches.Exact(row, "argb after From(hue, chroma, tone)", sample.BackArgb, GoldenData.Hex(Hct.From(hct.Hue, hct.Chroma, hct.Tone).ToInt()));
         }
 
-        return data;
+        mismatches.AssertNone("Hct.FromInt", 25);
     }
 
-    public static TheoryData<double, double, double, string, double, double, double> SolvedSamples()
+    [Fact]
+    public void From_solves_to_the_same_color_as_the_reference()
     {
-        var data = new TheoryData<double, double, double, string, double, double, double>();
+        var mismatches = new GoldenMismatches();
         foreach (var sample in GoldenData.Current.HctSolved)
         {
-            data.Add(sample.Hue, sample.Chroma, sample.Tone, sample.Argb, sample.OutHue, sample.OutChroma, sample.OutTone);
+            mismatches.Row();
+            var row = $"From(hue {sample.Hue:R}, chroma {sample.Chroma:R}, tone {sample.Tone:R})";
+            var hct = Hct.From(sample.Hue, sample.Chroma, sample.Tone);
+
+            mismatches.Exact(row, "argb", sample.Argb, GoldenData.Hex(hct.ToInt()));
+            mismatches.Close(row, "hue", sample.OutHue, hct.Hue);
+            mismatches.Close(row, "chroma", sample.OutChroma, hct.Chroma);
+            mismatches.Close(row, "tone", sample.OutTone, hct.Tone);
         }
 
-        return data;
-    }
-
-    [Theory]
-    [MemberData(nameof(ArgbSamples))]
-    public void FromInt_reads_hue_chroma_and_tone_like_the_reference(
-        string argb, double hue, double chroma, double tone, string backArgb)
-    {
-        var hct = Hct.FromInt(GoldenData.ParseArgb(argb));
-
-        Assert.Equal(argb, GoldenData.Hex(hct.ToInt()));
-        Numbers.AssertClose(hue, hct.Hue, "hue");
-        Numbers.AssertClose(chroma, hct.Chroma, "chroma");
-        Numbers.AssertClose(tone, hct.Tone, "tone");
-        Assert.Equal(backArgb, GoldenData.Hex(Hct.From(hct.Hue, hct.Chroma, hct.Tone).ToInt()));
-    }
-
-    [Theory]
-    [MemberData(nameof(SolvedSamples))]
-    public void From_solves_to_the_same_color_as_the_reference(
-        double hue, double chroma, double tone, string argb, double outHue, double outChroma, double outTone)
-    {
-        var hct = Hct.From(hue, chroma, tone);
-
-        Assert.Equal(argb, GoldenData.Hex(hct.ToInt()));
-        Numbers.AssertClose(outHue, hct.Hue, "hue");
-        Numbers.AssertClose(outChroma, hct.Chroma, "chroma");
-        Numbers.AssertClose(outTone, hct.Tone, "tone");
+        mismatches.AssertNone("Hct.From", 280);
     }
 
     [Fact]

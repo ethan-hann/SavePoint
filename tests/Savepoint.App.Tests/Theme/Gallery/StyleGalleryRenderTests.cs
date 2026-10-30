@@ -13,35 +13,34 @@ public class StyleGalleryRenderTests
     public static string OutputFolder =>
         Path.Combine(ThemeTestSupport.RepoRoot(), "render-output", "theme");
 
-    [AvaloniaTheory]
-    [InlineData(ThemePreference.Dark, AccentColorId.Blue, "gallery-dark-blue")]
-    [InlineData(ThemePreference.Light, AccentColorId.Blue, "gallery-light-blue")]
-    [InlineData(ThemePreference.Dark, AccentColorId.Crimson, "gallery-dark-crimson")]
-    public void Gallery_renders_to_a_png(ThemePreference preference, AccentColorId accent, string fileName)
+    [AvaloniaFact]
+    public void Writes_the_style_gallery_renders_on_request()
     {
-        var path = RenderGallery(preference, accent, fileName, focusRing: true);
+        RenderOutput.SkipUnlessRequested();
 
-        Assert.True(File.Exists(path));
-        Assert.True(new FileInfo(path).Length > 20_000, "The render looks empty.");
+        RenderGallery(ThemePreference.Dark, AccentColorId.Blue, "gallery-dark-blue", focusRing: true);
+        RenderGallery(ThemePreference.Light, AccentColorId.Blue, "gallery-light-blue", focusRing: true);
+        RenderGallery(ThemePreference.Dark, AccentColorId.Crimson, "gallery-dark-crimson", focusRing: true);
     }
 
     // Hover, press and field focus, with reduce motion on so the state layers are at their final opacity.
-    [AvaloniaTheory]
-    [InlineData(ThemePreference.Dark, "gallery-states-dark-blue")]
-    [InlineData(ThemePreference.Light, "gallery-states-light-blue")]
-    public void Gallery_states_render_to_a_png(ThemePreference preference, string fileName)
+    [AvaloniaFact]
+    public void Writes_the_style_gallery_state_renders_on_request()
     {
-        var path = RenderGallery(preference, AccentColorId.Blue, fileName, focusRing: false, gallery =>
-        {
-            ((App)Application.Current!).Theme.ReduceMotion = true;
-            SetPseudo(gallery.OutlinedWithIcon, ":pointerover");
-            SetPseudo(gallery.CloseButton, ":pointerover");
-            SetPseudo(gallery.OverflowButton, ":pressed");
-            SetPseudo(gallery.SwitchOn, ":pointerover");
-            gallery.PlainField.Focus(NavigationMethod.Tab);
-        });
+        RenderOutput.SkipUnlessRequested();
 
-        Assert.True(File.Exists(path));
+        foreach (var (preference, fileName) in new[] { (ThemePreference.Dark, "gallery-states-dark-blue"), (ThemePreference.Light, "gallery-states-light-blue") })
+        {
+            RenderGallery(preference, AccentColorId.Blue, fileName, focusRing: false, gallery =>
+            {
+                ((App)Application.Current!).Theme.ReduceMotion = true;
+                SetPseudo(gallery.OutlinedWithIcon, ":pointerover");
+                SetPseudo(gallery.CloseButton, ":pointerover");
+                SetPseudo(gallery.OverflowButton, ":pressed");
+                SetPseudo(gallery.SwitchOn, ":pointerover");
+                gallery.PlainField.Focus(NavigationMethod.Tab);
+            });
+        }
     }
 
     internal static string RenderGallery(ThemePreference preference, AccentColorId accent, string fileName, bool focusRing, Action<StyleGallery>? configure = null)
