@@ -118,12 +118,20 @@ public sealed partial class GitEngine
     }
 
     // The refs, HEAD and the doomed set, plus the index file's size and time: what the index names is kept too, and a switch that finishes
-    // later changes it with no ref moving.
+    // later changes it with no ref moving. The packs are in it too, since a repack moves no ref yet changes the size the same data takes.
     private static string DigestOf(RepoRef repo, Dictionary<string, string> refs, string? headId, IReadOnlyList<ClearedRef> going)
     {
         var text = new StringBuilder();
         var index = new FileInfo(Path.Combine(repo.GitDir, "index"));
         text.Append("index ").Append(index.Exists ? index.Length : -1).Append(' ').Append(index.Exists ? index.LastWriteTimeUtc.Ticks : 0).Append('\n');
+        var packs = new DirectoryInfo(Path.Combine(repo.GitDir, "objects", "pack"));
+        if (packs.Exists)
+        {
+            foreach (var pack in packs.EnumerateFiles("*.pack").OrderBy(file => file.Name, StringComparer.Ordinal))
+            {
+                text.Append("pack ").Append(pack.Name).Append(' ').Append(pack.Length).Append(' ').Append(pack.LastWriteTimeUtc.Ticks).Append('\n');
+            }
+        }
         foreach (var entry in refs.OrderBy(entry => entry.Key, StringComparer.Ordinal))
         {
             text.Append(entry.Key).Append(' ').Append(entry.Value).Append('\n');

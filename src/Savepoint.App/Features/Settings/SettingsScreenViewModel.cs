@@ -38,7 +38,7 @@ public sealed record SettingsDependencies(
 /// stops, a way to remove all of SavePoint's data, and About. It reads the stored settings each time it is shown, so
 /// a change made elsewhere (the layout toggle on the Games screen) is never overwritten by a stale copy.
 /// </summary>
-public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
+public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen, IDisposable
 {
     private readonly SettingsDependencies _deps;
     private readonly SettingsStore _store;
@@ -107,6 +107,12 @@ public sealed partial class SettingsScreenViewModel : ObservableObject, IScreen
 
     /// <inheritdoc />
     public void OnShown() => _ = LoadAsync();
+
+    /// <inheritdoc />
+    public void OnHidden() => Storage.StopEstimate();
+
+    /// <summary>Stops the size estimate for good.</summary>
+    public void Dispose() => Storage.Dispose();
 
     // The generated RetryCommand reads the settings again after a failure.
     [RelayCommand]

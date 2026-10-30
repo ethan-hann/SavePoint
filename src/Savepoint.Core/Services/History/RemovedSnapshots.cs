@@ -15,7 +15,6 @@ internal sealed class RemovedSnapshots
 {
     // As many git processes at once as the History reader uses.
     private const int _parallelism = 6;
-
     private readonly HistoryReader _history;
 
     public RemovedSnapshots(HistoryReader history)
@@ -86,24 +85,34 @@ internal sealed class RemovedSnapshots
 
     /// <summary>
     /// About how many bytes deleting the token's records for the game would free: the stored size of what only they reach, summed over the
-    /// game's folders. Records of other games, and of folders the game no longer has, count nothing. Needs only the git directories.
+    /// game's folders, side by side. Records of other games, and of folders the game no longer has, count nothing. The records a run that was
+    /// cut off still owns count as dropped too, since the next run finishes them first. Needs only the git directories.
     /// </summary>
     public static async Task<long> EstimateAsync(StorageSnapshot storage, IReadOnlyList<RepoRef> repos, FreeUpSpaceToken token, CancellationToken cancellationToken)
     {
-        long total = 0;
-        foreach (var repo in repos)
+        // A run that was cut off finishes before the next one starts, so what its note names is freed too and must not count as kept.
+        var pending = repos.Count == 0 ? null : FreeUpIntent.Read(storage.GameDirectory(repos[0].GameId));
+
+        // The folders are separate repositories, so they are measured side by side.
+        var sizes = await Task.WhenAll(repos.Select(async repo =>
         {
             var refs = token.Records
                 .Where(record => record.GameId == repo.GameId && record.Folder == repo.Role)
                 .Select(record => new ClearedRef(record.RefName, record.Value))
                 .ToList();
-            if (refs.Count > 0)
+            if (refs.Count == 0)
             {
-                total += await storage.Engine.EstimateFreedBytesAsync(repo, refs, cancellationToken).ConfigureAwait(false);
+                return 0L;
             }
-        }
 
-        return total;
+            if (pending is not null && pending.TryGetValue(repo.Role, out var owned))
+            {
+                refs.AddRange(owned);
+            }
+
+            return await storage.Engine.EstimateFreedBytesAsync(repo, refs, cancellationToken).ConfigureAwait(false);
+        })).ConfigureAwait(false);
+        return sizes.Sum();
     }
 
     /// <summary>

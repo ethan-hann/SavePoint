@@ -51,6 +51,38 @@ public class StorageSectionFreeUpTests
     }
 
     [Fact]
+    public async Task Leaving_the_screen_stops_a_size_that_is_still_being_worked_out()
+    {
+        var backend = new FakeBackend(RemovedSnapshotSamples.Scenario());
+        backend.State.FreeUpEstimate = 1_200_000_000;
+        var hold = backend.Settings.EstimateHold = new TaskCompletionSource();
+        var rig = await SettingsRig.ShownAsync(backend);
+        var asked = backend.Settings.EstimateTokens.ToList();
+
+        rig.Screen.OnHidden();
+        hold.SetResult();
+
+        Assert.NotEmpty(asked);
+        Assert.All(asked, token => Assert.True(token.IsCancellationRequested));
+        await Task.Yield();
+        Assert.DoesNotContain("about", rig.Screen.Storage.OptimizePreview, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Closing_the_screen_stops_a_size_that_is_still_being_worked_out()
+    {
+        var backend = new FakeBackend(RemovedSnapshotSamples.Scenario());
+        backend.Settings.EstimateHold = new TaskCompletionSource();
+        var rig = await SettingsRig.ShownAsync(backend);
+        var asked = backend.Settings.EstimateTokens.ToList();
+
+        rig.Screen.Dispose();
+
+        Assert.NotEmpty(asked);
+        Assert.All(asked, token => Assert.True(token.IsCancellationRequested));
+    }
+
+    [Fact]
     public async Task A_size_that_cannot_be_worked_out_leaves_the_row_with_the_count_alone_and_shows_no_error()
     {
         var backend = new FakeBackend(RemovedSnapshotSamples.Scenario());

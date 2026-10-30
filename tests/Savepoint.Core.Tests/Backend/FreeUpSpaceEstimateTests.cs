@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
+using Savepoint.Core.Git;
+using Savepoint.Core.Services.Storage;
 
 namespace Savepoint.Core.Tests.Backend;
 
@@ -88,6 +90,92 @@ public class FreeUpSpaceEstimateTests
         Assert.InRange(justAlpha.Value, alphaBig.Length, alphaBig.Length + _slack);
     }
 
+    // A run that was cut off has its note on disk and finishes first, so the data of the records the note names comes back too, though the
+    // preview no longer lists them.
+    [Fact(Timeout = 240_000)]
+    public async Task Data_of_records_a_cut_off_run_still_owns_is_counted_as_freed()
+    {
+        using var world = await RemovedWorld.CreateAsync();
+        var first = await RemoveABigFileAsync(world);
+        var before = (await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, Ct)).Value!.Token.Records;
+        var second = await RemoveABigFileAsync(world);
+        var both = (await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, Ct)).Value!.Token.Records;
+        var owned = both.Except(before).Select(record => new ClearedRef(record.RefName, record.Value)).ToList();
+        var storage = await world.Workspace.Backend.Services.Storage.GetAsync(Ct);
+        FreeUpIntent.Write(storage.GameDirectory(world.Game.Id), new Dictionary<RepoRole, IReadOnlyList<ClearedRef>> { [RepoRole.Install] = owned });
+        var preview = (await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, Ct)).Value!;
+
+        var estimate = await world.Workspace.Games.EstimateFreeUpSpaceAsync(world.Game.Id, preview.Token, Ct);
+
+        Assert.NotEmpty(owned);
+        Assert.InRange(estimate.Value, first.Length + second.Length, first.Length + second.Length + (2 * _slack));
+    }
+
+    // The first walk waits for another walk of a different unit (folder or game) to start; a sequential estimate never lets one, so the wait ends.
+    [Fact(Timeout = 240_000)]
+    public async Task A_games_folders_are_measured_side_by_side()
+    {
+        var overlap = new SideBySide(gitDir => gitDir);
+        using var world = await RemovedWorld.AfterContinueAsync(overlap.Hooks);
+        var preview = (await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, Ct)).Value!;
+        overlap.Armed = true;
+
+        var estimate = await world.Workspace.Games.EstimateFreeUpSpaceAsync(world.Game.Id, preview.Token, Ct);
+
+        Assert.True(estimate.Ok, estimate.Error?.Detail);
+        Assert.True(overlap.FirstWalkSawAnother);
+    }
+
+    [Fact(Timeout = 240_000)]
+    public async Task Every_games_are_measured_side_by_side()
+    {
+        var overlap = new SideBySide(gitDir => Path.GetDirectoryName(gitDir)!);
+        using var alpha = await RemovedWorld.CreateAsync(options => options with { Engine = new GitEngineOptions { InvocationObserver = overlap.Hooks.Observe } });
+        using var beta = await RemovedWorld.CreateAsync(shared: alpha.Workspace, name: "Beta");
+        await RemoveABigFileAsync(alpha);
+        await RemoveABigFileAsync(beta);
+        var preview = (await alpha.Workspace.Settings.GetFreeUpSpacePreviewAsync(Ct)).Value!;
+        overlap.Armed = true;
+
+        var estimate = await alpha.Workspace.Settings.EstimateFreeUpSpaceAsync(preview.Token, Ct);
+
+        Assert.True(estimate.Ok, estimate.Error?.Detail);
+        Assert.True(overlap.FirstWalkSawAnother);
+    }
+
+    // The estimate holds the game's packs open while it walks; deleting the game ends that walk first so the delete never meets a held file.
+    [Fact(Timeout = 240_000)]
+    public async Task Deleting_a_game_stops_an_estimate_in_the_middle_of_its_walk()
+    {
+        var walking = new ManualResetEventSlim();
+        var release = new ManualResetEventSlim();
+        var armed = false;
+        var hooks = new GitHooks
+        {
+            OnGit = invocation =>
+            {
+                if (armed && invocation.Arguments[0] == "rev-list")
+                {
+                    walking.Set();
+                    release.Wait(TimeSpan.FromSeconds(30));
+                }
+            },
+        };
+        using var world = await RemovedWorld.AfterContinueAsync(hooks);
+        var preview = (await world.Workspace.Games.GetFreeUpSpacePreviewAsync(world.Game.Id, Ct)).Value!;
+        armed = true;
+        var estimating = Task.Run(() => world.Workspace.Games.EstimateFreeUpSpaceAsync(world.Game.Id, preview.Token, Ct), Ct);
+        Assert.True(walking.Wait(TimeSpan.FromSeconds(30), Ct));
+
+        var deleting = world.Workspace.Games.DeleteAsync(world.Game.Id);
+        release.Set();
+        var deleted = await deleting;
+        var estimate = await estimating;
+
+        Assert.True(deleted.Ok, deleted.Error?.Detail);
+        Assert.Equal("error.operation.cancelled", estimate.Error?.MessageId);
+    }
+
     [Fact(Timeout = 240_000)]
     public async Task A_token_no_preview_issued_is_refused()
     {
@@ -117,6 +205,54 @@ public class FreeUpSpaceEstimateTests
 
         Assert.False(unknown.Ok);
         Assert.Equal("error.operation.cancelled", stopped.Error?.MessageId);
+    }
+
+    // Holds the first listing walk until a walk of another unit starts, or ten seconds pass.
+    private sealed class SideBySide
+    {
+        private readonly Func<string, string> _unitOf;
+        private readonly HashSet<string> _units = [];
+        private readonly ManualResetEventSlim _another = new();
+        private bool? _firstSawAnother;
+
+        public SideBySide(Func<string, string> unitOf)
+        {
+            _unitOf = unitOf;
+            Hooks = new GitHooks { OnGit = Walk };
+        }
+
+        public GitHooks Hooks { get; }
+
+        public bool FirstWalkSawAnother => _firstSawAnother == true;
+
+        // Setup runs git too; only the walks after this count.
+        public volatile bool Armed;
+
+        private void Walk(GitInvocation invocation)
+        {
+            if (!Armed || invocation.Arguments[0] != "rev-list" || invocation.GitDir is not { } gitDir)
+            {
+                return;
+            }
+
+            bool first;
+            lock (_units)
+            {
+                _units.Add(_unitOf(gitDir));
+                first = _firstSawAnother is null;
+                _firstSawAnother ??= false;
+                if (_units.Count >= 2)
+                {
+                    _another.Set();
+                }
+            }
+
+            var met = _another.Wait(TimeSpan.FromSeconds(10));
+            if (first)
+            {
+                _firstSawAnother = met;
+            }
+        }
     }
 
     private static void WriteBig(RemovedWorld world, byte[] content)

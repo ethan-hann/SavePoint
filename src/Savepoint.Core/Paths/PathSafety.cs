@@ -91,7 +91,8 @@ public sealed class PathSafety
     public FolderPin Pin(string path)
     {
         var real = ResolveRealPath(path);
-        return new FolderPin(real, _probe.ReadIdentity(real));
+        // A file system that numbers its files again would fail every recheck with no swap, so the real path and the marker stand in.
+        return new FolderPin(real, _probe.KeepsStableIdentity(real) ? _probe.ReadIdentity(real) : null);
     }
 
     /// <summary>

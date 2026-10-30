@@ -60,7 +60,7 @@ On Linux, also try the AppImage: download `SavePoint.AppImage` from the latest r
 - [ ] **A launcher game:** with Steam installed, a game started through Steam (or a Proton game) is followed until it quits.
 - [ ] **A game on an NTFS or exFAT drive** (a second virtual disk formatted that way): taking and switching snapshots works, and a case-only clash is refused.
 - [ ] **Orca** (Super+Alt+S): the Games screen, the launch dialog, Settings, History, the Add games from your libraries dialog, and the tour read their buttons, rows and counts.
-- [ ] **Unusual drive format:** a game folder on a FAT or exFAT drive (which gives every file the same or no identity) is never wrongly refused as "the same folder" or "protected", and a real duplicate is still refused (D57).
+- [ ] **Unusual drive format:** a game folder on a FAT32 or exFAT drive is never wrongly refused as "the same folder" or "protected", a real duplicate is still refused, a discard or switch never stops with "folder changed", and the log notes that the folder reports no identity (D57, D57.6).
 - [ ] **Wayland and X11:** if the VM offers both at login, start SavePoint once under each.
 - [ ] **A mods folder outside the game folder:** if 7 Days to Die runs on the VM, add it from its template, install a mod the way the game expects, and check the game loads it from the mods folder the template filled in (D61.5).
 - [ ] **Apps menu:** Settings > Apps menu adds SavePoint with its icon to the GNOME apps menu, shows the entry as out of date after the AppImage is moved (Update fixes it), and Remove takes the entry and icons away again.

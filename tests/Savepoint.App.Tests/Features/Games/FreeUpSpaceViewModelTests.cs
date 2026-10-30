@@ -4,6 +4,7 @@ using Savepoint.App.Features.Common.Formatting;
 using Savepoint.App.Features.Games;
 using Savepoint.App.Localization;
 using Savepoint.App.Tests.Fakes;
+using Savepoint.App.Tests.Features.Common;
 using Savepoint.Core.Api;
 using Savepoint.Core.Catalog;
 using Savepoint.Core.Errors;
@@ -173,6 +174,30 @@ public class FreeUpSpaceViewModelTests
         Assert.True(rig.FreeUp.IsRunning);
     }
 
+    // A store that takes longer than the question will wait has the answer ready by the time the player presses the button.
+    [Fact]
+    public async Task The_size_is_worked_out_as_soon_as_a_game_with_removed_snapshots_is_picked()
+    {
+        var rig = new Rig(selected: false, removed: true);
+
+        rig.FreeUp.SetGame(SkyrimId, _skyrim);
+
+        Assert.True(await UiWait.UntilAsync(() => rig.Backend.Calls.To<IGamesApi>(nameof(IGamesApi.EstimateFreeUpSpaceAsync)).Count == 1));
+    }
+
+    [Fact]
+    public async Task Picking_another_game_stops_the_size_worked_out_for_the_one_before()
+    {
+        var rig = new Rig(selected: false, removed: true);
+        rig.Backend.Games.EstimateHold = new TaskCompletionSource();
+        rig.FreeUp.SetGame(SkyrimId, _skyrim);
+        Assert.True(await UiWait.UntilAsync(() => rig.Backend.Games.EstimateTokens.Count == 1));
+
+        rig.FreeUp.SetGame(SatisfactoryId, "Satisfactory");
+
+        Assert.True(rig.Backend.Games.EstimateTokens[0].IsCancellationRequested);
+    }
+
     // The estimate reads the store the run is about to repack and prune, so it must be over before the run starts.
     [Fact]
     public async Task A_yes_stops_the_size_that_is_still_being_worked_out_before_the_run_starts()
@@ -183,7 +208,7 @@ public class FreeUpSpaceViewModelTests
 
         await rig.FreeUp.FreeUpCommand.ExecuteAsync(null);
 
-        Assert.Single(rig.Backend.Games.EstimateTokens);
+        Assert.NotEmpty(rig.Backend.Games.EstimateTokens);
         Assert.True(rig.Backend.Games.EstimatesStoppedAtRunStart);
     }
 

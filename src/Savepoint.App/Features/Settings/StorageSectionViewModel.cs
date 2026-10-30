@@ -18,7 +18,7 @@ namespace Savepoint.App.Features.Settings;
 /// the size and the destination, then follows the move as a job with progress and Cancel. Both long jobs are followed
 /// through the jobs Api, so the section is right when the screen is opened while one is already running.
 /// </summary>
-public sealed partial class StorageSectionViewModel : ObservableObject
+public sealed partial class StorageSectionViewModel : ObservableObject, IDisposable
 {
     private readonly SettingsDependencies _deps;
     private readonly SettingsStore _store;
@@ -186,6 +186,16 @@ public sealed partial class StorageSectionViewModel : ObservableObject
             OptimizePreview = _deps.Text.Message("settings.storage.optimizePreview.someWithSize", ("count", removed), ("size", _deps.Text.FileSize(bytes)));
         }
     }
+
+    // A screen nobody looks at has no use for the size, and its git reads should not go on competing with the player's games.
+    internal void StopEstimate()
+    {
+        _previewVersion++;
+        _size.Cancel();
+    }
+
+    /// <summary>Stops the size estimate for good.</summary>
+    public void Dispose() => _size.Dispose();
 
     // Takes a job change, on the UI thread. A snapshot that is not newer than the one held for the job is dropped.
     internal void Handle(JobSnapshot job, bool seeding = false)
