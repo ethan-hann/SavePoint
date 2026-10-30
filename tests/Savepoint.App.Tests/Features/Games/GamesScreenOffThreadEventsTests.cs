@@ -16,6 +16,7 @@ public class GamesScreenOffThreadEventsTests
         var backend = FakeBackend.Sample().WithDelivery(EventDelivery.Background);
         using var harness = await GamesViewHarness.StartAsync(backend, dispatcher: new AvaloniaUiDispatcher());
         var screen = harness.Rig.Screen;
+        var writes = new UiThreadWrites().Watch(screen).WatchList(screen.Profiles);
         var loaded = screen.Profiles.Single(row => row.IsActive);
         Assert.All(screen.Profiles, row => Assert.False(row.SnapshotBusy));
 
@@ -28,5 +29,6 @@ public class GamesScreenOffThreadEventsTests
         await backend.WhenEventsDeliveredAsync();
 
         Assert.True(await UiWait.UntilAsync(() => screen.Profiles.All(row => !row.SnapshotBusy)));
+        Assert.Empty(writes.Offenders);
     }
 }
