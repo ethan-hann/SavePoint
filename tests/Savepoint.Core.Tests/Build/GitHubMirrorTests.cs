@@ -19,7 +19,7 @@ public class GitHubMirrorTests
 
     private sealed record Run(int ExitCode, string Output);
 
-    private static async Task<Run> MirrorAsync(MirrorStub stub, string tag, bool loopback = true, string? gitHubApi = null, string? gitHubUploads = null)
+    private static async Task<Run> MirrorAsync(MirrorStub stub, string tag, bool loopback = true, string? gitHubApi = null, string? gitHubUploads = null, string? gitHubToken = _gitHubToken, string eventName = "workflow_dispatch")
     {
         var script = Path.Combine(RepoRoot, _scriptPath);
         Assert.True(System.IO.File.Exists(script), $"{_scriptPath} does not exist.");
@@ -29,7 +29,8 @@ public class GitHubMirrorTests
             ["GITHUB_SERVER_URL"] = stub.ForgejoServer,
             ["GITHUB_REPOSITORY"] = MirrorStub.ForgejoRepository,
             ["GITHUB_TOKEN"] = _forgejoToken,
-            ["GH_MIRROR_TOKEN"] = _gitHubToken,
+            ["GH_MIRROR_TOKEN"] = gitHubToken ?? "",
+            ["MIRROR_EVENT"] = eventName,
             ["SAVEPOINT_MIRROR_ALLOW_LOOPBACK"] = loopback ? "1" : "0",
         };
         string[] arguments =
@@ -277,6 +278,34 @@ public class GitHubMirrorTests
         Assert.Empty(stub.RequestsTo("/gh"));
     }
 
+    [Fact]
+    public async Task A_release_event_without_the_GitHub_token_prints_a_notice_and_succeeds_without_contacting_any_server()
+    {
+        using var stub = new MirrorStub();
+        PublishedRelease(stub);
+        stub.GitHubTags.Add("v0.9.21");
+
+        var run = await MirrorAsync(stub, "v0.9.21", gitHubToken: "", eventName: "release");
+
+        Assert.True(run.ExitCode == 0, run.Output);
+        Assert.Contains("GH_MIRROR_TOKEN is not set, so this release was not copied to GitHub", run.Output, StringComparison.Ordinal);
+        Assert.Empty(stub.Requests);
+    }
+
+    [Fact]
+    public async Task A_manual_run_without_the_GitHub_token_fails_and_says_so()
+    {
+        using var stub = new MirrorStub();
+        PublishedRelease(stub);
+        stub.GitHubTags.Add("v0.9.21");
+
+        var run = await MirrorAsync(stub, "v0.9.21", gitHubToken: "", eventName: "workflow_dispatch");
+
+        Assert.NotEqual(0, run.ExitCode);
+        Assert.Contains("GH_MIRROR_TOKEN is not set", run.Output, StringComparison.Ordinal);
+        Assert.Empty(stub.Requests);
+    }
+
     // --- the workflow ---
 
     private static string Workflow()
@@ -315,6 +344,7 @@ public class GitHubMirrorTests
         var workflow = Workflow();
 
         Assert.DoesNotMatch(@"run:[^\r\n]*\$\{\{", workflow);
+        Assert.Contains("MIRROR_EVENT: ${{ github.event_name }}", workflow, StringComparison.Ordinal);
         Assert.Contains("github.event.release.tag_name", workflow, StringComparison.Ordinal);
         Assert.Contains("inputs.tag", workflow, StringComparison.Ordinal);
     }

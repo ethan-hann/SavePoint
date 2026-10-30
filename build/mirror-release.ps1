@@ -317,6 +317,15 @@ function Sync-Release {
     finally { Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
+# A release published before the secret exists is not an error; a manual run, which someone asked for, still fails.
+if (-not $env:GH_MIRROR_TOKEN) {
+    if ($env:MIRROR_EVENT -eq 'release') {
+        Write-Host 'GH_MIRROR_TOKEN is not set, so this release was not copied to GitHub; add the secret and run the GitHub mirror workflow by hand.'
+        return
+    }
+    throw 'GH_MIRROR_TOKEN is not set. Add it as a repository secret (a fine-grained GitHub token with Contents read and write on the mirror).'
+}
+
 # Refuse a GitHub address that is not GitHub before anything is sent.
 Assert-GitHubUrl $GitHubApiUrl
 Assert-GitHubUrl $GitHubUploadUrl

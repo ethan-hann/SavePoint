@@ -49,6 +49,8 @@ jobs:
       - name: Copy the release to GitHub
         env:
           MIRROR_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          # A release event with no secret yet ends with a notice; a manual run with no secret fails.
+          MIRROR_EVENT: ${{ github.event_name }}
           GH_MIRROR_TOKEN: ${{ secrets.GH_MIRROR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pwsh -NoProfile -File build/mirror-release.ps1
