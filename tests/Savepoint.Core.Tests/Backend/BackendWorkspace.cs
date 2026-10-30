@@ -117,35 +117,39 @@ internal sealed class BackendWorkspace : IDisposable
     public static BackendWorkspace CopyOf(BackendWorkspace template, Func<BackendOptions, BackendOptions>? configure = null, bool steamLibrary = false) => new(template.Root, configure, steamLibrary);
 
     private static readonly Lock _worldGate = new();
-    private static readonly Dictionary<string, Task<BackendWorkspace>> _worlds = [];
+    private static readonly Dictionary<string, (Task<BackendWorkspace> World, CancellationToken Starter)> _worlds = [];
 
     // A new workspace over its own copy of a world that build made once for the whole run: the first caller's delegate builds it in a
     // workspace with the default options, and every caller (that one too) gets a copy, so no test shares a folder another test changes.
     // Games and profiles are read back from the copy, since the ones the delegate saw name the template's folders.
-    public static async Task<BackendWorkspace> FromWorldAsync(string name, Func<BackendWorkspace, Task> build, Func<BackendOptions, BackendOptions>? configure = null)
+    // testCancellation is the calling test's token (the running test's by default).
+    public static async Task<BackendWorkspace> FromWorldAsync(string name, Func<BackendWorkspace, Task> build, Func<BackendOptions, BackendOptions>? configure = null, CancellationToken? testCancellation = null)
     {
+        var cancellation = testCancellation ?? TestContext.Current.CancellationToken;
         BackendWorkspace template;
+        var (world, starterCancellation) = WorldAsync(name, build, cancellation);
         try
         {
-            template = await WorldAsync(name, build);
+            template = await world;
         }
-        catch (OperationCanceledException) when (!TestContext.Current.CancellationToken.IsCancellationRequested)
+        catch (Exception) when (starterCancellation.IsCancellationRequested && !cancellation.IsCancellationRequested)
         {
-            // The test that started the shared build was cancelled; this one is not, so it builds the world again.
-            template = await WorldAsync(name, build);
+            // The test that started the shared build was cancelled, which can surface as a failed assertion as well as a cancellation;
+            // this test is not cancelled, so it builds the world again. A build that failed while its starter was running is not retried.
+            template = await WorldAsync(name, build, cancellation).World;
         }
 
         return CopyOf(template, configure);
     }
 
     // A build that failed (or was canceled with the test that started it) is not kept, so the next test builds it again.
-    private static Task<BackendWorkspace> WorldAsync(string name, Func<BackendWorkspace, Task> build)
+    private static (Task<BackendWorkspace> World, CancellationToken Starter) WorldAsync(string name, Func<BackendWorkspace, Task> build, CancellationToken cancellation)
     {
         lock (_worldGate)
         {
-            if (!_worlds.TryGetValue(name, out var built) || built.IsFaulted || built.IsCanceled)
+            if (!_worlds.TryGetValue(name, out var built) || built.World.IsFaulted || built.World.IsCanceled)
             {
-                built = BuildWorldAsync(build);
+                built = (BuildWorldAsync(build), cancellation);
                 _worlds[name] = built;
             }
 
